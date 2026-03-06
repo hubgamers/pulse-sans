@@ -24,3 +24,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* global form controls style */
+input,
+select,
+textarea {
+  @apply rounded-lg bg-black/20 border border-white/5 py-2 px-3 text-sm text-foreground focus:outline-none focus:border-indigo-500/50;
+}
+
+button {
+  @apply rounded-lg focus:outline-none;
+}
+

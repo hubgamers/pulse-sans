@@ -1,10 +1,7 @@
-import LoginButton from "@/components/auth/LoginButton";
-import Image from "next/image";
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return (
-    <div>
-      <LoginButton />
-    </div>
-  );
+  // Redirect to auth page
+  redirect('/auth');
 }
+

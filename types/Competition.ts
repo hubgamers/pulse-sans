@@ -1,14 +1,21 @@
 import { Database } from './schema';
 
+// helper generic for safe table lookups
+type TableRow<Name extends string> = Name extends keyof Database['public']['Tables']
+  ? Database['public']['Tables'][Name] extends { Row: infer R }
+    ? R
+    : any
+  : any;
+
 // Enums pour la logique métier
 export type TournamentFormat = 'SWISS' | 'DOUBLE_ELIM' | 'SINGLE_ELIM' | 'POULES' | 'FFA';
 export type TournamentStatus = 'open' | 'live' | 'finished' | 'setup';
 
 // --- TEAMS ---
-export type Team = Database['public']['Tables']['teams']['Row'];
+export type Team = TableRow<'teams'>;
 
 // --- TOURNAMENTS ---
-export type TournamentRow = Database['public']['Tables']['tournaments']['Row'];
+export type TournamentRow = TableRow<'tournaments'>;
 
 export interface Tournament extends Omit<TournamentRow, 'format_type' | 'status' | 'format_settings'> {
   format_type: TournamentFormat;
@@ -24,7 +31,7 @@ export interface Tournament extends Omit<TournamentRow, 'format_type' | 'status'
 }
 
 // --- MATCHES ---
-export type MatchRow = Database['public']['Tables']['matches']['Row'];
+export type MatchRow = TableRow<'matches'>;
 
 export interface Match extends MatchRow {
   metadata: {

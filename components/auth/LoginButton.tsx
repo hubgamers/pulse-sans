@@ -1,25 +1,23 @@
-// components/auth/LoginButton.tsx
-'use client'
+'use client';
 
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { LogIn } from 'lucide-react';
 
 export default function LoginButton() {
+  const { signInWithDiscord, loading } = useAuth();
+
   const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'discord',
-      options: {
-        // Redirige vers une route API qui gère le callback
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-  }
+    await signInWithDiscord();
+  };
 
   return (
-    <button 
+    <button
       onClick={handleLogin}
-      className="bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all"
+      disabled={loading}
+      className="flex items-center gap-2 px-6 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      Connexion avec Discord
+      <LogIn size={20} />
+      {loading ? 'Connexion...' : 'Se connecter avec Discord'}
     </button>
-  )
+  );
 }

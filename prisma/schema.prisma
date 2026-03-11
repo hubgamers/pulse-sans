@@ -9,6 +9,13 @@ datasource db {
   schemas   = ["public"]
 }
 
+enum Role {
+  USER
+  ADMIN
+
+  @@schema("public")
+}
+
 model User {
   id           String               @id @default(cuid())
   username     String               @unique
@@ -21,6 +28,7 @@ model User {
   orgs         OrganizationMember[]
   ownedOrgs    Organization[]
   players      Player[]
+  roles        Role[]
 
   @@map("users")
   @@schema("public")
@@ -257,5 +265,40 @@ enum MatchStatus {
   FINISHED
   CANCELLED
 
+  @@schema("public")
+}
+
+// Admin
+
+enum NavigationContext {
+  ADMIN_SaaS // Pour le dashboard de l'admin global
+  USER_DASHBOARD // Pour le dashboard des utilisateurs/organisations
+
+  @@schema("public")
+}
+
+model NavigationItem {
+  id       String            @id @default(uuid())
+  name     String
+  label    String // Texte affiché dans l'UI
+  href     String // URL de redirection
+  icon     String? // Nom de l'icône Lucide (ex: "Trophy")
+  order    Int               @default(0)
+  isActive Boolean           @default(true)
+  context  NavigationContext @default(USER_DASHBOARD)
+
+  // Gestion des sous-menus (Optionnel mais recommandé)
+  parentId String?
+  parent   NavigationItem?  @relation("SubItems", fields: [parentId], references: [id])
+  children NavigationItem[] @relation("SubItems")
+
+  // Gestion des permissions (Optionnel)
+  // Si tu veux que certains menus ne soient visibles que par certains rôles
+  requiredRole String? // ex: "OWNER", "ADMIN"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin__navigation_items")
   @@schema("public")
 }

@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Role, type NavigationItem as PrismaNavItem } from "@prisma/client";
+import { NavigationContext } from "@prisma/client"; // ✅ Ajoute cette ligne
 
 // ── Icons (inline SVG pour éviter les dépendances) ──────────────────────────
 
@@ -69,14 +71,6 @@ const MOCK_NOTIFS: Notification[] = [
   { id: "3", message: "Tournoi Spring 2026 ouvert aux inscriptions", time: "Il y a 3h", read: true, type: "tournament" },
 ]
 
-const NAV_ITEMS: NavItem[] = [
-  { label: "Vue d'ensemble", icon: "grid", href: "/dashboard" },
-  { label: "Tournois", icon: "trophy", href: "/dashboard/tournaments", badge: 2 },
-  { label: "Équipes", icon: "teams", href: "/dashboard/teams" },
-  { label: "Joueurs", icon: "players", href: "/dashboard/players" },
-  { label: "Paramètres", icon: "settings", href: "/dashboard/settings" },
-]
-
 // ── Composants UI ─────────────────────────────────────────────────────────────
 
 function OrgTypePill({ type }: { type: Organization["type"] }) {
@@ -117,11 +111,21 @@ function Avatar({ name, size = 32, src }: { name: string; size?: number; src?: s
 
 export default function DashboardClientShell({
   children,
-  user
+  user,
+  navItems
 }: {
   children: React.ReactNode;
-  user: { name: string; email: string; avatar?: string };
+  user: { name: string; email: string; avatar?: string, roles: Role[] };
+  navItems: (PrismaNavItem & { children: PrismaNavItem[] })[];
 }) {
+  const NAV_ITEMS: NavItem[] = navItems
+    .map((item) => ({
+      label: item.label,
+      href: item.href,
+      icon: item.icon as keyof typeof Icons,
+      badge: item.children && item.children.length > 0 ? item.children.length : undefined,
+    }));
+    console.log(NAV_ITEMS)
   const [collapsed, setCollapsed] = useState(false)
   const [activeOrg, setActiveOrg] = useState(MOCK_ORGS[0])
   const [activeNav, setActiveNav] = useState("/dashboard")

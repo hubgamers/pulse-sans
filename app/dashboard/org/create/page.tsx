@@ -1,110 +1,110 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createOrgSchema } from "@/lib/schemas/org";
-import { createOrganization } from "@/app/actions/org-actions";
+import { useActionState, useEffect, useState } from "react";
+import { createOrganization } from "@/lib/actions/organization.actions";
+import {
+    FormButton,
+    FormContainer,
+    FormField,
+    FormSelect,
+    FormStatus
+} from "@/components/dashboard/FormContainer";
+import {
+    Send,
+    Trophy,
+    Type,
+    Link as LinkIcon,
+    ImageIcon
+} from "lucide-react";
+import { OrgType } from "@prisma/client";
 
-export default function CreateOrganizationPage() {
-    const router = useRouter();
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
+export default function CreateOrganisationPage() {
+    // Initialisation du hook useActionState avec ton action serveur
+    const [state, formAction, isPending] = useActionState(createOrganization, {
+        message: "",
+        errors: {}
+    });
 
-    // Helper pour transformer le nom en slug en temps réel
-    const slugify = (text: string) => {
-        return text
+    // États locaux pour la gestion dynamique du slug
+    const [name, setName] = useState("");
+    const [slug, setSlug] = useState("");
+
+    // Génère automatiquement un slug à partir du nom
+    useEffect(() => {
+        const generatedSlug = name
             .toLowerCase()
-            .replace(/ /g, "-")
-            .replace(/[^\w-]+/g, "");
-    };
+            .trim()
+            .replace(/[^\w\s-]/g, "") // Enlever les caractères spéciaux
+            .replace(/[\s_-]+/g, "-") // Remplacer les espaces et underscores par des tirets
+            .replace(/^-+|-+$/g, ""); // Nettoyer les tirets aux extrémités
+        setSlug(generatedSlug);
+    }, [name]);
 
-    async function handleSubmit(formData: FormData) {
-        setLoading(true);
-        setError(null);
-
-        const rawData = {
-            name: formData.get("name"),
-            slug: formData.get("slug"),
-            type: formData.get("type"),
-            logoUrl: formData.get("logoUrl"),
-        };
-
-        // Validation client
-        const validated = createOrgSchema.safeParse(rawData);
-        if (!validated.success) {
-            setError(validated.error.errors[0].message);
-            setLoading(false);
-            return;
-        }
-
-        const result = await createOrganization(validated.data);
-
-        if (result.error) {
-            setError(result.error);
-            setLoading(false);
-        } else {
-            router.push(`/org/${result.slug}`);
-        }
-    }
+    // Transformation de l'enum Prisma OrgType en options pour le select
+    // On transforme ["SPORT", "ESPORT", ...] en [{value: "SPORT", label: "Sport"}, ...]
+    const typeOptions = Object.values(OrgType).map((type) => ({
+        value: type,
+        label: type.charAt(0) + type.slice(1).toLowerCase(),
+    }));
 
     return (
-        <div className="max-w-2xl mx-auto py-10 px-4">
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold">Créer votre Organisation</h1>
-                <p className="text-slate-500">Gérez vos équipes et vos tournois depuis un espace dédié.</p>
-            </header>
+        <div className="min-h-screen bg-[#05070a] flex items-center justify-center p-6">
+            <FormContainer
+                title="Configuration"
+                subtitle="Créez votre espace de compétition"
+                action={formAction}
+            >
+                {/* Nom de l'organisation */}
+                <FormField
+                    label="Nom de l'organisation"
+                    icon={Trophy}
+                    name="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="ex: Vortex Esport"
+                    error={state?.errors?.name}
+                    required
+                />
 
-            <form action={handleSubmit} className="space-y-6 bg-white p-8 border rounded-xl shadow-sm">
-                {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
-                        {error}
-                    </div>
-                )}
+                {/* Slug (ID unique dans l'URL) */}
+                <FormField
+                    label="Slug (URL unique)"
+                    icon={LinkIcon}
+                    name="slug"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    placeholder="vortex-esport"
+                    error={state?.errors?.slug}
+                    required
+                />
 
-                <div className="grid gap-2">
-                    <label htmlFor="name" className="font-medium">Nom de l'organisation</label>
-                    <input
-                        name="name"
-                        placeholder="Ex: Ligue Pro de Tennis"
-                        className="border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                        onChange={(e) => {
-                            const slugInput = document.getElementById("slug") as HTMLInputElement;
-                            if (slugInput) slugInput.value = slugify(e.target.value);
-                        }}
-                        required
-                    />
-                </div>
+                {/* Type d'organisation (Enum Prisma) */}
+                <FormSelect
+                    label="Type de structure"
+                    icon={Type}
+                    name="type"
+                    options={typeOptions}
+                    defaultValue={OrgType.ESPORT} // Défaut sur Esport
+                    error={state?.errors?.type}
+                />
 
-                <div className="grid gap-2">
-                    <label htmlFor="slug" className="font-medium">URL personnalisée (Slug)</label>
-                    <div className="flex items-center gap-1 text-slate-500 border rounded-lg px-3 bg-slate-50 focus-within:bg-white transition">
-                        <span>tournois.io/org/</span>
-                        <input
-                            id="slug"
-                            name="slug"
-                            className="bg-transparent py-2 outline-none text-black w-full"
-                            required
-                        />
-                    </div>
-                </div>
+                {/* URL du Logo */}
+                <FormField
+                    label="URL du Logo"
+                    icon={ImageIcon}
+                    name="logoUrl"
+                    placeholder="https://imgur.com/votre-logo.png"
+                    error={state?.errors?.logoUrl}
+                />
 
-                <div className="grid gap-2">
-                    <label htmlFor="type" className="font-medium">Spécialité</label>
-                    <select name="type" className="border rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="MIXED">Mixte</option>
-                        <option value="SPORT">Sport Physique</option>
-                        <option value="ESPORT">Esport</option>
-                    </select>
-                </div>
+                {/* Message d'erreur global ou succès */}
+                <FormStatus state={state} />
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 transition"
-                >
-                    {loading ? "Création en cours..." : "Lancer l'organisation"}
-                </button>
-            </form>
+                {/* Bouton de soumission */}
+                <FormButton isPending={isPending} icon={Send}>
+                    Créer l'organisation
+                </FormButton>
+            </FormContainer>
         </div>
     );
 }

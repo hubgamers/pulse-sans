@@ -33,6 +33,17 @@ const AddMemberSchema = z.object({
   role: z.enum(['ADMIN', 'MODERATOR', 'MEMBER']).default('MEMBER'),
 })
 
+// 💡 Ajout d'un type pour l'état du formulaire, utilisable par useFormState
+export type FormState = {
+  message?: string | null
+  errors?: {
+    name?: string[]
+    slug?: string[]
+    type?: string[]
+    logoUrl?: string[]
+  }
+}
+
 // ─────────────────────────────────────────
 // HELPER — récupère l'utilisateur connecté
 // ─────────────────────────────────────────
@@ -74,47 +85,74 @@ async function assertOrgRole(
 // CREATE ORGANIZATION
 // ─────────────────────────────────────────
 
-export async function createOrganization(formData: FormData) {
+export async function createOrganization(
+  prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const user = await getAuthUser()
 
   const parsed = CreateOrgSchema.safeParse({
-    name:    formData.get('name'),
-    slug:    formData.get('slug'),
-    type:    formData.get('type'),
+    name: formData.get('name'),
+    slug: formData.get('slug'),
+    type: formData.get('type'),
     logoUrl: formData.get('logoUrl'),
   })
+  console.log('CC')
 
   if (!parsed.success) {
-    return { error: parsed.error.flatten().fieldErrors }
+    // Utiliser flatten avec un mapper de message pour éviter la dépréciation
+    const flattenedErrors = parsed.error.flatten((issue) => issue.message);
+    const fieldErrors = flattenedErrors.fieldErrors;
+
+    // Extraire les noms des champs pour le message global
+    const missingFields = Object.keys(fieldErrors)
+      .map(field => field.toUpperCase())
+      .join(", ");
+
+    return {
+      message: `Champs invalides : ${missingFields}.`,
+      errors: fieldErrors,
+    };
   }
 
   const { name, slug, type, logoUrl } = parsed.data
 
-  // Vérifie que le slug n'est pas déjà pris
-  const existing = await prisma.organization.findUnique({ where: { slug } })
-  if (existing) {
-    return { error: { slug: ['Ce slug est déjà utilisé'] } }
-  }
+  console.log("AA");
+  try {
+    console.log("BB");
+    // Vérifie que le slug n'est pas déjà pris
+    const existing = await prisma.organization.findUnique({ where: { slug } })
+    console.log("existtt", existing)
+    if (existing) {
+      return {
+        message: 'Ce slug est déjà utilisé.',
+        errors: { slug: ['Ce slug est déjà utilisé'] },
+      }
+    }
 
-  const org = await prisma.organization.create({
-    data: {
-      name,
-      slug,
-      type,
-      logoUrl: logoUrl || null,
-      ownerId: user.id,
-      // Crée automatiquement le membre OWNER
-      members: {
-        create: {
-          userId: user.id,
-          role: 'OWNER',
+    await prisma.organization.create({
+      data: {
+        name,
+        slug,
+        type,
+        logoUrl: logoUrl || null,
+        ownerId: user.id,
+        // Crée automatiquement le membre OWNER
+        members: {
+          create: {
+            userId: user.id,
+            role: 'OWNER',
+          },
         },
       },
-    },
-  })
+    })
+  } catch (e) {
+    console.log(e);
+    return { message: "Erreur lors de la création de l'organisation." }
+  }
 
   revalidatePath('/dashboard')
-  redirect(`/dashboard/org/${org.slug}`)
+  redirect(`/dashboard/org/${slug}`)
 }
 
 // ─────────────────────────────────────────
@@ -197,9 +235,9 @@ export async function updateOrganization(
   await assertOrgRole(organizationId, user.id, ['OWNER', 'ADMIN'])
 
   const parsed = UpdateOrgSchema.safeParse({
-    name:    formData.get('name'),
+    name: formData.get('name'),
     logoUrl: formData.get('logoUrl'),
-    type:    formData.get('type'),
+    type: formData.get('type'),
   })
 
   if (!parsed.success) {
@@ -232,7 +270,7 @@ export async function addOrganizationMember(
 
   const parsed = AddMemberSchema.safeParse({
     userId: formData.get('userId'),
-    role:   formData.get('role'),
+    role: formData.get('role'),
   })
 
   if (!parsed.success) {

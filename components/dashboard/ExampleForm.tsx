@@ -1,6 +1,6 @@
 "use client";
 
-import { createOrganization, FormState } from "@/lib/actions/organization.actions";
+import { createOrganization, FormState } from "@/lib/actions/organization/organization.actions";
 import { useActionState, useState, useEffect } from "react";
 import { Trophy, Globe, Fingerprint, Activity, Loader2 } from "lucide-react";
 

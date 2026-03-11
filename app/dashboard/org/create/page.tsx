@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { createOrganization } from "@/lib/actions/organization.actions";
+import { createOrganization } from "@/lib/actions/organization/organization.actions";
 import {
     FormButton,
     FormContainer,

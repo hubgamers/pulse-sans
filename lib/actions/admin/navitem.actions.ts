@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { NavigationContext } from "@prisma/client";
+import { NavigationContext, NavigationItem as PrismaNavigationItem } from "@prisma/client";
 import z from "zod"
 
 // On définit le type de retour pour useActionState
@@ -12,6 +12,10 @@ export type FormState = {
     message: string;
     errors?: Record<string, string[]>;
 }
+
+export type NavigationItem = PrismaNavigationItem & {
+    children: PrismaNavigationItem[];
+};
 
 const CreateNavItemSchema = z.object({
     name: z.string().min(2, "Le nom est trop court"),
@@ -55,8 +59,8 @@ export async function createNavItem(
 
     if (!parsed.success) {
         return {
-            message: "Erreur de validation",
-            errors: parsed.error.flatten().fieldErrors
+            message: "Champs invalides. Veuillez corriger les erreurs.",
+            errors: parsed.error.flatten((issue) => issue.message).fieldErrors,
         }
     }
 

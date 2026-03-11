@@ -1,7 +1,7 @@
 // prisma/schema.prisma
 
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -71,6 +71,7 @@ model User {
   displayName String   @map("display_name")
   avatarUrl   String?  @map("avatar_url")
   country     String?
+  city        String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -117,6 +118,21 @@ model OrganizationMember {
 
   @@unique([organizationId, userId])
   @@map("organization_members")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────
+// JEUX
+// ─────────────────────────────────────────
+model Game {
+  id          String       @id @default(uuid())
+  name        String
+  logoUrl     String?      @map("logo_url")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  tournaments Tournament[]
+
+  @@map("games")
   @@schema("public")
 }
 
@@ -170,7 +186,7 @@ model Tournament {
   name           String
   slug           String
   organizationId String           @map("organization_id")
-  game           String
+  gameId         String           @map("game_id")
   description    String?
   bannerUrl      String?          @map("banner_url")
   status         TournamentStatus @default(DRAFT)
@@ -184,6 +200,8 @@ model Tournament {
   organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   phases        Phase[]
   registrations TournamentRegistration[]
+  game          Game                     @relation(fields: [gameId], references: [id])
+  pitches       Pitch[]
 
   @@unique([organizationId, slug])
   @@map("tournaments")
@@ -207,6 +225,23 @@ model TournamentRegistration {
 }
 
 // ─────────────────────────────────────────
+// TERRAINS
+// ─────────────────────────────────────────
+
+model Pitch {
+  id           String     @id @default(uuid())
+  name         String
+  tournamentId String     @map("tournament_id")
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  phase        Phase?     @relation(fields: [phaseId], references: [id])
+  phaseId      String?
+  matches      Match[]
+
+  @@map("pitches")
+  @@schema("public")
+}
+
+// ─────────────────────────────────────────
 // PHASES & MATCHS
 // ─────────────────────────────────────────
 
@@ -222,6 +257,7 @@ model Phase {
 
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   matches    Match[]
+  pitches    Pitch[]
 
   @@map("phases")
   @@schema("public")
@@ -230,6 +266,7 @@ model Phase {
 model Match {
   id          String      @id @default(uuid())
   phaseId     String      @map("phase_id")
+  pitchId     String      @map("pitch_id")
   homeTeamId  String?     @map("home_team_id")
   awayTeamId  String?     @map("away_team_id")
   status      MatchStatus @default(SCHEDULED)
@@ -241,6 +278,7 @@ model Match {
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   phase    Phase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  pitch    Pitch        @relation(fields: [pitchId], references: [id], onDelete: Cascade)
   homeTeam Team?        @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam Team?        @relation("AwayTeam", fields: [awayTeamId], references: [id])
   result   MatchResult?

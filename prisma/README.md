@@ -1,0 +1,1 @@
+lancer le seed npx tsx prisma/seed.ts 

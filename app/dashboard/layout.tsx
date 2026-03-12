@@ -1,111 +1,60 @@
-'use client';
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import DashboardClientShell from "./DashboardClientShell";
+import { findNavigationItems } from "@/lib/actions/admin/navitem.actions";
+import { NavigationContext } from "@prisma/client";
+import { prisma } from "@/lib/prisma"; // Assure-toi d'importer ton instance prisma
 
-import { useAuth } from '@/lib/auth/AuthProvider';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import LogoutButton from '@/components/auth/LogoutButton';
-import {
-    Calendar,
-    Trophy,
-    Users,
-    LayoutDashboard,
-    Settings,
-    Bell,
-    Loader2
-} from 'lucide-react';
-import { useProfile } from '@/lib/hooks';
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const { data: { user: authUser }, error } = await supabase.auth.getUser();
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { session, loading: authLoading } = useAuth();
-    const router = useRouter();
+  if (error || !authUser) {
+    redirect("/login");
+  }
 
-    // 1. Appel du hook (SANS await)
-    // On utilise une string vide ou null si la session n'est pas prête
-    const { data: profile, isLoading: profileLoading } = useProfile(session?.user?.id || '');
-
-    // 2. Redirection si non connecté (après le chargement initial de l'auth)
-    useEffect(() => {
-        if (!authLoading && !session) {
-            router.push('/');
-        }
-    }, [session, authLoading, router]);
-
-    // 3. Gestion globale du chargement
-    // On attend l'auth ET le profil si une session existe
-    if (authLoading || (session && profileLoading)) {
-        return (
-            <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="w-12 h-12 text-[#5865F2] animate-spin" />
-                    <p className="text-gray-400 animate-pulse">Chargement de votre univers...</p>
-                </div>
-            </div>
-        );
+  // 1. Récupérer l'utilisateur complet depuis ta table Prisma (schéma public)
+  const dbUser = await prisma.user.findUnique({
+    where: { id: authUser.id },
+    select: {
+      display_name: true,
+      avatar_url: true,
+      roles: true, // C'est ici que tu récupères tes fameux rôles !
     }
+  });
 
-    // Sécurité supplémentaire
-    if (!session) return null;
+  // 2. Récupère les éléments de navigation (tu peux aussi passer le contexte ADMIN si dbUser est admin)
+  // layout.tsx
 
-    return (
-        <div className="min-h-screen bg-[#0a0a0c] text-gray-100 flex">
-            {/* --- SIDEBAR --- */}
-            <aside className="hidden lg:flex flex-col w-64 bg-[#0f0f12] border-r border-white/5 p-6 sticky top-0 h-screen">
-                <div className="flex items-center gap-3 mb-10 px-2">
-                    <div className="bg-[#5865F2] p-2 rounded-lg">
-                        <Trophy size={24} className="text-white" />
-                    </div>
-                    <span className="text-xl font-bold tracking-tight">ARENA<span className="text-[#5865F2]">HUB</span></span>
-                </div>
+  // 1. On détermine si l'utilisateur est admin
+  const isAdmin = dbUser?.roles?.includes("ADMIN");
 
-                <nav className="flex-1 space-y-2">
-                    <SidebarItem icon={<LayoutDashboard size={20} />} label="Tableau de bord" active />
-                    <SidebarItem icon={<Calendar size={20} />} label="Événements" />
-                    <SidebarItem icon={<Trophy size={20} />} label="Compétitions" />
-                    <SidebarItem icon={<Users size={20} />} label="Communautés" />
-                    <div className="pt-4 mt-4 border-t border-white/5">
-                        <SidebarItem icon={<Settings size={20} />} label="Paramètres" />
-                    </div>
-                </nav>
+  // 2. On récupère les items selon les droits
+  let navItems;
+  if (isAdmin) {
+    // L'admin a besoin de TOUT pour que le filtre client puisse les afficher
+    navItems = await prisma.navigationItem.findMany({
+      where: { isActive: true }, // On ne filtre pas par contexte ici
+      include: { children: true },
+      orderBy: { order: 'asc' }
+    });
+  } else {
+    // L'utilisateur normal ne reçoit QUE le dashboard user (Sécurité SQL)
+    navItems = await findNavigationItems(NavigationContext.USER_DASHBOARD);
+  }
 
-                <div className="mt-auto">
-                    <LogoutButton />
-                </div>
-            </aside>
+  // 3. Fusionner les infos d'auth et les infos de la BDD
+  const userData = {
+    name: dbUser?.display_name || authUser.user_metadata.full_name || "Utilisateur",
+    email: authUser.email,
+    avatar: dbUser?.avatar_url || authUser.user_metadata.avatar_url,
+    roles: dbUser?.roles || [], // On récupère le tableau d'enums de Prisma
+    role: isAdmin ? "ADMIN" as const : "USER" as const,
+  };
 
-            {/* --- MAIN CONTENT --- */}
-            <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <header className="h-16 border-b border-white/5 bg-[#0a0a0c]/80 backdrop-blur-md sticky top-0 z-10 px-4 lg:px-8 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">
-                        Bienvenue, {profile?.username || 'Gamer'} 👋
-                    </h2>
-                    <div className="flex items-center gap-4">
-                        <button className="p-2 hover:bg-white/5 rounded-full relative">
-                            <Bell size={20} />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0a0a0c]"></span>
-                        </button>
-
-                        {profile?.avatar_url ? (
-                            <img src={profile.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full border border-white/10 object-cover" />
-                        ) : (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#5865F2] to-purple-500 border border-white/10" />
-                        )}
-                    </div>
-                </header>
-
-                <div className="p-4 lg:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
-                    {children}
-                </div>
-            </main>
-        </div>
-    );
-}
-
-function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
-    return (
-        <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-[#5865F2] text-white shadow-lg shadow-[#5865F2]/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'
-            }`}>
-            {icon}
-            <span className="font-medium">{label}</span>
-        </button>
-    );
+  return (
+    <DashboardClientShell user={userData} navItems={navItems}>
+      {children}
+    </DashboardClientShell>
+  );
 }

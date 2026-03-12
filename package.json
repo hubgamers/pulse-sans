@@ -10,14 +10,19 @@
     "update-types": "npx supabase gen types typescript --local > lib/types/schema.ts"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
+    "@prisma/client": "^6.19.2",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.98.0",
+    "@supabase/supabase-js": "^2.99.0",
     "@tanstack/react-query": "^5.90.21",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
+    "next-auth": "^4.24.13",
+    "prisma": "^6.19.2",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -29,5 +34,8 @@
     "supabase": "^2.76.17",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }

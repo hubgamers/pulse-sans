@@ -587,29 +587,98 @@ function parseBracketCoordinate(bracketPos: string | null) {
   return { lane, round, matchNo }
 }
 
-async function propagateWinnerToNextBracketMatch(
-  tx: Prisma.TransactionClient,
-  source: {
+function parsePlacementBracketCoordinate(bracketPos: string | null) {
+  if (!bracketPos) return null
+  const m = bracketPos.match(/^P(\d+)-(\d+)-R(\d+)-M(\d+)$/)
+  if (!m) return null
+  const start = Number(m[1])
+  const end = Number(m[2])
+  const round = Number(m[3])
+  const matchNo = Number(m[4])
+  if (!Number.isInteger(start) || !Number.isInteger(end) || !Number.isInteger(round) || !Number.isInteger(matchNo)) return null
+  return { start, end, round, matchNo, size: end - start + 1 }
+}
+
+function buildPlacementRangeSkeleton(params: {
+  phaseId: string
+  rangeStart: number
+  rangeEnd: number
+  pitches: Array<{ id: string }>
+  pitchCursorRef: { value: number }
+  baseStartMs: number | null
+  roundDurationMs: number
+  stageOffset: number
+}): Array<{
+  phaseId: string
+  pitchId: string
+  roundNumber: number
+  bracketPos: string
+  scheduledAt?: Date | null
+}> {
+  const { phaseId, rangeStart, rangeEnd, pitches, pitchCursorRef, baseStartMs, roundDurationMs, stageOffset } = params
+  const size = rangeEnd - rangeStart + 1
+  const rounds = Math.log2(size)
+  if (!Number.isInteger(rounds) || size < 2) return []
+
+  const skeleton: Array<{
     phaseId: string
-    bracketPos: string | null
-    homeTeamId: string | null
-    awayTeamId: string | null
-    winnerId: string | null
+    pitchId: string
+    roundNumber: number
+    bracketPos: string
+    scheduledAt?: Date | null
+  }> = []
+
+  for (let round = 1; round <= rounds; round += 1) {
+    const matchesInRound = size / 2 ** round
+    for (let matchNo = 1; matchNo <= matchesInRound; matchNo += 1) {
+      skeleton.push({
+        phaseId,
+        pitchId: pitches[pitchCursorRef.value % pitches.length].id,
+        roundNumber: stageOffset + round,
+        bracketPos: `P${rangeStart}-${rangeEnd}-R${round}-M${matchNo}`,
+        ...(baseStartMs !== null ? { scheduledAt: new Date(baseStartMs + (stageOffset + round - 1) * roundDurationMs) } : {}),
+      })
+      pitchCursorRef.value += 1
+    }
+  }
+
+  for (let round = 1; round < rounds; round += 1) {
+    const childStart = rangeStart + size / 2 ** round
+    const childEnd = rangeStart + size / 2 ** (round - 1) - 1
+    skeleton.push(
+      ...buildPlacementRangeSkeleton({
+        phaseId,
+        rangeStart: childStart,
+        rangeEnd: childEnd,
+        pitches,
+        pitchCursorRef,
+        baseStartMs,
+        roundDurationMs,
+        stageOffset: stageOffset + round,
+      })
+    )
+  }
+
+  return skeleton
+}
+
+async function assignTeamToBracketSlot(
+  tx: Prisma.TransactionClient,
+  params: {
+    phaseId: string
+    targetBracketPos: string
+    side: 'homeTeamId' | 'awayTeamId'
+    teamId: string | null
+    sourceHomeTeamId: string | null
+    sourceAwayTeamId: string | null
   }
 ) {
-  if (!source.winnerId) return
+  if (!params.teamId) return
 
-  const parsed = parseBracketCoordinate(source.bracketPos)
-  if (!parsed) return
-
-  const nextRound = parsed.round + 1
-  const nextMatchNo = Math.ceil(parsed.matchNo / 2)
-  const nextBracketPos = `${parsed.lane}-R${nextRound}-M${nextMatchNo}`
-
-  const nextMatch = await tx.match.findFirst({
+  const target = await tx.match.findFirst({
     where: {
-      phaseId: source.phaseId,
-      bracketPos: nextBracketPos,
+      phaseId: params.phaseId,
+      bracketPos: params.targetBracketPos,
     },
     select: {
       id: true,
@@ -619,30 +688,106 @@ async function propagateWinnerToNextBracketMatch(
     },
   })
 
-  if (!nextMatch) return
-  if (nextMatch.status === MatchStatus.FINISHED || nextMatch.status === MatchStatus.CANCELLED) return
+  if (!target) return
+  if (target.status === MatchStatus.FINISHED || target.status === MatchStatus.CANCELLED) return
 
-  const side: 'homeTeamId' | 'awayTeamId' = parsed.matchNo % 2 === 1 ? 'homeTeamId' : 'awayTeamId'
-  const currentValue = side === 'homeTeamId' ? nextMatch.homeTeamId : nextMatch.awayTeamId
-
-  // Keep manual edits unless value is empty or still one of the source teams.
+  const currentValue = params.side === 'homeTeamId' ? target.homeTeamId : target.awayTeamId
   if (
     currentValue &&
-    currentValue !== source.homeTeamId &&
-    currentValue !== source.awayTeamId &&
-    currentValue !== source.winnerId
+    currentValue !== params.sourceHomeTeamId &&
+    currentValue !== params.sourceAwayTeamId &&
+    currentValue !== params.teamId
   ) {
     return
   }
 
-  if (currentValue === source.winnerId) return
+  if (currentValue === params.teamId) return
 
   await tx.match.update({
-    where: { id: nextMatch.id },
+    where: { id: target.id },
     data: {
-      [side]: source.winnerId,
+      [params.side]: params.teamId,
     },
   })
+}
+
+async function propagateWinnerToNextBracketMatch(
+  tx: Prisma.TransactionClient,
+  source: {
+    phaseId: string
+    phaseType: PhaseType
+    bracketPos: string | null
+    homeTeamId: string | null
+    awayTeamId: string | null
+    winnerId: string | null
+    loserId: string | null
+  }
+) {
+  const parsed = parseBracketCoordinate(source.bracketPos)
+  if (parsed) {
+    if (source.winnerId) {
+      const nextRound = parsed.round + 1
+      const nextMatchNo = Math.ceil(parsed.matchNo / 2)
+      const nextBracketPos = `${parsed.lane}-R${nextRound}-M${nextMatchNo}`
+      await assignTeamToBracketSlot(tx, {
+        phaseId: source.phaseId,
+        targetBracketPos: nextBracketPos,
+        side: parsed.matchNo % 2 === 1 ? 'homeTeamId' : 'awayTeamId',
+        teamId: source.winnerId,
+        sourceHomeTeamId: source.homeTeamId,
+        sourceAwayTeamId: source.awayTeamId,
+      })
+    }
+
+    if (source.phaseType === PhaseType.PLACEMENT_BRACKET && source.loserId && parsed.lane === 'WB') {
+      const wbRounds = await tx.match.aggregate({
+        where: { phaseId: source.phaseId, bracketPos: { startsWith: 'WB-R' } },
+        _max: { roundNumber: true },
+      })
+      const totalWbRounds = wbRounds._max.roundNumber ?? 0
+      if (parsed.round < totalWbRounds) {
+        const normalizedSize = 2 ** totalWbRounds
+        const rangeStart = normalizedSize / 2 ** parsed.round + 1
+        const rangeEnd = normalizedSize / 2 ** (parsed.round - 1)
+        await assignTeamToBracketSlot(tx, {
+          phaseId: source.phaseId,
+          targetBracketPos: `P${rangeStart}-${rangeEnd}-R1-M${Math.ceil(parsed.matchNo / 2)}`,
+          side: parsed.matchNo % 2 === 1 ? 'homeTeamId' : 'awayTeamId',
+          teamId: source.loserId,
+          sourceHomeTeamId: source.homeTeamId,
+          sourceAwayTeamId: source.awayTeamId,
+        })
+      }
+    }
+    return
+  }
+
+  const placement = parsePlacementBracketCoordinate(source.bracketPos)
+  if (!placement) return
+
+  if (source.winnerId && placement.round < Math.log2(placement.size)) {
+    await assignTeamToBracketSlot(tx, {
+      phaseId: source.phaseId,
+      targetBracketPos: `P${placement.start}-${placement.end}-R${placement.round + 1}-M${Math.ceil(placement.matchNo / 2)}`,
+      side: placement.matchNo % 2 === 1 ? 'homeTeamId' : 'awayTeamId',
+      teamId: source.winnerId,
+      sourceHomeTeamId: source.homeTeamId,
+      sourceAwayTeamId: source.awayTeamId,
+    })
+  }
+
+  if (source.loserId && placement.round < Math.log2(placement.size)) {
+    const childStart = placement.start + placement.size / 2 ** placement.round
+    const childEnd = placement.start + placement.size / 2 ** (placement.round - 1) - 1
+    await assignTeamToBracketSlot(tx, {
+      phaseId: source.phaseId,
+      targetBracketPos: `P${childStart}-${childEnd}-R1-M${Math.ceil(placement.matchNo / 2)}`,
+      side: placement.matchNo % 2 === 1 ? 'homeTeamId' : 'awayTeamId',
+      teamId: source.loserId,
+      sourceHomeTeamId: source.homeTeamId,
+      sourceAwayTeamId: source.awayTeamId,
+    })
+  }
 }
 
 // --------------- Round-robin helpers ---------------
@@ -1327,7 +1472,14 @@ export async function recordTournamentMatchResult(
 
     const match = await prisma.match.findUnique({
       where: { id: matchId },
-      select: { id: true, phaseId: true, bracketPos: true, homeTeamId: true, awayTeamId: true },
+      select: {
+        id: true,
+        phaseId: true,
+        bracketPos: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        phase: { select: { type: true } },
+      },
     })
 
     if (!match) return { success: false, message: 'Match introuvable.' }
@@ -1335,6 +1487,12 @@ export async function recordTournamentMatchResult(
     let winnerId: string | null = null
     if (homeScore > awayScore) winnerId = match.homeTeamId ?? null
     if (awayScore > homeScore) winnerId = match.awayTeamId ?? null
+    const loserId =
+      winnerId === null
+        ? null
+        : winnerId === match.homeTeamId
+          ? match.awayTeamId ?? null
+          : match.homeTeamId ?? null
 
     await prisma.$transaction(async (tx) => {
       await tx.match.update({
@@ -1364,10 +1522,12 @@ export async function recordTournamentMatchResult(
 
       await propagateWinnerToNextBracketMatch(tx, {
         phaseId: match.phaseId,
+        phaseType: match.phase.type,
         bracketPos: match.bracketPos,
         homeTeamId: match.homeTeamId,
         awayTeamId: match.awayTeamId,
         winnerId,
+        loserId,
       })
     })
 
@@ -2083,6 +2243,7 @@ export async function bulkUpdateTournamentMatches(
         id: true,
         phaseId: true,
         bracketPos: true,
+        phase: { select: { type: true } },
         homeTeamId: true,
         awayTeamId: true,
       },
@@ -2097,10 +2258,12 @@ export async function bulkUpdateTournamentMatches(
     const finishedWithScores: Array<{
       matchId: string
       phaseId: string
+      phaseType: PhaseType
       bracketPos: string | null
       homeTeamId: string | null
       awayTeamId: string | null
       winnerId: string | null
+      loserId: string | null
     }> = []
 
     for (const update of updates) {
@@ -2113,14 +2276,22 @@ export async function bulkUpdateTournamentMatches(
         let winnerId: string | null = null
         if (homeScore > awayScore) winnerId = match.homeTeamId ?? null
         if (awayScore > homeScore) winnerId = match.awayTeamId ?? null
+        const loserId =
+          winnerId === null
+            ? null
+            : winnerId === match.homeTeamId
+              ? match.awayTeamId ?? null
+              : match.homeTeamId ?? null
 
         finishedWithScores.push({
           matchId: update.matchId,
           phaseId: match.phaseId,
+          phaseType: match.phase.type,
           bracketPos: match.bracketPos,
           homeTeamId: match.homeTeamId,
           awayTeamId: match.awayTeamId,
           winnerId,
+          loserId,
         })
 
         ops.push(
@@ -2175,10 +2346,12 @@ export async function bulkUpdateTournamentMatches(
       await prisma.$transaction(async (tx) => {
         await propagateWinnerToNextBracketMatch(tx, {
           phaseId: item.phaseId,
+          phaseType: item.phaseType,
           bracketPos: item.bracketPos,
           homeTeamId: item.homeTeamId,
           awayTeamId: item.awayTeamId,
           winnerId: item.winnerId,
+          loserId: item.loserId,
         })
       })
     }
@@ -2402,7 +2575,7 @@ export async function generateCustomPlacementBracketMatches(
       }
     }
 
-    if (includeLosersReplay) {
+    if (phase.type !== 'PLACEMENT_BRACKET' && includeLosersReplay) {
       for (let round = 1; round <= rounds; round += 1) {
         const matchesInRound = Math.max(1, normalizedSize / 2 ** (round + 1))
         for (let matchNo = 1; matchNo <= matchesInRound; matchNo += 1) {
@@ -2418,7 +2591,26 @@ export async function generateCustomPlacementBracketMatches(
       }
     }
 
-    if (normalizedSize >= 4) {
+    if (phase.type === 'PLACEMENT_BRACKET' && normalizedSize >= 4) {
+      const pitchCursorRef = { value: pitchCursor }
+      for (let round = 1; round < rounds; round += 1) {
+        const rangeStart = normalizedSize / 2 ** round + 1
+        const rangeEnd = normalizedSize / 2 ** (round - 1)
+        skeleton.push(
+          ...buildPlacementRangeSkeleton({
+            phaseId,
+            rangeStart,
+            rangeEnd,
+            pitches,
+            pitchCursorRef,
+            baseStartMs,
+            roundDurationMs,
+            stageOffset: rounds + round,
+          })
+        )
+      }
+      pitchCursor = pitchCursorRef.value
+    } else if (normalizedSize >= 4) {
       for (let place = 3; place <= normalizedSize; place += 2) {
         skeleton.push({
           phaseId,

@@ -1,0 +1,74 @@
+import { notFound } from 'next/navigation'
+import {
+    formatMatchDateLabel,
+    getPublicTournamentBySlugs,
+} from '@/lib/actions/tournament/public.queries'
+
+export const dynamic = 'force-dynamic'
+
+export default async function TournamentPitchOverlayPage({
+    params,
+}: {
+    params: Promise<{ 'org-slug': string; 't-slug': string; 'pitch-id': string }>
+}) {
+    const { 'org-slug': orgSlug, 't-slug': tournamentSlug, 'pitch-id': pitchId } = await params
+
+    const payload = await getPublicTournamentBySlugs(orgSlug, tournamentSlug)
+    if (!payload) notFound()
+
+    const { tournament, matches } = payload
+
+    const pitch = tournament.pitches.find((item) => item.id === pitchId)
+    if (!pitch) notFound()
+
+    const pitchMatches = matches
+        .filter((match) => match.pitch.id === pitch.id)
+        .sort((a, b) => (a.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER))
+
+    const liveMatch = pitchMatches.find((match) => match.status === 'LIVE')
+    const nextMatch = pitchMatches.find((match) => match.status === 'SCHEDULED')
+    const latestFinished = [...pitchMatches].reverse().find((match) => match.status === 'FINISHED')
+
+    const focusMatch = liveMatch ?? nextMatch ?? latestFinished
+
+    return (
+        <main className="min-h-screen bg-black/75 text-white">
+            <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-6">
+                <section className="w-full rounded-2xl border border-white/30 bg-black/55 p-6 backdrop-blur-sm">
+                    <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Overlay piste</p>
+                    <h1 className="mt-2 text-4xl font-black">{pitch.name}</h1>
+                    <p className="mt-1 text-sm text-slate-300">{tournament.name} · {tournament.organization.name}</p>
+
+                    {!focusMatch ? (
+                        <p className="mt-6 rounded-xl border border-white/20 bg-black/40 p-4 text-sm text-slate-200">
+                            Aucun match assigne a cette piste.
+                        </p>
+                    ) : (
+                        <div className="mt-6 space-y-4">
+                            <div className="rounded-xl border border-emerald-300/40 bg-emerald-400/15 p-4">
+                                <p className="text-xs uppercase tracking-[0.16em] text-emerald-100">
+                                    {focusMatch.status === 'LIVE' ? 'Match en direct' : focusMatch.status === 'SCHEDULED' ? 'Prochain match' : 'Dernier resultat'}
+                                </p>
+                                <p className="mt-1 text-sm text-emerald-100">{focusMatch.phase.name} · {formatMatchDateLabel(focusMatch.scheduledAt)}</p>
+                                <p className="mt-3 text-3xl font-extrabold">
+                                    {focusMatch.homeTeam?.name ?? 'TBD'} {focusMatch.result?.homeScore ?? 0}
+                                    {' - '}
+                                    {focusMatch.result?.awayScore ?? 0} {focusMatch.awayTeam?.name ?? 'TBD'}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-2 md:grid-cols-2">
+                                {pitchMatches.slice(0, 6).map((match) => (
+                                    <div key={match.id} className="rounded-lg border border-white/15 bg-black/40 p-3">
+                                        <p className="text-[11px] uppercase tracking-wider text-slate-400">{match.status} · {formatMatchDateLabel(match.scheduledAt)}</p>
+                                        <p className="mt-1 text-sm font-semibold">{match.homeTeam?.name ?? 'TBD'} vs {match.awayTeam?.name ?? 'TBD'}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </section>
+            </div>
+        </main>
+    )
+}

@@ -1,0 +1,103 @@
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { getOrganizationBySlug } from '@/lib/actions/organization/organization.queries'
+import { prisma } from '@/lib/prisma'
+import BracketPhaseView from '@/components/dashboard/tournaments/BracketPhaseView'
+
+export default async function TournamentBracketPage({
+    params,
+}: {
+    params: Promise<{ slug: string; 't-slug': string }>
+}) {
+    const { slug, 't-slug': tournamentSlug } = await params
+    const org = await getOrganizationBySlug(slug)
+
+    if (!org) {
+        return <div className="text-slate-300">Organisation introuvable.</div>
+    }
+
+    const tournament = await prisma.tournament.findFirst({
+        where: {
+            organizationId: org.id,
+            slug: tournamentSlug,
+        },
+        include: {
+            phases: {
+                orderBy: { order: 'asc' },
+                where: {
+                    type: { in: ['BRACKET_SINGLE', 'BRACKET_DOUBLE', 'CUSTOM'] },
+                },
+            },
+        },
+    })
+
+    if (!tournament) {
+        notFound()
+    }
+
+    const matches = await prisma.match.findMany({
+        where: {
+            phase: {
+                tournamentId: tournament.id,
+            },
+        },
+        include: {
+            homeTeam: { select: { id: true, name: true } },
+            awayTeam: { select: { id: true, name: true } },
+            result: true,
+        },
+        orderBy: [{ roundNumber: 'asc' }, { createdAt: 'asc' }],
+    })
+
+    return (
+        <div className="space-y-6 text-white">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p className="text-xs uppercase tracking-widest text-slate-400">{org.name}</p>
+                    <h1 className="text-2xl md:text-3xl font-black">Visualisation Bracket</h1>
+                    <p className="mt-2 text-sm text-slate-400">{tournament.name}</p>
+                </div>
+                <Link
+                    href={`/dashboard/org/${slug}/tournaments/${tournament.slug}`}
+                    className="inline-flex items-center rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-slate-900/60 transition"
+                >
+                    Retour tournoi
+                </Link>
+            </div>
+
+            {tournament.phases.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400">
+                    Aucune phase de bracket/personnalisee configuree.
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {tournament.phases.map((phase) => (
+                        <BracketPhaseView
+                            key={`bracket-page-${phase.id}`}
+                            orgSlug={slug}
+                            tournamentSlug={tournament.slug}
+                            phase={{
+                                id: phase.id,
+                                name: phase.name,
+                                type: phase.type,
+                                order: phase.order,
+                            }}
+                            matches={matches
+                                .filter((match) => match.phaseId === phase.id)
+                                .map((match) => ({
+                                    id: match.id,
+                                    roundNumber: match.roundNumber,
+                                    bracketPos: match.bracketPos,
+                                    status: match.status,
+                                    homeTeamName: match.homeTeam?.name || 'TBD',
+                                    awayTeamName: match.awayTeam?.name || 'TBD',
+                                    homeScore: match.result?.homeScore ?? null,
+                                    awayScore: match.result?.awayScore ?? null,
+                                }))}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}

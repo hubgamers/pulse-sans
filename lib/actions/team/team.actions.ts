@@ -5,16 +5,37 @@ import { TeamSchema } from '@/lib/validations/team'
 import { revalidatePath } from 'next/cache'
 import { getAuthUser } from '../utils.actions'
 
-export async function createTeam(formData: FormData) {
+export type TeamFormState = {
+    success?: boolean
+    message?: string
+    errors?: {
+        name?: string[]
+        slug?: string[]
+        logoUrl?: string[]
+        organizationId?: string[]
+    }
+}
+
+export async function createTeam(
+    prevState: TeamFormState,
+    formData: FormData
+): Promise<TeamFormState> {
+    void prevState
     await getAuthUser()
     const validated = TeamSchema.safeParse(Object.fromEntries(formData.entries()))
 
-    if (!validated.success) return { errors: validated.error.flatten().fieldErrors }
+    if (!validated.success) {
+        return {
+            success: false,
+            message: "Certains champs sont invalides.",
+            errors: validated.error.flatten().fieldErrors,
+        }
+    }
 
     const { name, slug, organizationId, logoUrl } = validated.data
 
     try {
-        const team = await prisma.team.create({
+        await prisma.team.create({
             data: {
                 name,
                 slug,
@@ -23,8 +44,12 @@ export async function createTeam(formData: FormData) {
             }
         })
         revalidatePath(`/dashboard/org/${organizationId}/teams`)
-        return { success: true, team }
+        return { success: true, message: "Equipe creee avec succes." }
     } catch {
-        return { error: "Erreur lors de la création de l'équipe (slug peut-être déjà pris)" }
+        return {
+            success: false,
+            message: "Erreur lors de la creation de l'equipe (slug peut-etre deja pris).",
+            errors: { slug: ["Slug deja utilise dans cette organisation."] },
+        }
     }
 }

@@ -112,7 +112,8 @@ export async function createTournament(
       return { message: "Vous n'êtes pas membre de cette organisation." }
     }
 
-    const canManageTournament = [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MODERATOR].includes(membership.role)
+    const manageableRoles: OrgRole[] = [OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MODERATOR]
+    const canManageTournament = manageableRoles.includes(membership.role)
 
     if (!canManageTournament) {
       return { message: 'Permissions insuffisantes pour créer un tournoi.' }

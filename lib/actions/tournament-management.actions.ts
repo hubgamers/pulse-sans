@@ -274,6 +274,16 @@ async function recordTournamentAction(params: {
 }) {
   try {
     const user = await getAuthUser()
+    const metadata =
+      user.user_metadata && typeof user.user_metadata === 'object'
+        ? (user.user_metadata as Record<string, unknown>)
+        : null
+    const actorName =
+      (typeof metadata?.display_name === 'string' && metadata.display_name) ||
+      (typeof metadata?.username === 'string' && metadata.username) ||
+      user.email ||
+      user.id
+
     await prisma.tournamentActionLog.create({
       data: {
         tournamentId: params.tournamentId,
@@ -281,7 +291,7 @@ async function recordTournamentAction(params: {
         message: params.message,
         payload: params.payload,
         actorId: user.id,
-        actorName: user.display_name || user.username,
+        actorName,
       },
     })
   } catch {

@@ -96,9 +96,9 @@ export default function GroupPlacementBoard({
     };
 
     return (
-        <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <p className="text-xs uppercase tracking-wider text-slate-400">Placement visuel (drag and drop)</p>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Placement visuel (drag and drop)</p>
                 <form action={formAction} className="flex items-center gap-2">
                     <input type="hidden" name="tournamentId" value={tournamentId} />
                     <input type="hidden" name="orgSlug" value={orgSlug} />
@@ -108,7 +108,7 @@ export default function GroupPlacementBoard({
                     <button
                         type="submit"
                         disabled={isPending}
-                        className="rounded-md border border-indigo-500/40 px-3 py-1.5 text-xs text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-60"
+                        className="rounded-md border border-teal-600/40 px-3 py-1.5 text-xs text-teal-700 hover:bg-teal-600/10 disabled:opacity-60"
                     >
                         {isPending ? "Sauvegarde..." : "Sauvegarder placement"}
                     </button>
@@ -126,7 +126,7 @@ export default function GroupPlacementBoard({
                 </div>
             )}
 
-            <div className="sticky top-3 z-20 rounded-md border border-slate-800 bg-slate-900/90 p-2 backdrop-blur">
+            <div className="sticky top-3 z-20 rounded-md border border-slate-200 bg-white/90 p-2 backdrop-blur">
                 <p className="mb-2 text-[11px] uppercase tracking-wider text-slate-500">Equipes non placees</p>
                 <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto pr-1">
                     {unassignedTeams.length === 0 ? (
@@ -140,7 +140,7 @@ export default function GroupPlacementBoard({
                                     event.dataTransfer.setData("text/plain", team.id);
                                     event.dataTransfer.effectAllowed = "move";
                                 }}
-                                className="cursor-grab rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                                className="cursor-grab rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
                             >
                                 {team.name}
                             </div>
@@ -153,8 +153,8 @@ export default function GroupPlacementBoard({
                 {Array.from({ length: groupCount }, (_, groupIdx) => {
                     const groupIndex = groupIdx + 1;
                     return (
-                        <div key={`${phaseId}-visual-group-${groupIndex}`} className="rounded-md border border-slate-800 bg-slate-900/50 p-2">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300">Poule {groupIndex}</p>
+                        <div key={`${phaseId}-visual-group-${groupIndex}`} className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-teal-700">Poule {groupIndex}</p>
                             <div className="space-y-2">
                                 {Array.from({ length: teamsPerGroup }, (_, slotIdx) => {
                                     const slot = slotIdx + 1;
@@ -171,7 +171,7 @@ export default function GroupPlacementBoard({
                                                 const droppedTeamId = event.dataTransfer.getData("text/plain");
                                                 assignTeamToSlot(droppedTeamId, slotKey);
                                             }}
-                                            className="rounded-md border border-slate-700 bg-slate-950 p-2"
+                                            className="rounded-md border border-slate-300 bg-white p-2"
                                         >
                                             <p className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">Place {slot}</p>
                                             {teamId ? (
@@ -181,18 +181,18 @@ export default function GroupPlacementBoard({
                                                         event.dataTransfer.setData("text/plain", teamId);
                                                         event.dataTransfer.effectAllowed = "move";
                                                     }}
-                                                    className="cursor-grab rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-white"
+                                                    className="cursor-grab rounded border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-900"
                                                 >
                                                     {teamName}
                                                 </div>
                                             ) : (
-                                                <div className="rounded border border-dashed border-slate-700 px-2 py-1 text-xs text-slate-500">Drop equipe ici</div>
+                                                <div className="rounded border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500">Drop equipe ici</div>
                                             )}
                                             {teamId && (
                                                 <button
                                                     type="button"
                                                     onClick={() => clearSlot(slotKey)}
-                                                    className="mt-1 w-full rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-900"
+                                                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-[10px] text-slate-700 hover:bg-slate-50"
                                                 >
                                                     Vider
                                                 </button>

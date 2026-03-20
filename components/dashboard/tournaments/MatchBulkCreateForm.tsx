@@ -155,7 +155,7 @@ export default function MatchBulkCreateForm({ tournamentId, orgSlug, tournamentS
         })
     }
 
-    const inputCls = 'rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full'
+    const inputCls = 'rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-600 w-full'
 
     return (
         <div className="space-y-4">
@@ -182,8 +182,8 @@ export default function MatchBulkCreateForm({ tournamentId, orgSlug, tournamentS
             </div>
 
             {/* Hint */}
-            <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-xs text-slate-400">
-                <p className="font-medium text-slate-300">Format — une entree par ligne, chaque colonne correspond a un match :</p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-500">
+                <p className="font-medium text-slate-700">Format — une entree par ligne, chaque colonne correspond a un match :</p>
                 <div className="mt-1 grid grid-cols-3 gap-2 font-mono text-[11px]">
                     <div>
                         <p className="mb-1 text-slate-500">Horaires</p>
@@ -223,17 +223,17 @@ export default function MatchBulkCreateForm({ tournamentId, orgSlug, tournamentS
                         value={timesText}
                         onChange={(e) => setTimesText(e.target.value)}
                         placeholder={"14h\n14h\n14h10\n14h30\n14h40\n14h40"}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y"
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-600 resize-y"
                     />
                 </div>
                 <div>
-                    <label className="mb-1 block text-xs font-medium text-cyan-300">Pistes</label>
+                    <label className="mb-1 block text-xs font-medium text-teal-700">Pistes</label>
                     <textarea
                         rows={10}
                         value={pitchesText}
                         onChange={(e) => setPitchesText(e.target.value)}
                         placeholder={"PISTE 3\nPISTE 3\nPISTE 3\nPISTE 3\nPISTE 3\nPISTE 3"}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y"
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-600 resize-y"
                     />
                 </div>
                 <div>
@@ -243,17 +243,17 @@ export default function MatchBulkCreateForm({ tournamentId, orgSlug, tournamentS
                         value={matchupsText}
                         onChange={(e) => setMatchupsText(e.target.value)}
                         placeholder={"A-B\nC-D\nA-C\nB-D\nA-D\nB-C"}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y"
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-600 resize-y"
                     />
                 </div>
             </div>
 
             {/* Preview table */}
             {hasContent && (
-                <div className="overflow-x-auto rounded-lg border border-slate-800">
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="w-full text-xs">
                         <thead>
-                            <tr className="border-b border-slate-800 bg-slate-900/60 text-left text-slate-400">
+                            <tr className="border-b border-slate-200 bg-white text-left text-slate-500">
                                 <th className="px-3 py-2">#</th>
                                 <th className="px-3 py-2">Horaire</th>
                                 <th className="px-3 py-2">Piste</th>
@@ -266,18 +266,18 @@ export default function MatchBulkCreateForm({ tournamentId, orgSlug, tournamentS
                             {parsedRows.map((row, i) => {
                                 const isValid = row.pitchOk && row.homeOk && row.awayOk && !row.sameTeam && row.timeOk
                                 return (
-                                    <tr key={i} className={`border-b border-slate-800 ${isValid ? '' : 'bg-red-950/20'}`}>
+                                    <tr key={i} className={`border-b border-slate-200 ${isValid ? '' : 'bg-red-950/20'}`}>
                                         <td className="px-3 py-1.5 text-slate-500">{i + 1}</td>
-                                        <td className={`px-3 py-1.5 font-mono ${row.timeStr && !row.timeOk ? 'text-amber-400' : 'text-slate-200'}`}>
-                                            {row.timeStr || <span className="text-slate-600">—</span>}
+                                        <td className={`px-3 py-1.5 font-mono ${row.timeStr && !row.timeOk ? 'text-amber-400' : 'text-slate-800'}`}>
+                                            {row.timeStr || <span className="text-slate-500">—</span>}
                                         </td>
-                                        <td className={`px-3 py-1.5 font-mono ${!row.pitchOk ? 'text-red-400' : 'text-slate-200'}`}>
-                                            {row.pitchName || <span className="text-slate-600">—</span>}
+                                        <td className={`px-3 py-1.5 font-mono ${!row.pitchOk ? 'text-red-400' : 'text-slate-800'}`}>
+                                            {row.pitchName || <span className="text-slate-500">—</span>}
                                         </td>
-                                        <td className={`px-3 py-1.5 font-mono ${!row.homeOk ? 'text-red-400' : 'text-slate-200'}`}>
+                                        <td className={`px-3 py-1.5 font-mono ${!row.homeOk ? 'text-red-400' : 'text-slate-800'}`}>
                                             {row.homeTeamName || <span className="text-slate-500">TBD</span>}
                                         </td>
-                                        <td className={`px-3 py-1.5 font-mono ${!row.awayOk || row.sameTeam ? 'text-red-400' : 'text-slate-200'}`}>
+                                        <td className={`px-3 py-1.5 font-mono ${!row.awayOk || row.sameTeam ? 'text-red-400' : 'text-slate-800'}`}>
                                             {row.awayTeamName || <span className="text-slate-500">TBD</span>}
                                         </td>
                                         <td className="px-3 py-1.5">
@@ -323,7 +323,7 @@ export default function MatchBulkCreateForm({ tournamentId, orgSlug, tournamentS
                 <button
                     onClick={handleSubmit}
                     disabled={isPending || validCount === 0 || !phaseId}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+                    className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-teal-600 disabled:opacity-50 transition-colors"
                 >
                     {isPending ? 'Creation...' : `Creer ${validCount} match(s)`}
                 </button>

@@ -36,21 +36,20 @@ interface FormStatusState {
  */
 export const FormContainer: React.FC<FormContainerProps> = ({ children, title, subtitle, action }) => (
     <div className="w-full lg:max-w-xl mx-auto">
-        {/* Ajout d'une bordure de gradient pour faire ressortir la carte du fond noir */}
-        <div className="relative p-[1px] rounded-[2rem] bg-gradient-to-b from-slate-700 to-transparent shadow-2xl">
-            <div className="relative overflow-hidden bg-[#0d1117] rounded-[2rem] p-8">
+        <div className="relative p-[1px] rounded-[2rem] bg-gradient-to-b from-slate-200 to-transparent shadow-xl">
+            <div className="relative overflow-hidden bg-white rounded-[2rem] p-8">
 
                 {/* Lumières d'ambiance plus fortes */}
-                <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-600/30 blur-[80px] rounded-full pointer-events-none" />
+                <div className="absolute -top-24 -right-24 w-64 h-64 bg-teal-700/30 blur-[80px] rounded-full pointer-events-none" />
 
                 {(title || subtitle) && (
                     <div className="relative mb-10">
                         {title && (
-                            <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic italic leading-none">
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic italic leading-none">
                                 {title}
                             </h2>
                         )}
-                        {subtitle && <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 opacity-70">{subtitle}</p>}
+                        {subtitle && <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2 opacity-70">{subtitle}</p>}
                     </div>
                 )}
 
@@ -71,7 +70,7 @@ const FieldWrapper = ({ label, icon: Icon, error, children }: { label?: string, 
     return (
         <div className="group space-y-2.5">
             {label && (
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 group-focus-within:text-indigo-400 transition-colors duration-300">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 group-focus-within:text-teal-700 transition-colors duration-300">
                     {Icon && <Icon size={14} className="opacity-70" />} {label}
                 </label>
             )}
@@ -91,14 +90,14 @@ const FieldWrapper = ({ label, icon: Icon, error, children }: { label?: string, 
 export const FormField: React.FC<FormFieldProps> = ({ label, icon: Icon, error, className, ...props }) => (
     <div className="group space-y-2">
         {label && (
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 group-focus-within:text-indigo-400 transition-colors">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 group-focus-within:text-teal-700 transition-colors">
                 {Icon && <Icon size={12} />} {label}
             </label>
         )}
-        {/* On remplace bg-slate-900/40 par un gris plus solide pour qu'il soit visible */}
+        {/* On remplace bg-slate-50 par un gris plus solide pour qu'il soit visible */}
         <input
             {...props}
-            className={`w-full bg-[#161b22] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all ${className}`}
+            className={`w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600/50 transition-all ${className}`}
         />
         {error && <p className="text-red-500 text-[10px] font-bold uppercase mt-1">{Array.isArray(error) ? error[0] : error}</p>}
     </div>
@@ -113,16 +112,16 @@ export const FormSelect: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> 
     <FieldWrapper label={label} icon={icon} error={error}>
         <select
             {...props}
-            className={`w-full bg-slate-900/40 border ${error ? 'border-red-500/40' : 'border-slate-800'
-                } rounded-2xl px-5 py-4 text-slate-100 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all duration-300 cursor-pointer ${className || ''}`}
+            className={`w-full bg-slate-50 border ${error ? 'border-red-500/40' : 'border-slate-200'
+                } rounded-2xl px-5 py-4 text-slate-900 appearance-none focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600/50 transition-all duration-300 cursor-pointer ${className || ''}`}
         >
             {options.map((opt) => (
-                <option key={opt.value} value={opt.value} className="bg-slate-950 text-white">
+                <option key={opt.value} value={opt.value} className="bg-white text-slate-900">
                     {opt.label}
                 </option>
             ))}
         </select>
-        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-focus-within:text-indigo-400 transition-colors" />
+        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-focus-within:text-teal-700 transition-colors" />
     </FieldWrapper>
 );
 
@@ -133,7 +132,7 @@ export const FormButton: React.FC<{ children: React.ReactNode, isPending: boolea
     <button
         type="submit"
         disabled={isPending}
-        className="w-full relative group h-[58px] overflow-hidden rounded-2xl bg-indigo-600 text-white font-bold uppercase tracking-[0.15em] text-sm transition-all duration-300 hover:bg-indigo-500 hover:shadow-[0_0_30px_-5px_rgba(79,70,229,0.6)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+        className="w-full relative group h-[58px] overflow-hidden rounded-2xl bg-teal-700 text-white font-bold uppercase tracking-[0.15em] text-sm transition-all duration-300 hover:bg-teal-600 hover:shadow-[0_0_30px_-5px_rgba(15,118,110,0.45)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
     >
         {/* Effet Shimmer */}
         <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />

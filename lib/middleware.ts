@@ -37,20 +37,20 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Routes publiques — accessibles sans être connecté
-  const publicRoutes = ['/', '/login', '/register', '/auth/callback']
+  const publicRoutes = ['/', '/auth', '/login', '/register', '/auth/callback', '/api/auth/callback']
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route)
   )
 
-  // Redirige vers /login si non connecté et route protégée
+  // Redirige vers /auth si non connecté et route protégée
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    url.pathname = '/auth'
     return NextResponse.redirect(url)
   }
 
   // Redirige vers /dashboard si déjà connecté et sur une page auth
-  const authRoutes = ['/login', '/register']
+  const authRoutes = ['/auth', '/login', '/register']
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
 
   if (user && isAuthRoute) {

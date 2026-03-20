@@ -28,19 +28,19 @@ export default async function PublicTournamentPage({
         .slice(0, 8)
 
     return (
-        <main className="min-h-screen bg-slate-950 text-slate-100">
+        <main className="min-h-screen bg-white text-slate-900">
             <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
-                <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Suivi public</p>
+                <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-teal-700">Suivi public</p>
                     <h1 className="mt-2 text-2xl font-black md:text-4xl">{tournament.name}</h1>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-slate-500">
                         {tournament.organization.name} · {tournament.game.name} · statut {tournament.status}
                     </p>
 
                     <div className="mt-4 flex flex-wrap gap-2">
                         <Link
                             href={`/public/${orgSlug}/${tournamentSlug}/overlay`}
-                            className="rounded-lg border border-cyan-400/50 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/20"
+                            className="rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-100"
                         >
                             Overlay general
                         </Link>
@@ -48,7 +48,7 @@ export default async function PublicTournamentPage({
                             <Link
                                 key={pitch.id}
                                 href={`/public/${orgSlug}/${tournamentSlug}/overlay/pitch/${pitch.id}`}
-                                className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold hover:border-slate-500"
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:border-slate-500"
                             >
                                 Overlay {pitch.name}
                             </Link>
@@ -57,30 +57,30 @@ export default async function PublicTournamentPage({
                 </section>
 
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-                        <p className="text-xs uppercase text-slate-400">Equipes</p>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <p className="text-xs uppercase text-slate-500">Equipes</p>
                         <p className="mt-2 text-3xl font-black">{tournament.registrations.length}</p>
                     </div>
-                    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-                        <p className="text-xs uppercase text-slate-400">Phases</p>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <p className="text-xs uppercase text-slate-500">Phases</p>
                         <p className="mt-2 text-3xl font-black">{tournament.phases.length}</p>
                     </div>
-                    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-                        <p className="text-xs uppercase text-slate-400">Matchs en direct</p>
-                        <p className="mt-2 text-3xl font-black text-emerald-300">{liveMatches.length}</p>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <p className="text-xs uppercase text-slate-500">Matchs en direct</p>
+                        <p className="mt-2 text-3xl font-black text-emerald-700">{liveMatches.length}</p>
                     </div>
-                    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-                        <p className="text-xs uppercase text-slate-400">Matchs termines</p>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <p className="text-xs uppercase text-slate-500">Matchs termines</p>
                         <p className="mt-2 text-3xl font-black">{matches.filter((match) => match.status === 'FINISHED').length}</p>
                     </div>
                 </section>
 
                 <section className="grid gap-4 xl:grid-cols-2">
-                    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-                        <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-300">Classement global</h2>
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">Classement global</h2>
                         <div className="mt-3 overflow-x-auto">
                             <table className="w-full text-left text-sm">
-                                <thead className="text-xs uppercase text-slate-400">
+                                <thead className="text-xs uppercase text-slate-500">
                                     <tr>
                                         <th className="py-2">#</th>
                                         <th className="py-2">Equipe</th>
@@ -91,7 +91,7 @@ export default async function PublicTournamentPage({
                                 </thead>
                                 <tbody>
                                     {standings.map((row, index) => (
-                                        <tr key={row.teamId} className="border-t border-slate-800">
+                                        <tr key={row.teamId} className="border-t border-slate-200">
                                             <td className="py-2 font-semibold">{index + 1}</td>
                                             <td className="py-2">{row.teamName}</td>
                                             <td className="py-2 font-semibold">{row.points}</td>
@@ -105,19 +105,19 @@ export default async function PublicTournamentPage({
                     </div>
 
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-                            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-300">Matchs en direct</h2>
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">Matchs en direct</h2>
                             <div className="mt-3 space-y-2">
                                 {liveMatches.length === 0 ? (
-                                    <p className="text-sm text-slate-400">Aucun match live pour le moment.</p>
+                                    <p className="text-sm text-slate-500">Aucun match live pour le moment.</p>
                                 ) : (
                                     liveMatches.map((match) => (
                                         <Link
                                             key={match.id}
                                             href={`/public/${orgSlug}/${tournamentSlug}/overlay/match/${match.id}`}
-                                            className="block rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 hover:bg-emerald-500/20"
+                                            className="block rounded-lg border border-emerald-200 bg-emerald-50 p-3 hover:bg-emerald-100"
                                         >
-                                            <p className="text-xs uppercase text-emerald-200">{match.pitch.name} · {match.phase.name}</p>
+                                            <p className="text-xs uppercase text-emerald-700">{match.pitch.name} · {match.phase.name}</p>
                                             <p className="mt-1 text-base font-bold">
                                                 {match.homeTeam?.name ?? 'TBD'} {match.result ? match.result.homeScore : 0}
                                                 {' - '}
@@ -129,14 +129,14 @@ export default async function PublicTournamentPage({
                             </div>
                         </div>
 
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-                            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-300">Prochains matchs</h2>
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">Prochains matchs</h2>
                             <div className="mt-3 space-y-2">
                                 {upcomingMatches.length === 0 ? (
-                                    <p className="text-sm text-slate-400">Aucun match planifie.</p>
+                                    <p className="text-sm text-slate-500">Aucun match planifie.</p>
                                 ) : (
                                     upcomingMatches.map((match) => (
-                                        <div key={match.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                                        <div key={match.id} className="rounded-lg border border-slate-200 bg-white p-3">
                                             <p className="text-xs uppercase text-slate-500">{formatMatchDateLabel(match.scheduledAt)} · {match.pitch.name}</p>
                                             <p className="mt-1 text-sm font-semibold">{match.homeTeam?.name ?? 'TBD'} vs {match.awayTeam?.name ?? 'TBD'}</p>
                                         </div>

@@ -32,24 +32,24 @@ export default async function TournamentPitchOverlayPage({
     const focusMatch = liveMatch ?? nextMatch ?? latestFinished
 
     return (
-        <main className="min-h-screen bg-black/75 text-white">
+        <main className="min-h-screen bg-transparent text-slate-900">
             <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-6">
-                <section className="w-full rounded-2xl border border-white/30 bg-black/55 p-6 backdrop-blur-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Overlay piste</p>
+                <section className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <p className="text-xs uppercase tracking-[0.2em] text-teal-700">Overlay piste</p>
                     <h1 className="mt-2 text-4xl font-black">{pitch.name}</h1>
-                    <p className="mt-1 text-sm text-slate-300">{tournament.name} · {tournament.organization.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{tournament.name} · {tournament.organization.name}</p>
 
                     {!focusMatch ? (
-                        <p className="mt-6 rounded-xl border border-white/20 bg-black/40 p-4 text-sm text-slate-200">
+                        <p className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                             Aucun match assigne a cette piste.
                         </p>
                     ) : (
                         <div className="mt-6 space-y-4">
-                            <div className="rounded-xl border border-emerald-300/40 bg-emerald-400/15 p-4">
-                                <p className="text-xs uppercase tracking-[0.16em] text-emerald-100">
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                                <p className="text-xs uppercase tracking-[0.16em] text-emerald-700">
                                     {focusMatch.status === 'LIVE' ? 'Match en direct' : focusMatch.status === 'SCHEDULED' ? 'Prochain match' : 'Dernier resultat'}
                                 </p>
-                                <p className="mt-1 text-sm text-emerald-100">{focusMatch.phase.name} · {formatMatchDateLabel(focusMatch.scheduledAt)}</p>
+                                <p className="mt-1 text-sm text-emerald-700">{focusMatch.phase.name} · {formatMatchDateLabel(focusMatch.scheduledAt)}</p>
                                 <p className="mt-3 text-3xl font-extrabold">
                                     {focusMatch.homeTeam?.name ?? 'TBD'} {focusMatch.result?.homeScore ?? 0}
                                     {' - '}
@@ -59,8 +59,8 @@ export default async function TournamentPitchOverlayPage({
 
                             <div className="grid gap-2 md:grid-cols-2">
                                 {pitchMatches.slice(0, 6).map((match) => (
-                                    <div key={match.id} className="rounded-lg border border-white/15 bg-black/40 p-3">
-                                        <p className="text-[11px] uppercase tracking-wider text-slate-400">{match.status} · {formatMatchDateLabel(match.scheduledAt)}</p>
+                                    <div key={match.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-[11px] uppercase tracking-wider text-slate-500">{match.status} · {formatMatchDateLabel(match.scheduledAt)}</p>
                                         <p className="mt-1 text-sm font-semibold">{match.homeTeam?.name ?? 'TBD'} vs {match.awayTeam?.name ?? 'TBD'}</p>
                                     </div>
                                 ))}

@@ -13,7 +13,7 @@ export default async function TournamentBracketPage({
     const org = await getOrganizationBySlug(slug)
 
     if (!org) {
-        return <div className="text-slate-300">Organisation introuvable.</div>
+        return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
     const tournament = await prisma.tournament.findFirst({
@@ -50,23 +50,23 @@ export default async function TournamentBracketPage({
     })
 
     return (
-        <div className="space-y-6 text-white">
+        <div className="space-y-6 text-slate-900">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-400">{org.name}</p>
+                    <p className="text-xs uppercase tracking-widest text-slate-500">{org.name}</p>
                     <h1 className="text-2xl md:text-3xl font-black">Visualisation Bracket</h1>
-                    <p className="mt-2 text-sm text-slate-400">{tournament.name}</p>
+                    <p className="mt-2 text-sm text-slate-500">{tournament.name}</p>
                 </div>
                 <Link
                     href={`/dashboard/org/${slug}/tournaments/${tournament.slug}`}
-                    className="inline-flex items-center rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-slate-900/60 transition"
+                    className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-white transition"
                 >
                     Retour tournoi
                 </Link>
             </div>
 
             {tournament.phases.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400">
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
                     Aucune phase de bracket/personnalisee configuree.
                 </div>
             ) : (

@@ -10,30 +10,30 @@ export default async function AdminDashboard() {
     ]);
 
     return (
-        <div className="min-h-screen bg-[#05070a] p-6 md:p-10 text-white">
+        <div className="min-h-screen bg-transparent p-6 md:p-10 text-slate-900">
             <section className="mx-auto max-w-7xl space-y-8">
-                <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 md:p-8">
-                    <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">Admin SaaS</p>
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
+                    <p className="text-xs uppercase tracking-[0.2em] text-teal-700">Admin SaaS</p>
                     <h1 className="mt-2 text-3xl md:text-5xl font-black tracking-tight">Cockpit administration</h1>
-                    <p className="mt-3 max-w-2xl text-slate-400">
+                    <p className="mt-3 max-w-2xl text-slate-500">
                         Surveillez les volumes de votre plateforme et accédez rapidement aux espaces de gestion.
                     </p>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-                        <Users2 className="text-cyan-300" size={20} />
-                        <p className="mt-3 text-xs uppercase tracking-wider text-slate-400">Utilisateurs</p>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <Users2 className="text-teal-700" size={20} />
+                        <p className="mt-3 text-xs uppercase tracking-wider text-slate-500">Utilisateurs</p>
                         <p className="mt-1 text-3xl font-black">{usersCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-                        <Building2 className="text-indigo-300" size={20} />
-                        <p className="mt-3 text-xs uppercase tracking-wider text-slate-400">Organisations</p>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <Building2 className="text-teal-700" size={20} />
+                        <p className="mt-3 text-xs uppercase tracking-wider text-slate-500">Organisations</p>
                         <p className="mt-1 text-3xl font-black">{orgsCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-                        <Trophy className="text-amber-300" size={20} />
-                        <p className="mt-3 text-xs uppercase tracking-wider text-slate-400">Tournois</p>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <Trophy className="text-teal-700" size={20} />
+                        <p className="mt-3 text-xs uppercase tracking-wider text-slate-500">Tournois</p>
                         <p className="mt-1 text-3xl font-black">{tournamentsCount}</p>
                     </div>
                 </div>
@@ -51,11 +51,11 @@ export default async function AdminDashboard() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-5 hover:bg-slate-900/70 transition"
+                            className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 hover:bg-white transition"
                         >
                             <h2 className="text-lg font-bold">{item.title}</h2>
-                            <p className="mt-1 text-sm text-slate-400">{item.desc}</p>
-                            <span className="mt-4 inline-flex items-center gap-2 text-cyan-300 text-sm">
+                            <p className="mt-1 text-sm text-slate-500">{item.desc}</p>
+                            <span className="mt-4 inline-flex items-center gap-2 text-teal-700 text-sm">
                                 Ouvrir <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                             </span>
                         </Link>

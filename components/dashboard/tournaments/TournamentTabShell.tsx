@@ -169,7 +169,7 @@ function formatPhaseType(type: string) {
 }
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
-    DRAFT: { label: 'Brouillon', cls: 'bg-slate-700 text-slate-200' },
+    DRAFT: { label: 'Brouillon', cls: 'bg-slate-700 text-slate-800' },
     REGISTRATION: { label: 'Inscriptions ouvertes', cls: 'bg-blue-600/20 text-blue-200 border border-blue-500/30' },
     ONGOING: { label: 'En cours', cls: 'bg-emerald-600/20 text-emerald-200 border border-emerald-500/30' },
     FINISHED: { label: 'Termine', cls: 'bg-purple-600/20 text-purple-200 border border-purple-500/30' },
@@ -237,21 +237,21 @@ function StepSection({
     num: number; title: string; desc?: string; children: React.ReactNode; color?: 'indigo' | 'cyan' | 'emerald' | 'amber'
 }) {
     const colorCls = {
-        indigo: 'border-indigo-500/40 bg-indigo-600/20 text-indigo-300',
-        cyan: 'border-cyan-500/40 bg-cyan-600/20 text-cyan-300',
+        indigo: 'border-teal-600/40 bg-teal-700/20 text-teal-700',
+        cyan: 'border-teal-300 bg-teal-50 text-teal-700',
         emerald: 'border-emerald-500/40 bg-emerald-600/20 text-emerald-300',
         amber: 'border-amber-500/40 bg-amber-600/20 text-amber-300',
     }[color]
 
     return (
-        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
-            <div className="flex items-start gap-3 pb-1 border-b border-slate-800">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-start gap-3 pb-1 border-b border-slate-200">
                 <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${colorCls}`}>
                     {num}
                 </div>
                 <div>
-                    <p className="text-sm font-semibold text-white">{title}</p>
-                    {desc && <p className="mt-0.5 text-xs text-slate-400">{desc}</p>}
+                    <p className="text-sm font-semibold text-slate-900">{title}</p>
+                    {desc && <p className="mt-0.5 text-xs text-slate-500">{desc}</p>}
                 </div>
             </div>
             {children}
@@ -261,19 +261,19 @@ function StepSection({
 
 function EmptyState({ message }: { message: string }) {
     return (
-        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-8 text-center text-sm text-slate-400">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
             {message}
         </div>
     )
 }
 
 function PhaseTypeBadge({ type }: { type: string }) {
-    const cls = type === 'GROUP' ? 'text-cyan-300 bg-cyan-600/10'
+    const cls = type === 'GROUP' ? 'text-teal-700 bg-teal-50'
         : type === 'BRACKET_SINGLE' ? 'text-amber-300 bg-amber-600/10'
         : type === 'BRACKET_DOUBLE' ? 'text-orange-300 bg-orange-600/10'
         : type === 'PLACEMENT_BRACKET' ? 'text-rose-300 bg-rose-600/10'
         : type === 'ROUND_SWISS' ? 'text-purple-300 bg-purple-600/10'
-        : 'text-slate-300 bg-slate-600/10'
+        : 'text-slate-700 bg-slate-600/10'
     return (
         <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>
             {formatPhaseType(type)}
@@ -285,6 +285,8 @@ function PhaseTypeBadge({ type }: { type: string }) {
 
 export default function TournamentTabShell({ orgSlug, tournament, availableTeams, matches }: Props) {
     const [activeTab, setActiveTab] = useState<TabId>('overview')
+    const [phasesStep, setPhasesStep] = useState<1 | 2 | 3>(1)
+    const [matchesStep, setMatchesStep] = useState<1 | 2 | 3 | 4>(1)
     const [matchCreateMode, setMatchCreateMode] = useState<'single' | 'bulk'>('single')
     const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([])
 
@@ -518,16 +520,16 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
 
     const tabs = [
         { id: 'overview' as TabId, label: "Vue d'ensemble" },
-        { id: 'phases' as TabId, label: 'Phases', badge: tournament.phases.length },
-        { id: 'registrations' as TabId, label: 'Inscriptions & Pistes', badge: tournament.registrations.length },
+        { id: 'phases' as TabId, label: 'Configuration', badge: tournament.phases.length },
+        { id: 'registrations' as TabId, label: 'Equipes & Pistes', badge: tournament.registrations.length },
         ...(groupPhases.length > 0 ? [{ id: 'pools' as TabId, label: 'Poules', badge: groupPhases.length }] : []),
-        ...(bracketPhases.length > 0 ? [{ id: 'bracket' as TabId, label: 'Bracket', badge: bracketPhases.length }] : []),
+        ...(bracketPhases.length > 0 ? [{ id: 'bracket' as TabId, label: 'Brackets', badge: bracketPhases.length }] : []),
         { id: 'planning' as TabId, label: 'Planning pistes', badge: matches.filter((m) => Boolean(m.scheduledAt)).length },
-        { id: 'planning-time' as TabId, label: 'Planning par horaire', badge: scheduleByTime.slots.length },
+        { id: 'planning-time' as TabId, label: 'Planning horaire', badge: scheduleByTime.slots.length },
         { id: 'matches' as TabId, label: 'Matchs', badge: matches.length },
     ]
 
-    const statusMeta = STATUS_META[tournament.status] ?? { label: tournament.status, cls: 'bg-slate-700 text-slate-300' }
+    const statusMeta = STATUS_META[tournament.status] ?? { label: tournament.status, cls: 'bg-slate-700 text-slate-700' }
     const allVisibleMatchIds = useMemo(() => matches.map((m) => m.id), [matches])
     const matchIdsByStatus = useMemo(() => {
         const map = new Map<string, string[]>()
@@ -557,9 +559,9 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
         })
     }
 
-    const inputCls = 'rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-    const btnPrimary = 'rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors'
-    const btnGhost = 'rounded-lg border border-indigo-500/40 px-3 py-2 text-sm text-indigo-200 hover:bg-indigo-500/10 transition-colors'
+    const inputCls = 'rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-600'
+    const btnPrimary = 'rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-50 transition-colors'
+    const btnGhost = 'rounded-lg border border-teal-600/40 px-3 py-2 text-sm text-teal-700 hover:bg-teal-600/10 transition-colors'
     const btnDanger = 'rounded-lg border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/10 transition-colors'
 
     // ── Header ────────────────────────────────────────────────────────────────
@@ -568,12 +570,12 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
             {/* Page header */}
             <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-400">{tournament.game.name}</p>
+                    <p className="text-xs uppercase tracking-widest text-slate-500">{tournament.game.name}</p>
                     <h1 className="text-2xl font-black md:text-3xl">{tournament.name}</h1>
                     {tournament.description && (
-                        <p className="mt-1 max-w-xl text-sm text-slate-400">{tournament.description}</p>
+                        <p className="mt-1 max-w-xl text-sm text-slate-500">{tournament.description}</p>
                     )}
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                         <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${statusMeta.cls}`}>
                             {statusMeta.label}
                         </span>
@@ -589,7 +591,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         <Link
                             href={`/public/${orgSlug}/${tournament.slug}`}
                             target="_blank"
-                            className="rounded-xl border border-cyan-500/40 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/10 transition"
+                            className="rounded-xl border border-teal-300 px-3 py-2 text-xs font-medium text-teal-700 hover:bg-teal-50 transition"
                         >
                             Lien public
                         </Link>
@@ -605,13 +607,13 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                     )}
                     <Link
                         href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}/bracket`}
-                        className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-medium hover:border-slate-500 transition"
+                        className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium hover:border-slate-500 transition"
                     >
                         Page bracket
                     </Link>
                     <Link
                         href={`/dashboard/org/${orgSlug}/tournaments`}
-                        className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-slate-900/60 transition"
+                        className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-white transition"
                     >
                         ← Retour
                     </Link>
@@ -619,21 +621,21 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
             </div>
 
             {/* Tab bar */}
-            <div className="flex overflow-x-auto border-b border-slate-800">
+            <div className="flex overflow-x-auto border-b border-slate-200">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                             activeTab === tab.id
-                                ? 'border-indigo-500 text-white'
-                                : 'border-transparent text-slate-400 hover:text-slate-200'
+                                ? 'border-teal-600 text-slate-900'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
                         {tab.label}
                         {tab.badge !== undefined && (
                             <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                                activeTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                                activeTab === tab.id ? 'bg-teal-700 text-slate-900' : 'bg-slate-800 text-slate-500'
                             }`}>
                                 {tab.badge}
                             </span>
@@ -650,29 +652,51 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                     <div className="space-y-6">
                         {/* Stats grid */}
                         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
                                 <p className="text-xs uppercase text-slate-500">Phases</p>
                                 <p className="mt-2 text-2xl font-black">{tournament.phases.length}</p>
                                 <p className="text-xs text-slate-500">{tournament.phases.filter((p) => p.isCompleted).length} completee(s)</p>
                             </div>
-                            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
                                 <p className="text-xs uppercase text-slate-500">Equipes</p>
                                 <p className="mt-2 text-2xl font-black">{tournament._count.registrations}</p>
                                 <p className="text-xs text-slate-500">
                                     {tournament.registrations.filter((r) => r.isConfirmed).length} confirmees
                                 </p>
                             </div>
-                            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
                                 <p className="text-xs uppercase text-slate-500">Matchs</p>
                                 <p className="mt-2 text-2xl font-black">{matches.length}</p>
                                 <p className="text-xs text-slate-500">
                                     {matches.filter((m) => m.status === 'FINISHED').length} termines
                                 </p>
                             </div>
-                            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
                                 <p className="text-xs uppercase text-slate-500">Pistes</p>
                                 <p className="mt-2 text-2xl font-black">{tournament.pitches.length}</p>
                                 <p className="text-xs text-slate-500">terrain(s) disponible(s)</p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Parcours recommande</p>
+                            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                                <button type="button" onClick={() => setActiveTab('phases')} className="rounded-lg border border-slate-300 px-3 py-2 text-left hover:bg-slate-50">
+                                    <p className="text-xs font-semibold text-teal-700">Etape 1</p>
+                                    <p className="text-sm font-semibold">Configurer les phases</p>
+                                </button>
+                                <button type="button" onClick={() => setActiveTab('registrations')} className="rounded-lg border border-slate-300 px-3 py-2 text-left hover:bg-slate-50">
+                                    <p className="text-xs font-semibold text-teal-700">Etape 2</p>
+                                    <p className="text-sm font-semibold">Inscrire equipes et pistes</p>
+                                </button>
+                                <button type="button" onClick={() => setActiveTab(groupPhases.length > 0 ? 'pools' : 'matches')} className="rounded-lg border border-slate-300 px-3 py-2 text-left hover:bg-slate-50">
+                                    <p className="text-xs font-semibold text-teal-700">Etape 3</p>
+                                    <p className="text-sm font-semibold">Generer et organiser les matchs</p>
+                                </button>
+                                <button type="button" onClick={() => setActiveTab(bracketPhases.length > 0 ? 'bracket' : 'planning')} className="rounded-lg border border-slate-300 px-3 py-2 text-left hover:bg-slate-50">
+                                    <p className="text-xs font-semibold text-teal-700">Etape 4</p>
+                                    <p className="text-sm font-semibold">Suivre bracket et planning</p>
+                                </button>
                             </div>
                         </div>
 
@@ -681,7 +705,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                             <EmptyState message="Aucune phase configuree." />
                         ) : (
                             <div className="space-y-3">
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Progression du tournoi</h2>
+                                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Progression du tournoi</h2>
                                 <div className="flex flex-col gap-0">
                                     {tournament.phases.map((phase, idx) => {
                                         const stats = matchesByPhase.get(phase.id) ?? { total: 0, finished: 0 }
@@ -695,7 +719,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
                                                         phase.isCompleted
                                                             ? 'border-emerald-500 bg-emerald-600/20 text-emerald-300'
-                                                            : 'border-slate-600 bg-slate-900 text-slate-400'
+                                                            : 'border-slate-300 bg-slate-50 text-slate-500'
                                                     }`}>
                                                         {phase.isCompleted ? '✓' : phase.order}
                                                     </div>
@@ -703,12 +727,12 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                         <div className="w-0.5 flex-1 bg-slate-800 my-1" style={{ minHeight: '24px' }} />
                                                     )}
                                                 </div>
-                                                <div className="mb-4 flex-1 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                                                <div className="mb-4 flex-1 rounded-xl border border-slate-200 bg-white p-3">
                                                     <div className="mb-2 flex items-center gap-2">
                                                         <p className="text-sm font-semibold">{phase.name}</p>
                                                         <PhaseTypeBadge type={phase.type} />
                                                         {parallelGroup && (
-                                                            <span className="rounded-md border border-cyan-500/40 bg-cyan-600/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
+                                                            <span className="rounded-md border border-teal-300 bg-teal-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-teal-700">
                                                                 Simultane: {parallelGroup}
                                                             </span>
                                                         )}
@@ -721,14 +745,14 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                     </p>
                                                     <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
                                                         <div
-                                                            className={`h-full rounded-full transition-all ${phase.isCompleted ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                                            className={`h-full rounded-full transition-all ${phase.isCompleted ? 'bg-emerald-500' : 'bg-teal-600'}`}
                                                             style={{ width: `${pct}%` }}
                                                         />
                                                     </div>
                                                     {routes.length > 0 && (
                                                         <div className="mt-2 flex flex-wrap gap-1">
                                                             {routes.map((route, i) => (
-                                                                <span key={i} className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+                                                                <span key={i} className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] text-slate-700">
                                                                     {formatRouteRule(route)} → {route.toPhaseKey || 'phase cible'}
                                                                     {route.label ? ` (${route.label})` : ''}
                                                                 </span>
@@ -743,9 +767,9 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                             </div>
                         )}
 
-                        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
                             <div className="mb-3 flex items-center justify-between">
-                                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Historique des actions</h2>
+                                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Historique des actions</h2>
                                 <span className="text-[11px] text-slate-500">{tournament.actionLogs.length} entree(s)</span>
                             </div>
 
@@ -754,10 +778,10 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                             ) : (
                                 <div className="max-h-96 space-y-1 overflow-y-auto pr-1">
                                     {tournament.actionLogs.map((log) => (
-                                        <div key={log.id} className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                                        <div key={log.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                                             <div className="flex items-start justify-between gap-3">
-                                                <p className="text-xs text-slate-200">{log.message}</p>
-                                                <span className="shrink-0 rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
+                                                <p className="text-xs text-slate-800">{log.message}</p>
+                                                <span className="shrink-0 rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
                                                     {log.actionType}
                                                 </span>
                                             </div>
@@ -776,27 +800,61 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 {/* ── Phases ─────────────────────────────────────────────────────── */}
                 {activeTab === 'phases' && (
                     <div className="space-y-4">
-                        <PhaseFlowEditor
-                            tournamentId={tournament.id}
-                            tournamentSlug={tournament.slug}
-                            orgSlug={orgSlug}
-                            phases={tournament.phases.map((phase) => ({
-                                id: phase.id,
-                                name: phase.name,
-                                type: phase.type,
-                                order: phase.order,
-                                config: phase.config,
-                            }))}
-                        />
-
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-                            <p className="font-semibold text-slate-200">Gestion du cycle de vie des phases</p>
-                            <p className="mt-1">Cloturez chaque phase apres ses matchs pour propager les qualifies vers la phase suivante et mettre a jour le statut du tournoi. Utilisez <em>Forcer la cloture</em> si certains matchs ne sont pas termines.</p>
+                        <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-2 md:grid-cols-3">
+                            {[
+                                { step: 1, label: 'Structurer les phases' },
+                                { step: 2, label: 'Verifier la progression' },
+                                { step: 3, label: 'Cloturer les phases' },
+                            ].map((item) => {
+                                const isActive = phasesStep === item.step
+                                return (
+                                    <button
+                                        key={`phase-step-${item.step}`}
+                                        type="button"
+                                        onClick={() => setPhasesStep(item.step as 1 | 2 | 3)}
+                                        className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition ${
+                                            isActive
+                                                ? 'border-teal-600 bg-teal-50 text-teal-700'
+                                                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        {item.step}. {item.label}
+                                    </button>
+                                )
+                            })}
                         </div>
 
-                        {tournament.phases.length === 0 ? (
+                        {phasesStep === 1 && (
+                            <PhaseFlowEditor
+                                tournamentId={tournament.id}
+                                tournamentSlug={tournament.slug}
+                                orgSlug={orgSlug}
+                                phases={tournament.phases.map((phase) => ({
+                                    id: phase.id,
+                                    name: phase.name,
+                                    type: phase.type,
+                                    order: phase.order,
+                                    config: phase.config,
+                                }))}
+                            />
+                        )}
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                            <p className="font-semibold text-slate-800">
+                                {phasesStep === 1 ? 'Etape 1: Structure des phases' : phasesStep === 2 ? 'Etape 2: Controle de progression' : 'Etape 3: Cloture des phases'}
+                            </p>
+                            <p className="mt-1">
+                                {phasesStep === 1
+                                    ? 'Definissez le flow (ordre, types et routes de qualification) avec le formulaire ci-dessus.'
+                                    : phasesStep === 2
+                                        ? 'Verifiez les stats de matchs, les routes de qualification et les equipes en attente avant de cloturer.'
+                                        : 'Cloturez chaque phase pour propager les qualifies vers la suite du tournoi. Utilisez Forcer la cloture si necessaire.'}
+                            </p>
+                        </div>
+
+                        {(phasesStep === 2 || phasesStep === 3) && tournament.phases.length === 0 ? (
                             <EmptyState message="Aucune phase configuree. Creez un tournoi avec des phases depuis le formulaire de creation." />
-                        ) : (
+                        ) : (phasesStep === 2 || phasesStep === 3) && (
                             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 {tournament.phases.map((phase) => {
                                     const stats = matchesByPhase.get(phase.id) ?? { total: 0, finished: 0 }
@@ -807,13 +865,13 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                     const incomingQualifiers = incomingQualifiersByPhase.get(phase.id) ?? []
                                     const waitingQualifiers = incomingQualifiers.filter((teamId) => !seededTeams.includes(teamId))
                                     return (
-                                        <div key={phase.id} className={`rounded-xl border p-4 ${phase.isCompleted ? 'border-emerald-500/30 bg-emerald-950/20' : 'border-slate-800 bg-slate-950/70'}`}>
+                                        <div key={phase.id} className={`rounded-xl border p-4 ${phase.isCompleted ? 'border-emerald-500/30 bg-emerald-950/20' : 'border-slate-200 bg-white'}`}>
                                             <div className="mb-3 flex items-start justify-between gap-2">
                                                 <div>
                                                     <span className="text-[10px] uppercase tracking-widest text-slate-500">Etape {phase.order}</span>
                                                     <p className="text-base font-bold leading-tight">{phase.name}</p>
                                                     {parallelGroup && (
-                                                        <p className="mt-1 text-[11px] text-cyan-300">Groupe parallele: {parallelGroup}</p>
+                                                        <p className="mt-1 text-[11px] text-teal-700">Groupe parallele: {parallelGroup}</p>
                                                     )}
                                                 </div>
                                                 <PhaseTypeBadge type={phase.type} />
@@ -827,7 +885,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                 </div>
                                                 <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
                                                     <div
-                                                        className={`h-full rounded-full transition-all ${phase.isCompleted ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                                        className={`h-full rounded-full transition-all ${phase.isCompleted ? 'bg-emerald-500' : 'bg-teal-600'}`}
                                                         style={{ width: `${pct}%` }}
                                                     />
                                                 </div>
@@ -835,10 +893,10 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
 
                                             {/* Routes */}
                                             {routes.length > 0 && (
-                                                <div className="mb-3 space-y-1 rounded-lg border border-slate-800 bg-slate-900/50 p-2">
-                                                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Qualifications sortantes</p>
+                                                <div className="mb-3 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                                    <p className="text-[10px] uppercase tracking-wider text-slate-500">Qualifications sortantes</p>
                                                     {routes.map((route, i) => (
-                                                        <div key={i} className="rounded-md border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-300">
+                                                        <div key={i} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
                                                             <span>{formatRouteRule(route)}</span>
                                                             <span className="ml-1 text-slate-500">→ {route.toPhaseKey || 'inconnue'}{route.label ? ` (${route.label})` : ''}</span>
                                                         </div>
@@ -847,13 +905,13 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                             )}
 
                                             {(seededTeams.length > 0 || waitingQualifiers.length > 0) && (
-                                                <div className="mb-3 space-y-2 rounded-lg border border-indigo-500/30 bg-indigo-950/20 p-2">
+                                                <div className="mb-3 space-y-2 rounded-lg border border-teal-600/30 bg-teal-50 p-2">
                                                     {seededTeams.length > 0 && (
                                                         <div>
-                                                            <p className="text-[10px] uppercase tracking-wider text-indigo-300">Equipes placees sur cette phase</p>
+                                                            <p className="text-[10px] uppercase tracking-wider text-teal-700">Equipes placees sur cette phase</p>
                                                             <div className="mt-1 flex flex-wrap gap-1">
                                                                 {seededTeams.map((teamId) => (
-                                                                    <span key={`${phase.id}-seeded-${teamId}`} className="rounded-md bg-slate-800 px-2 py-0.5 text-[11px] text-slate-200">
+                                                                    <span key={`${phase.id}-seeded-${teamId}`} className="rounded-md bg-slate-800 px-2 py-0.5 text-[11px] text-slate-800">
                                                                         {teamNameById.get(teamId) ?? teamId}
                                                                     </span>
                                                                 ))}
@@ -875,39 +933,59 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                 </div>
                                             )}
 
-                                            {/* Close form */}
-                                            <form action={va(closeTournamentPhase)} className="space-y-2 rounded-lg border border-slate-800 bg-slate-900/50 p-2">
-                                                <input type="hidden" name="tournamentId" value={tournament.id} />
-                                                <input type="hidden" name="orgSlug" value={orgSlug} />
-                                                <input type="hidden" name="tournamentSlug" value={tournament.slug} />
-                                                <input type="hidden" name="phaseId" value={phase.id} />
-                                                {phase.isCompleted ? (
-                                                    <p className="text-center text-[11px] font-semibold text-emerald-300">✓ Phase cloturee — qualifies propages</p>
-                                                ) : (
-                                                    <>
-                                                        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-400 hover:text-slate-200">
-                                                            <input name="forceClose" type="checkbox" className="h-3.5 w-3.5 accent-indigo-500" />
-                                                            Forcer la cloture (matchs non termines)
-                                                        </label>
-                                                        <button type="submit" className="w-full rounded-md border border-indigo-500/40 px-2 py-1.5 text-[11px] font-medium text-indigo-200 hover:bg-indigo-500/10 transition-colors">
-                                                            Cloturer et propager les qualifies →
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </form>
+                                            {phasesStep === 3 && (
+                                                <form action={va(closeTournamentPhase)} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                                    <input type="hidden" name="tournamentId" value={tournament.id} />
+                                                    <input type="hidden" name="orgSlug" value={orgSlug} />
+                                                    <input type="hidden" name="tournamentSlug" value={tournament.slug} />
+                                                    <input type="hidden" name="phaseId" value={phase.id} />
+                                                    {phase.isCompleted ? (
+                                                        <p className="text-center text-[11px] font-semibold text-emerald-700">✓ Phase cloturee - qualifies propages</p>
+                                                    ) : (
+                                                        <>
+                                                            <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-500 hover:text-slate-800">
+                                                                <input name="forceClose" type="checkbox" className="h-3.5 w-3.5 accent-teal-600" />
+                                                                Forcer la cloture (matchs non termines)
+                                                            </label>
+                                                            <button type="submit" className="w-full rounded-md border border-teal-600/40 px-2 py-1.5 text-[11px] font-medium text-teal-700 hover:bg-teal-600/10 transition-colors">
+                                                                Cloturer et propager les qualifies →
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </form>
+                                            )}
                                         </div>
                                     )
                                 })}
                             </div>
                         )}
+
+                        <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-3">
+                            <button
+                                type="button"
+                                onClick={() => setPhasesStep((s) => Math.max(1, s - 1) as 1 | 2 | 3)}
+                                disabled={phasesStep === 1}
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                            >
+                                Etape precedente
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPhasesStep((s) => Math.min(3, s + 1) as 1 | 2 | 3)}
+                                disabled={phasesStep === 3}
+                                className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-40"
+                            >
+                                Etape suivante
+                            </button>
+                        </div>
                     </div>
                 )}
 
                 {/* ── Inscriptions & Pistes ──────────────────────────────────────── */}
                 {activeTab === 'registrations' && (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-                            <p className="font-semibold text-slate-200">Avant de commencer</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                            <p className="font-semibold text-slate-800">Avant de commencer</p>
                             <p className="mt-1">Suivez ces etapes pour preparer votre tournoi : inscrivez les equipes, confirmez leur participation, puis configurez les pistes de jeu disponibles.</p>
                         </div>
 
@@ -934,7 +1012,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                     </p>
                                     <input type="number" name="seed" min={1} placeholder="Seed (optionnel)" className={inputCls} />
                                     <label className={`flex cursor-pointer items-center gap-2 ${inputCls}`}>
-                                        <input name="isConfirmed" type="checkbox" className="h-4 w-4 accent-indigo-500" />
+                                        <input name="isConfirmed" type="checkbox" className="h-4 w-4 accent-teal-600" />
                                         Confirmer directement
                                     </label>
                                     <button
@@ -951,7 +1029,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                         <p className="text-center text-xs text-slate-500 py-4">Aucune equipe inscrite.</p>
                                     ) : (
                                         tournament.registrations.map((reg) => (
-                                            <div key={reg.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                                            <div key={reg.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className={`h-2 w-2 rounded-full ${reg.isConfirmed ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                                                     <p className="text-sm font-semibold">{reg.team.name}</p>
@@ -1001,7 +1079,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                         <p className="text-center text-xs text-slate-500 py-4">Aucune piste configuree. Ajoutez au moins une piste avant de generer des matchs.</p>
                                     ) : (
                                         tournament.pitches.map((pitch) => (
-                                            <div key={pitch.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                                            <div key={pitch.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                                                 <div>
                                                     <p className="text-sm font-semibold">{pitch.name}</p>
                                                     <p className="text-xs text-slate-500">Phase : {pitch.phase?.name || 'Toutes'}</p>
@@ -1025,8 +1103,8 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 {/* ── Poules ─────────────────────────────────────────────────────── */}
                 {activeTab === 'pools' && (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-                            <p className="font-semibold text-slate-200">Guide de gestion des poules</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                            <p className="font-semibold text-slate-800">Guide de gestion des poules</p>
                             <p className="mt-1">Suivez les 4 etapes ci-dessous pour chaque phase de type poules. Commencez par configurer le nombre de poules, placez les equipes, generez les matchs, puis suivez les classements en direct.</p>
                         </div>
 
@@ -1036,7 +1114,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                             groupPhases.map((phase) => {
                                 const groupConfig = readGroupConfig(phase.config)
                                 return (
-                                    <div key={phase.id} className="space-y-4 rounded-2xl border border-slate-700 bg-slate-950/40 p-4">
+                                    <div key={phase.id} className="space-y-4 rounded-2xl border border-slate-300 bg-white p-4">
                                         {/* Phase header */}
                                         <div className="flex items-center justify-between">
                                             <div>
@@ -1088,7 +1166,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                 <input type="hidden" name="tournamentSlug" value={tournament.slug} />
                                                 <input type="hidden" name="phaseId" value={phase.id} />
                                                 <label className={`flex cursor-pointer items-center gap-2 ${inputCls}`}>
-                                                    <input name="confirmedOnly" type="checkbox" defaultChecked className="h-4 w-4 accent-indigo-500" />
+                                                    <input name="confirmedOnly" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
                                                     Equipes confirmees uniquement
                                                 </label>
                                                 <button type="submit" className={btnGhost}>
@@ -1147,7 +1225,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                     const gIdx = i + 1
                                                     const standings = computeGroupStandings(gIdx, groupConfig, phase.id, matches, teamNameById)
                                                     return (
-                                                        <div key={`${phase.id}-standings-${gIdx}`} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2">
+                                                        <div key={`${phase.id}-standings-${gIdx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                                                             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300">Poule {gIdx}</p>
                                                             {standings.length === 0 ? (
                                                                 <p className="text-xs text-slate-500">Aucune equipe.</p>
@@ -1164,7 +1242,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                                     </thead>
                                                                     <tbody>
                                                                         {standings.map((row, rank) => (
-                                                                            <tr key={row.teamId} className={`border-t border-slate-800 ${rank === 0 ? 'text-amber-200' : 'text-slate-200'}`}>
+                                                                            <tr key={row.teamId} className={`border-t border-slate-200 ${rank === 0 ? 'text-amber-200' : 'text-slate-800'}`}>
                                                                                 <td className="px-1 py-0.5 font-semibold">{rank + 1}</td>
                                                                                 <td className="px-1 py-0.5 truncate max-w-[80px]">{row.teamName}</td>
                                                                                 <td className="px-1 py-0.5 text-right font-bold">{row.points}</td>
@@ -1192,8 +1270,8 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 {/* ── Bracket ────────────────────────────────────────────────────── */}
                 {activeTab === 'bracket' && (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-                            <p className="font-semibold text-slate-200">Visualisation bracket</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                            <p className="font-semibold text-slate-800">Visualisation bracket</p>
                             <p className="mt-1">Les colonnes representent les rounds. Cliquez sur un match pour voir son detail et mettre a jour le score. Pour les phases <em>Personnalisees</em>, generez d'abord la structure du bracket ci-dessous.</p>
                         </div>
 
@@ -1218,7 +1296,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                         }))
 
                                     return (
-                                        <div key={phase.id} className="space-y-3 rounded-2xl border border-slate-700 bg-slate-950/40 p-4">
+                                        <div key={phase.id} className="space-y-3 rounded-2xl border border-slate-300 bg-white p-4">
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <p className="text-xs uppercase tracking-wider text-slate-500">Etape {phase.order}</p>
@@ -1250,7 +1328,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                             <input name="startAt" type="datetime-local" className={`${inputCls} w-full`} />
                                                         </div>
                                                         <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
-                                                            <input name="includeLosersReplay" type="checkbox" defaultChecked className="h-4 w-4 accent-indigo-500" />
+                                                            <input name="includeLosersReplay" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
                                                             Perdants rejouent (classement complet)
                                                         </label>
                                                         <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
@@ -1300,8 +1378,8 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 {/* ── Matchs ─────────────────────────────────────────────────────── */}
                 {activeTab === 'planning' && (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-                            <p className="font-semibold text-slate-200">Planning par piste et tranche horaire</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                            <p className="font-semibold text-slate-800">Planning par piste et tranche horaire</p>
                             <p className="mt-1">Visualisez les matchs par piste puis par horaire exact pour voir les matchs qui demarrent au meme moment.</p>
                         </div>
 
@@ -1310,9 +1388,9 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         ) : (
                             <div className="grid gap-4 xl:grid-cols-2">
                                 {scheduleByPitch.map((pitch) => (
-                                    <div key={`planning-${pitch.pitchName}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+                                    <div key={`planning-${pitch.pitchName}`} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <p className="text-sm font-bold text-cyan-300">{pitch.pitchName}</p>
+                                            <p className="text-sm font-bold text-teal-700">{pitch.pitchName}</p>
                                             <span className="text-[11px] text-slate-500">{pitch.slots.length} horaire(s)</span>
                                         </div>
 
@@ -1321,11 +1399,11 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                         ) : (
                                             <div className="space-y-2">
                                                 {pitch.slots.map((slot) => (
-                                                    <div key={`${pitch.pitchName}-${slot.slotStart}`} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2">
+                                                    <div key={`${pitch.pitchName}-${slot.slotStart}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                                                         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-amber-300">{slot.label}</p>
                                                         <div className="space-y-1.5">
                                                             {slot.matches.map((match) => (
-                                                                <div key={`slot-${match.id}`} className="rounded-md border border-slate-800 bg-slate-950 px-2 py-1.5">
+                                                                <div key={`slot-${match.id}`} className="rounded-md border border-slate-200 bg-white px-2 py-1.5">
                                                                     <p className="text-xs font-semibold">
                                                                         {match.homeTeam?.name || 'TBD'} vs {match.awayTeam?.name || 'TBD'}
                                                                     </p>
@@ -1343,11 +1421,11 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                         )}
 
                                         {pitch.unscheduled.length > 0 && (
-                                            <div className="rounded-lg border border-dashed border-slate-700 bg-slate-900/40 p-2">
-                                                <p className="mb-1 text-[11px] uppercase tracking-wider text-slate-400">Non planifies</p>
+                                            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-2">
+                                                <p className="mb-1 text-[11px] uppercase tracking-wider text-slate-500">Non planifies</p>
                                                 <div className="space-y-1">
                                                     {pitch.unscheduled.map((match) => (
-                                                        <p key={`unscheduled-${match.id}`} className="text-xs text-slate-300">
+                                                        <p key={`unscheduled-${match.id}`} className="text-xs text-slate-700">
                                                             {match.phase.name}: {match.homeTeam?.name || 'TBD'} vs {match.awayTeam?.name || 'TBD'}
                                                         </p>
                                                     ))}
@@ -1363,8 +1441,8 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
 
                 {activeTab === 'planning-time' && (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-                            <p className="font-semibold text-slate-200">Planning par horaire</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                            <p className="font-semibold text-slate-800">Planning par horaire</p>
                             <p className="mt-1">Tous les matchs regroupes par horaire exact, puis tries par piste pour chaque horaire.</p>
                         </div>
 
@@ -1373,19 +1451,19 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         ) : (
                             <div className="space-y-3">
                                 {scheduleByTime.slots.length === 0 ? (
-                                    <p className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-500">
+                                    <p className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-500">
                                         Aucun match planifie avec une date/heure.
                                     </p>
                                 ) : (
                                     scheduleByTime.slots.map((slot) => (
-                                        <div key={`planning-time-${slot.at}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                                        <div key={`planning-time-${slot.at}`} className="rounded-xl border border-slate-200 bg-white p-3">
                                             <div className="mb-2 flex items-center justify-between">
                                                 <p className="text-sm font-bold text-amber-300">{slot.label}</p>
                                                 <span className="text-[11px] text-slate-500">{slot.matches.length} match(s)</span>
                                             </div>
                                             <div className="space-y-1.5">
                                                 {slot.matches.map((match) => (
-                                                    <div key={`planning-time-match-${match.id}`} className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2">
+                                                    <div key={`planning-time-match-${match.id}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                                                         <p className="text-xs font-semibold">
                                                             {match.homeTeam?.name || 'TBD'} vs {match.awayTeam?.name || 'TBD'}
                                                         </p>
@@ -1402,11 +1480,11 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                 )}
 
                                 {scheduleByTime.unscheduled.length > 0 && (
-                                    <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-3">
-                                        <p className="mb-1 text-[11px] uppercase tracking-wider text-slate-400">Matchs non planifies</p>
+                                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                                        <p className="mb-1 text-[11px] uppercase tracking-wider text-slate-500">Matchs non planifies</p>
                                         <div className="space-y-1">
                                             {scheduleByTime.unscheduled.map((match) => (
-                                                <p key={`planning-time-unscheduled-${match.id}`} className="text-xs text-slate-300">
+                                                <p key={`planning-time-unscheduled-${match.id}`} className="text-xs text-slate-700">
                                                     {match.pitch.name}: {match.homeTeam?.name || 'TBD'} vs {match.awayTeam?.name || 'TBD'} ({match.phase.name})
                                                 </p>
                                             ))}
@@ -1421,9 +1499,9 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 {/* ── Matchs ─────────────────────────────────────────────────────── */}
                 {activeTab === 'matches' && (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-                            <p className="font-semibold text-slate-200">Planification et suivi des matchs</p>
-                            <p className="mt-1">Etape 1 : generez les matchs automatiquement (round-robin) ou creez-les manuellement. Etape 2 : mettez a jour les scores et statuts dans l'editeur global en bas de page.</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                            <p className="font-semibold text-slate-800">Planification et suivi des matchs</p>
+                            <p className="mt-1">Suivez les etapes dans l'ordre pour garder une gestion simple: generer, ajouter, controler, puis mettre a jour en masse.</p>
                             <form
                                 action={va(deleteAllTournamentMatches)}
                                 className="mt-3"
@@ -1435,13 +1513,39 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                 <input type="hidden" name="tournamentId" value={tournament.id} />
                                 <input type="hidden" name="orgSlug" value={orgSlug} />
                                 <input type="hidden" name="tournamentSlug" value={tournament.slug} />
-                                <button type="submit" className="rounded-md border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/10 transition-colors">
+                                <button type="submit" className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition-colors">
                                     Supprimer tous les matchs
                                 </button>
                             </form>
                         </div>
 
+                        <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-2 md:grid-cols-4">
+                            {[
+                                { step: 1, label: 'Generer' },
+                                { step: 2, label: 'Ajouter' },
+                                { step: 3, label: 'Verifier' },
+                                { step: 4, label: 'Mettre a jour' },
+                            ].map((item) => {
+                                const isActive = matchesStep === item.step
+                                return (
+                                    <button
+                                        key={`matches-step-${item.step}`}
+                                        type="button"
+                                        onClick={() => setMatchesStep(item.step as 1 | 2 | 3 | 4)}
+                                        className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition ${
+                                            isActive
+                                                ? 'border-teal-600 bg-teal-50 text-teal-700'
+                                                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        {item.step}. {item.label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+
                         {/* Step 1: Auto generation */}
+                        {matchesStep === 1 && (
                         <StepSection num={1} title="Generation automatique round-robin" desc="Genere tous les matchs d'une phase en respectant les disponibilites des pistes et des equipes. Pour une phase de poules, la generation suit les placements de chaque poule.">
                             <form action={va(generatePhaseRoundRobinMatches)} className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
                                 <input type="hidden" name="tournamentId" value={tournament.id} />
@@ -1471,7 +1575,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <label className={`flex cursor-pointer items-center gap-2 ${inputCls}`}>
-                                        <input name="confirmedOnly" type="checkbox" defaultChecked className="h-4 w-4 accent-indigo-500" />
+                                        <input name="confirmedOnly" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
                                         Confirmees uniquement
                                     </label>
                                     <button
@@ -1490,20 +1594,24 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                 </p>
                             )}
                         </StepSection>
+                        )}
 
                         {/* Step 2: Manual match creation */}
-                        <StepSection num={2} title="Creer des matchs manuellement" desc="Creez un match individuel ou importez plusieurs matchs d'un coup via le mode groupé." color="cyan">
+                        {matchesStep === 2 && (
+                        <StepSection num={2} title="Creer des matchs manuellement" desc="Creez un match individuel ou importez plusieurs matchs d'un coup via le mode groupe." color="cyan">
                             {/* Mode toggle */}
-                            <div className="mb-3 flex gap-2 border-b border-slate-800 pb-2">
+                            <div className="mb-3 flex gap-2 border-b border-slate-200 pb-2">
                                 <button
+                                    type="button"
                                     onClick={() => setMatchCreateMode('single')}
-                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${matchCreateMode === 'single' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${matchCreateMode === 'single' ? 'bg-teal-700 text-white' : 'text-slate-500 hover:text-slate-800'}`}
                                 >
                                     Match unique
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setMatchCreateMode('bulk')}
-                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${matchCreateMode === 'bulk' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${matchCreateMode === 'bulk' ? 'bg-teal-700 text-white' : 'text-slate-500 hover:text-slate-800'}`}
                                 >
                                     Ajout groupé (plusieurs matchs)
                                 </button>
@@ -1563,19 +1671,21 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                 />
                             )}
                         </StepSection>
+                        )}
 
                         {/* Step 3: Match list */}
+                        {matchesStep === 3 && (
                         <StepSection num={3} title="Liste des matchs" desc={`${matches.length} match(s) planifie(s) — cliquez sur Detail pour voir et modifier un match.`} color="emerald">
                             {matches.length === 0 ? (
                                 <p className="text-center text-xs text-slate-500 py-4">Aucun match planifie. Utilisez la generation automatique ou la creation manuelle ci-dessus.</p>
                             ) : (
                                 <div className="space-y-2">
-                                    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2 md:flex-row md:items-center md:justify-between">
+                                    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2 md:flex-row md:items-center md:justify-between">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <button
                                                 type="button"
                                                 onClick={() => setSelectedMatchIds(allSelected ? [] : allVisibleMatchIds)}
-                                                className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-800 hover:bg-slate-800"
                                             >
                                                 {allSelected ? 'Tout deselec.' : 'Tout selectionner'}
                                             </button>
@@ -1591,15 +1701,14 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                         disabled={!hasAny}
                                                         className={`rounded-md border px-2 py-1 text-xs transition-colors disabled:opacity-40 ${
                                                             allThisStatusSelected
-                                                                ? 'border-indigo-500/60 bg-indigo-600/20 text-indigo-200'
-                                                                : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                                                                ? 'border-teal-600/60 bg-teal-700/20 text-teal-700'
+                                                                : 'border-slate-300 text-slate-700 hover:bg-slate-800'
                                                         }`}
                                                     >
                                                         {status} ({ids.length})
                                                     </button>
                                                 )
                                             })}
-                                            <span className="text-xs text-slate-400">{selectedCount} selectionne(s)</span>
                                         </div>
 
                                         <form action={va(deleteSelectedTournamentMatches)} className="flex items-center gap-2">
@@ -1612,7 +1721,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                             <button
                                                 type="submit"
                                                 disabled={selectedCount === 0}
-                                                className="rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                                                className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
                                             >
                                                 Supprimer la selection
                                             </button>
@@ -1620,7 +1729,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                     </div>
 
                                     {matches.map((match) => (
-                                        <div key={match.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                                        <div key={match.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                                             <div className="min-w-0">
                                                 <p className="truncate text-sm font-semibold">
                                                     {match.homeTeam?.name || 'TBD'} vs {match.awayTeam?.name || 'TBD'}
@@ -1649,20 +1758,20 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                             return prev.filter((id) => id !== match.id)
                                                         })
                                                     }}
-                                                    className="h-4 w-4 accent-indigo-500"
+                                                    className="h-4 w-4 accent-teal-600"
                                                     aria-label={`Selectionner le match ${match.id}`}
                                                 />
                                                 <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                                                    match.status === 'FINISHED' ? 'bg-emerald-600/20 text-emerald-300'
-                                                    : match.status === 'LIVE' ? 'bg-amber-600/20 text-amber-300'
-                                                    : match.status === 'CANCELLED' ? 'bg-red-600/20 text-red-300'
-                                                    : 'bg-slate-700 text-slate-300'
+                                                    match.status === 'FINISHED' ? 'bg-emerald-100 text-emerald-700'
+                                                    : match.status === 'LIVE' ? 'bg-amber-100 text-amber-700'
+                                                    : match.status === 'CANCELLED' ? 'bg-red-100 text-red-700'
+                                                    : 'bg-slate-100 text-slate-700'
                                                 }`}>
                                                     {match.status}
                                                 </span>
                                                 <Link
                                                     href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}/matches/${match.id}`}
-                                                    className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:bg-slate-800 transition-colors"
+                                                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs hover:bg-slate-800 transition-colors"
                                                 >
                                                     Detail →
                                                 </Link>
@@ -1679,9 +1788,10 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                 </div>
                             )}
                         </StepSection>
+                        )}
 
                         {/* Step 4: Bulk editor */}
-                        {matches.length > 0 && (
+                        {matchesStep === 4 && matches.length > 0 && (
                             <StepSection num={4} title="Editeur global des scores et statuts" desc="Modifiez plusieurs matchs a la fois et sauvegardez en une seule action." color="amber">
                                 <MatchBulkEditor
                                     tournamentId={tournament.id}
@@ -1704,6 +1814,25 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                 />
                             </StepSection>
                         )}
+
+                        <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-3">
+                            <button
+                                type="button"
+                                onClick={() => setMatchesStep((s) => Math.max(1, s - 1) as 1 | 2 | 3 | 4)}
+                                disabled={matchesStep === 1}
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                            >
+                                Etape precedente
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMatchesStep((s) => Math.min(4, s + 1) as 1 | 2 | 3 | 4)}
+                                disabled={matchesStep === 4}
+                                className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-40"
+                            >
+                                Etape suivante
+                            </button>
+                        </div>
                     </div>
                 )}
 

@@ -84,7 +84,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
     };
 
     return (
-        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h3 className="text-lg font-bold">Edition rapide des matchs</h3>
@@ -98,7 +98,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                     <button
                         type="submit"
                         disabled={isPending || updates.length === 0}
-                        className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-60"
+                        className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold hover:bg-teal-600 disabled:opacity-60"
                     >
                         {isPending ? "Sauvegarde..." : `Sauvegarder (${updates.length})`}
                     </button>
@@ -122,7 +122,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                     if (!row) return null;
 
                     return (
-                        <div key={`bulk-${match.id}`} className="grid gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-2 md:grid-cols-12">
+                        <div key={`bulk-${match.id}`} className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 md:grid-cols-12">
                             <div className="md:col-span-3">
                                 <p className="text-xs font-semibold">{match.homeTeamName} vs {match.awayTeamName}</p>
                                 <p className="text-[11px] text-slate-500">{match.phaseName} • {match.pitchName}</p>
@@ -132,7 +132,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                 <select
                                     value={row.status}
                                     onChange={(event) => updateRow(match.id, { status: event.target.value as MatchStatus })}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs"
+                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
                                 >
                                     <option value="SCHEDULED">SCHEDULED</option>
                                     <option value="LIVE">LIVE</option>
@@ -149,7 +149,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                         const value = event.target.value;
                                         updateRow(match.id, { homeScore: value === "" ? null : Number(value) });
                                     }}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs"
+                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
                                     placeholder="Home"
                                 />
                             </div>
@@ -162,7 +162,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                         const value = event.target.value;
                                         updateRow(match.id, { awayScore: value === "" ? null : Number(value) });
                                     }}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs"
+                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
                                     placeholder="Away"
                                 />
                             </div>
@@ -170,7 +170,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                 <input
                                     value={row.notes}
                                     onChange={(event) => updateRow(match.id, { notes: event.target.value })}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs"
+                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
                                     placeholder="Notes"
                                 />
                             </div>

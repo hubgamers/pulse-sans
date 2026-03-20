@@ -10,7 +10,7 @@ export default async function DashboardOrgCreateTeam({
     const org = await getOrganizationBySlug(slug);
 
     if (!org) {
-        return <div className="text-slate-300">Organisation introuvable.</div>;
+        return <div className="text-slate-700">Organisation introuvable.</div>;
     }
 
     return <TeamCreateForm organizationId={org.id} organizationName={org.name} orgSlug={slug} />;

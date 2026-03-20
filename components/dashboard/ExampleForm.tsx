@@ -36,19 +36,19 @@ export default function CreateOrgForm() {
 
     return (
         <div className="w-full max-w-xl mx-auto">
-            <form action={formAction} className="space-y-8 bg-[#0d1117] p-8 rounded-2xl shadow-2xl">
+            <form action={formAction} className="space-y-8 bg-white border border-slate-200 p-8 rounded-2xl shadow-xl">
 
                 {/* Header du formulaire */}
                 <div className="space-y-2">
-                    <h2 className="text-2xl font-bold text-white tracking-tight">Nouvelle Organisation</h2>
-                    <p className="text-slate-400 text-sm">Configurez votre espace de compétition en quelques secondes.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Nouvelle Organisation</h2>
+                    <p className="text-slate-500 text-sm">Configurez votre espace de compétition en quelques secondes.</p>
                 </div>
 
                 <div className="space-y-6">
                     {/* Champ Nom */}
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                            <Trophy size={16} className="text-indigo-400" /> Nom de l&apos;organisation
+                        <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                            <Trophy size={16} className="text-teal-700" /> Nom de l&apos;organisation
                         </label>
                         <input
                             name="name"
@@ -56,7 +56,7 @@ export default function CreateOrgForm() {
                             value={name}
                             onChange={handleNameChange}
                             placeholder="Ex: Thunder Esport"
-                            className="w-full bg-[#131920] border border-slate-700 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                            className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-600/50 focus:border-teal-600 transition-all"
                         />
                         {state.errors?.name && (
                             <p className="text-red-400 text-xs mt-1 animate-pulse">{state.errors.name[0]}</p>
@@ -65,8 +65,8 @@ export default function CreateOrgForm() {
 
                     {/* Champ Slug */}
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                            <Fingerprint size={16} className="text-indigo-400" /> Identifiant unique (Slug)
+                        <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                            <Fingerprint size={16} className="text-teal-700" /> Identifiant unique (Slug)
                         </label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm select-none font-mono">
@@ -77,7 +77,7 @@ export default function CreateOrgForm() {
                                 type="text"
                                 value={slug}
                                 onChange={handleSlugChange}
-                                className="w-full bg-[#131920] border border-slate-700 rounded-xl pl-[62px] pr-4 py-3 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                                className="w-full bg-white border border-slate-300 rounded-xl pl-[62px] pr-4 py-3 text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-teal-600/50 focus:border-teal-600 transition-all"
                             />
                         </div>
                         {state.errors?.slug && (
@@ -87,14 +87,14 @@ export default function CreateOrgForm() {
 
                     {/* Select Type */}
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                            <Activity size={16} className="text-indigo-400" /> Type de structure
+                        <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                            <Activity size={16} className="text-teal-700" /> Type de structure
                         </label>
                         <div className="grid grid-cols-2 gap-4">
                             {['SPORT', 'ESPORT'].map((type) => (
                                 <label key={type} className="relative group cursor-pointer">
                                     <input type="radio" name="type" value={type} defaultChecked={type === 'ESPORT'} className="peer sr-only" />
-                                    <div className="p-4 bg-[#131920] border border-slate-700 rounded-xl text-center text-sm font-semibold text-slate-400 peer-checked:bg-indigo-500/10 peer-checked:border-indigo-500 peer-checked:text-indigo-400 transition-all group-hover:border-slate-500">
+                                    <div className="p-4 bg-white border border-slate-300 rounded-xl text-center text-sm font-semibold text-slate-500 peer-checked:bg-teal-50 peer-checked:border-teal-600 peer-checked:text-teal-700 transition-all group-hover:border-slate-400">
                                         {type === 'SPORT' ? '⚽ Sport' : '🎮 Esport'}
                                     </div>
                                 </label>
@@ -115,7 +115,7 @@ export default function CreateOrgForm() {
                 <button
                     type="submit"
                     disabled={isPending}
-                    className="w-full group relative flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-4 rounded-xl transition-all overflow-hidden shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)]"
+                    className="w-full group relative flex items-center justify-center gap-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold py-4 rounded-xl transition-all overflow-hidden shadow-[0_0_20px_rgba(15,118,110,0.28)] hover:shadow-[0_0_30px_rgba(15,118,110,0.4)]"
                 >
                     {isPending ? (
                         <>

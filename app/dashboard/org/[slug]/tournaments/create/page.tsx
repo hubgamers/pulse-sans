@@ -12,7 +12,7 @@ export default async function DashboardOrgCreateTournament({
     const org = await getOrganizationBySlug(slug)
 
     if (!org) {
-        return <div className="text-slate-300">Organisation introuvable.</div>
+        return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
     const games = await prisma.game.findMany({
@@ -22,12 +22,12 @@ export default async function DashboardOrgCreateTournament({
 
     if (games.length === 0) {
         return (
-            <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-6 text-slate-200">
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 text-slate-800">
                 <h1 className="text-xl font-black">Impossible de creer un tournoi</h1>
-                <p className="text-sm text-slate-400">Aucun jeu n'est configure. Ajoutez d'abord un jeu depuis l'administration.</p>
+                <p className="text-sm text-slate-500">Aucun jeu n'est configure. Ajoutez d'abord un jeu depuis l'administration.</p>
                 <Link
                     href={`/dashboard/org/${slug}/tournaments`}
-                    className="inline-flex items-center rounded-xl border border-slate-700 px-4 py-2 text-sm hover:bg-slate-900/70"
+                    className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-white"
                 >
                     Retour aux tournois
                 </Link>

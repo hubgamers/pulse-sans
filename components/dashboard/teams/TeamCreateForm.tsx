@@ -47,19 +47,19 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
     };
 
     return (
-        <div className="space-y-6 text-white">
+        <div className="space-y-6 text-slate-900">
             <div>
-                <p className="text-xs uppercase tracking-widest text-slate-400">{organizationName}</p>
+                <p className="text-xs uppercase tracking-widest text-slate-500">{organizationName}</p>
                 <h1 className="text-2xl md:text-3xl font-black">Creer une equipe</h1>
-                <p className="mt-2 text-sm text-slate-400">Ajoute une nouvelle equipe a ton organisation.</p>
+                <p className="mt-2 text-sm text-slate-500">Ajoute une nouvelle equipe a ton organisation.</p>
             </div>
 
-            <form action={formAction} className="space-y-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-5 md:p-7">
+            <form action={formAction} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 md:p-7">
                 <input type="hidden" name="organizationId" value={organizationId} />
 
                 <div className="grid gap-4 md:grid-cols-2">
                     <div>
-                        <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
                             <Shield size={14} /> Nom de l&apos;equipe
                         </label>
                         <input
@@ -68,13 +68,13 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
                             onChange={onNameChange}
                             required
                             placeholder="Thunder Wolves"
-                            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none"
+                            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
                         />
                         <FieldError error={state.errors?.name} />
                     </div>
 
                     <div>
-                        <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
                             <LinkIcon size={14} /> Slug
                         </label>
                         <input
@@ -83,7 +83,7 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
                             onChange={onSlugChange}
                             required
                             placeholder="thunder-wolves"
-                            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none"
+                            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
                         />
                         <p className="mt-1 text-xs text-slate-500">URL: /dashboard/org/{orgSlug}/teams/{slug || "..."}</p>
                         <FieldError error={state.errors?.slug} />
@@ -91,13 +91,13 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
                 </div>
 
                 <div>
-                    <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
                         <ImageIcon size={14} /> Logo URL (optionnel)
                     </label>
                     <input
                         name="logoUrl"
                         placeholder="https://cdn.example.com/team-logo.png"
-                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
                     />
                     <FieldError error={state.errors?.logoUrl} />
                 </div>
@@ -117,14 +117,14 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
                     <button
                         type="submit"
                         disabled={isPending}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold hover:bg-indigo-500 transition disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold hover:bg-teal-600 transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         <Save size={15} /> {isPending ? "Creation..." : "Creer l'equipe"}
                     </button>
 
                     <a
                         href={`/dashboard/org/${orgSlug}/teams`}
-                        className="inline-flex items-center justify-center rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold hover:bg-slate-900/60"
+                        className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-white"
                     >
                         Retour aux equipes
                     </a>

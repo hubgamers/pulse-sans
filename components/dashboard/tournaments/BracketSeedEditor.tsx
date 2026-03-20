@@ -84,7 +84,7 @@ export default function BracketSeedEditor({
     const byId = useMemo(() => new Map(rows.map((r) => [r.matchId, r])), [rows])
 
     return (
-        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
             <div className="flex items-center justify-between">
                 <div>
                     <h4 className="text-sm font-semibold">Affectation des equipes (Round 1)</h4>
@@ -99,7 +99,7 @@ export default function BracketSeedEditor({
                     <button
                         type="submit"
                         disabled={isPending || updates.length === 0}
-                        className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
+                        className="rounded-md bg-teal-700 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-teal-600 disabled:opacity-60"
                     >
                         {isPending ? 'Sauvegarde...' : `Sauvegarder (${updates.length})`}
                     </button>
@@ -123,15 +123,15 @@ export default function BracketSeedEditor({
                     const source = byId.get(row.matchId)
                     if (!source) return null
                     return (
-                        <div key={`seed-${row.matchId}`} className="grid gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2 md:grid-cols-12">
+                        <div key={`seed-${row.matchId}`} className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 md:grid-cols-12">
                             <div className="md:col-span-2">
-                                <p className="text-xs font-semibold text-cyan-300">{source.bracketPos || 'R1'}</p>
+                                <p className="text-xs font-semibold text-teal-700">{source.bracketPos || 'R1'}</p>
                             </div>
                             <div className="md:col-span-5">
                                 <select
                                     value={row.homeTeamId ?? ''}
                                     onChange={(event) => updateRow(row.matchId, { homeTeamId: event.target.value || null })}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs"
+                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
                                 >
                                     <option value="">Equipe domicile</option>
                                     {teamOptions.map((team) => (
@@ -145,7 +145,7 @@ export default function BracketSeedEditor({
                                 <select
                                     value={row.awayTeamId ?? ''}
                                     onChange={(event) => updateRow(row.matchId, { awayTeamId: event.target.value || null })}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs"
+                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
                                 >
                                     <option value="">Equipe exterieur</option>
                                     {teamOptions.map((team) => (

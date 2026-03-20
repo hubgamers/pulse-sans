@@ -58,7 +58,7 @@ export default function CreateOrganisationPage() {
     }));
 
     return (
-        <div className="min-h-screen bg-[#05070a] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
             <FormContainer
                 title="Configuration"
                 subtitle="Paramétrez l'identité de votre structure"
@@ -90,9 +90,9 @@ export default function CreateOrganisationPage() {
 
                     {/* SECTION 2 : SLUG */}
                     <div className="relative group">
-                        <div className="absolute -inset-2 bg-gradient-to-r from-indigo-500/10 to-transparent rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
-                        <div className="relative p-5 rounded-2xl bg-slate-900/40 border border-slate-800/50 space-y-4">
-                            <div className="flex items-center gap-2 text-indigo-400">
+                        <div className="absolute -inset-2 bg-gradient-to-r from-teal-500/10 to-transparent rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
+                        <div className="relative p-5 rounded-2xl bg-slate-50 border border-slate-200/50 space-y-4">
+                            <div className="flex items-center gap-2 text-teal-700">
                                 <Fingerprint size={16} className="animate-pulse" />
                                 <span className="text-[10px] font-black uppercase tracking-widest">Identifiant Unique</span>
                             </div>
@@ -111,7 +111,7 @@ export default function CreateOrganisationPage() {
                             <div className="flex items-center gap-2 px-1 text-slate-500">
                                 <Globe size={12} />
                                 <p className="text-[10px] font-medium italic">
-                                    Aperçu : <span className="text-indigo-400/80 underline decoration-indigo-500/20 underline-offset-4 tracking-tight">app.tournoi.com/org/{slug || "..."}</span>
+                                    Aperçu : <span className="text-teal-700/80 underline decoration-teal-600/20 underline-offset-4 tracking-tight">app.tournoi.com/org/{slug || "..."}</span>
                                 </p>
                             </div>
                         </div>
@@ -127,7 +127,7 @@ export default function CreateOrganisationPage() {
                     />
 
                     {/* ACTIONS */}
-                    <div className="pt-4 border-t border-slate-800/50 space-y-4">
+                    <div className="pt-4 border-t border-slate-200/50 space-y-4">
                         <FormStatus state={state} />
 
                         <FormButton isPending={isPending} icon={Send}>

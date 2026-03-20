@@ -35,7 +35,8 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
     }, [params?.slug, organizations])
 
     const isOnOrgPage = pathname.startsWith("/dashboard/org")
-    const isShowingOrgMenu = isOnOrgPage && !forceGlobalView
+    const isShowingOrgMenu = isOnOrgPage && !forceGlobalView && organizations.length > 0
+    const isShowingAdminMenu = pathname.startsWith("/admin")
 
     const getDynamicHref = (href: string) => {
         if (href.includes("[slug]")) {
@@ -47,17 +48,18 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
     const displayItems = useMemo(() => {
         const filtered = isShowingOrgMenu
             ? navItems.filter(item => item.context === NavigationContext.ORGANIZATION)
-            : navItems.filter(item => item.context !== NavigationContext.ORGANIZATION)
+            : isShowingAdminMenu ? navItems.filter(item => item.context === NavigationContext.ADMIN_SaaS)
+            : navItems.filter(item => item.context !== NavigationContext.ORGANIZATION && item.context !== NavigationContext.ADMIN_SaaS)
 
         return [...filtered].sort((a, b) => (a.order || 0) - (b.order || 0))
-    }, [navItems, isShowingOrgMenu])
+    }, [navItems, isShowingOrgMenu, isShowingAdminMenu, pathname])
 
     return (
         <aside style={{
             width: collapsed ? 64 : 260,
             transition: "width 0.25s ease",
             display: "flex", flexDirection: "column", height: "100vh",
-            background: "#0d1117", borderRight: "1px solid #30363d",
+            background: "var(--surface)", borderRight: "1px solid var(--border)",
             position: "relative", zIndex: 100
         }}>
 
@@ -65,24 +67,24 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
             <div style={{
                 height: 56, display: "flex", alignItems: "center", padding: "0 16px",
                 justifyContent: collapsed ? "center" : "space-between",
-                borderBottom: "1px solid #30363d"
+                borderBottom: "1px solid var(--border)"
             }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     {isShowingOrgMenu ? (
                         <button
                             onClick={() => setForceGlobalView(true)}
-                            style={{ background: "#21262d", border: "none", borderRadius: 6, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                            style={{ background: "var(--elevated)", border: "1px solid var(--border)", borderRadius: 6, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
                         >
-                            <Icon d={Icons.chevronLeft} size={14} color="white" />
+                            <Icon d={Icons.chevronLeft} size={14} color="var(--text)" />
                         </button>
                     ) : (
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg, #4f46e5, #9333ea)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg, #0f766e, #0ea5a4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <Icon d={Icons.controller} size={14} color="white" />
                         </div>
                     )}
                     {!collapsed && (
-                        <span style={{ fontWeight: 800, fontSize: 16, color: "white" }}>
-                            {isShowingOrgMenu ? "ORG" : "HUB"}<span style={{ color: "#4f46e5" }}>{isShowingOrgMenu ? "ADMIN" : "GAMERS"}</span>
+                        <span style={{ fontWeight: 800, fontSize: 16, color: "var(--text)" }}>
+                            {isShowingOrgMenu ? "ORG" : "HUB"}<span style={{ color: "var(--accent)" }}>{isShowingOrgMenu ? "ADMIN" : "GAMERS"}</span>
                         </span>
                     )}
                 </div>
@@ -109,31 +111,31 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
                             }}
                             style={{
                                 width: "100%", display: "flex", alignItems: "center", gap: 10,
-                                padding: "10px", background: isShowingOrgMenu ? "#1c2128" : "#161b22",
-                                borderRadius: 8, border: `1px solid ${isShowingOrgMenu ? "#4f46e5" : "#30363d"}`,
+                                padding: "10px", background: "var(--elevated)",
+                                borderRadius: 8, border: `1px solid ${isShowingOrgMenu ? "var(--accent)" : "var(--border)"}`,
                                 cursor: "pointer", transition: "all 0.2s"
                             }}
                         >
                             <Avatar name={activeOrg?.name} size={24} />
                             <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
-                                <div style={{ fontSize: 10, color: "#8b949e", fontWeight: 700, textTransform: "uppercase" }}>
-                                    {isShowingOrgMenu ? "Structure Active" : "Accéder à l'org"}
+                                <div style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase" }}>
+                                    {isShowingOrgMenu ? "Organisation Active" : "Accéder à l'org"}
                                 </div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: "white", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis" }}>
                                     {activeOrg?.name}
                                 </div>
                             </div>
-                            <Icon d={showOrgDropdown ? Icons.chevronUp : Icons.chevronDown} size={12} color="#8b949e" />
+                            <Icon d={showOrgDropdown ? Icons.chevronUp : Icons.chevronDown} size={12} color="var(--muted)" />
                         </button>
 
                         {/* --- DROPDOWN : SWITCHER D'ORGANISATION --- */}
                         {showOrgDropdown && (
                             <div style={{
                                 position: "absolute", top: "100%", left: 12, right: 12,
-                                background: "#161b22", border: "1px solid #30363d",
-                                borderRadius: 8, marginTop: 4, zIndex: 110, boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+                                background: "var(--surface)", border: "1px solid var(--border2)",
+                                borderRadius: 8, marginTop: 4, zIndex: 110, boxShadow: "0 10px 24px rgba(15,23,42,0.16)"
                             }}>
-                                <div style={{ padding: "8px 12px", fontSize: 10, color: "#8b949e", fontWeight: 700 }}>CHANGER D&apos;ORGANISATION</div>
+                                <div style={{ padding: "8px 12px", fontSize: 10, color: "var(--muted)", fontWeight: 700 }}>CHANGER D&apos;ORGANISATION</div>
                                 <div style={{ maxHeight: "200px", overflowY: "auto" }}>
                                     {organizations.map(org => (
                                         <div
@@ -144,12 +146,12 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
                                             }}
                                             style={{
                                                 display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                                                cursor: "pointer", background: org.id === activeOrg.id ? "#21262d" : "transparent",
-                                                borderLeft: org.id === activeOrg.id ? "3px solid #4f46e5" : "3px solid transparent"
+                                                cursor: "pointer", background: org.id === activeOrg.id ? "#f0fdfa" : "transparent",
+                                                borderLeft: org.id === activeOrg.id ? "3px solid var(--accent)" : "3px solid transparent"
                                             }}
                                         >
                                             <Avatar name={org.name} size={20} />
-                                            <span style={{ fontSize: 12, color: org.id === activeOrg.id ? "white" : "#c9d1d9" }}>{org.name}</span>
+                                            <span style={{ fontSize: 12, color: org.id === activeOrg.id ? "var(--text)" : "var(--muted)" }}>{org.name}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -157,7 +159,7 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
                                     onClick={() => router.push("/dashboard/org/create")}
                                     style={{
                                         width: "100%", padding: "10px 12px", background: "none", border: "none",
-                                        borderTop: "1px solid #30363d", color: "#58a6ff", fontSize: 12,
+                                        borderTop: "1px solid var(--border)", color: "var(--accent)", fontSize: 12,
                                         cursor: "pointer", display: "flex", alignItems: "center", gap: 8
                                     }}
                                 >
@@ -172,8 +174,8 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
             {/* --- NAVIGATION --- */}
             <nav style={{ flex: 1, padding: "12px", overflowY: "auto" }}>
                 {!collapsed && (
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#8b949e", textTransform: "uppercase", padding: "0 12px 8px" }}>
-                        {isShowingOrgMenu ? "Gestion Interne" : "Navigation Hub"}
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", padding: "0 12px 8px" }}>
+                        {isShowingOrgMenu ? "Gestion Organisation" : ""}
                     </div>
                 )}
                 {displayItems.map((item) => {
@@ -190,8 +192,8 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
                                 padding: collapsed ? "12px 0" : "10px 12px",
                                 justifyContent: collapsed ? "center" : "flex-start",
                                 borderRadius: 8, cursor: "pointer",
-                                background: isActive ? "rgba(79, 70, 229, 0.15)" : "transparent",
-                                color: isActive ? "#818cf8" : "#8b949e",
+                                background: isActive ? "#ecfeff" : "transparent",
+                                color: isActive ? "var(--accent)" : "var(--muted)",
                                 marginBottom: 4, transition: "all 0.2s"
                             }}
                         >
@@ -202,8 +204,8 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
                             {isAdminItem && !collapsed && (
                                 <span style={{
                                     fontSize: 9, fontWeight: 800,
-                                    background: isActive ? "#4f46e5" : "#30363d",
-                                    color: isActive ? "white" : "#8b949e",
+                                    background: isActive ? "var(--accent)" : "var(--elevated)",
+                                    color: isActive ? "white" : "var(--muted)",
                                     padding: "2px 5px", borderRadius: 4, textTransform: "uppercase"
                                 }}>
                                     Admin
@@ -219,6 +221,25 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
                     )
                 })}
             </nav>
+
+            {/* CTA : Créer une org quand l'utilisateur n'en a pas encore */}
+            {!collapsed && organizations.length === 0 && (
+                <div style={{ padding: "12px", borderTop: "1px solid var(--border)" }}>
+                    <button
+                        onClick={() => router.push("/dashboard/org/create")}
+                        style={{
+                            width: "100%", padding: "10px 12px", borderRadius: 8,
+                            background: "var(--elevated)", border: "1px dashed var(--accent)",
+                            color: "var(--accent)", cursor: "pointer", fontSize: 12,
+                            fontWeight: 600, display: "flex", alignItems: "center", gap: 8,
+                            transition: "background 0.15s"
+                        }}
+                    >
+                        <Icon d={Icons.plus} size={14} color="var(--accent)" />
+                        Créer une organisation
+                    </button>
+                </div>
+            )}
 
             <SidebarFooter user={user} router={router} collapsed={collapsed} />
         </aside>

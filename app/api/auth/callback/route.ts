@@ -35,5 +35,5 @@ export async function GET(request: Request) {
 
     // En cas d'erreur (pas de code ou échec de l'échange), redirection vers une page dédiée
     // Il est préférable de passer l'erreur en paramètre pour informer l'utilisateur
-    return NextResponse.redirect(`${origin}/login?error=auth-code-error`);
+    return NextResponse.redirect(`${origin}/auth?error=auth-code-error`);
 }

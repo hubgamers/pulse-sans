@@ -1,4 +1,4 @@
-﻿import { notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getOrganizationBySlug } from '@/lib/actions/organization/organization.queries'
 import { prisma } from '@/lib/prisma'
 import TournamentTabShell from '@/components/dashboard/tournaments/TournamentTabShell'
@@ -12,7 +12,7 @@ export default async function DashboardOrgTournamentDetails({
     const org = await getOrganizationBySlug(slug)
 
     if (!org) {
-        return <div className="text-slate-300">Organisation introuvable.</div>
+        return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
     const tournament = await prisma.tournament.findFirst({
@@ -84,7 +84,7 @@ export default async function DashboardOrgTournamentDetails({
     const availableTeamsForRegistration = tournament.organization.teams.filter((t) => !registeredTeamIds.has(t.id))
 
     return (
-        <div className="text-white">
+        <div className="text-slate-900">
             <TournamentTabShell
                 orgSlug={slug}
                 tournament={{

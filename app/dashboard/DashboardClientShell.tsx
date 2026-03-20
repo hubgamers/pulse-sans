@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { NavigationItem, type NavigationItem as PrismaNavItem } from "@prisma/client";
 import { Icon, Icons } from "@/components/dashboard/icons";
 import { Sidebar } from "@/components/dashboard/sidebar/Sidebar";
@@ -41,6 +42,7 @@ export default function DashboardClientShell({
   const NAV_ITEMS: NavigationItem[] = navItems;
 
   // INITS
+  const pathname = usePathname()
   const [collapsed] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -61,7 +63,7 @@ export default function DashboardClientShell({
       }
     };
     fetchOrgs();
-  }, [])
+  }, [pathname])
 
   const W_OPEN = 240
   const W_CLOSED = 64
@@ -75,32 +77,32 @@ export default function DashboardClientShell({
       <UserProvider initialData={{ user: user, navItems, organizations }}>
         {/* ── Google Fonts ── */}
         <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-
-
         :root {
-          --bg:        #080b10;
-          --surface:   #0d1117;
-          --elevated:  #131920;
-          --border:    #1e2730;
-          --border2:   #242f3a;
-          --text:      #e2e8f0;
-          --muted:     #64748b;
-          --accent:    #00e5ff;
-          --accent2:   #7c3aed;
-          --danger:    #f43f5e;
-          --success:   #10b981;
-          --warning:   #f59e0b;
+          --bg:        #f6f7f9;
+          --surface:   #ffffff;
+          --elevated:  #f8fafc;
+          --border:    #e5e7eb;
+          --border2:   #d1d5db;
+          --text:      #111827;
+          --muted:     #6b7280;
+          --accent:    #0f766e;
+          --accent2:   #0ea5a4;
+          --danger:    #dc2626;
+          --success:   #059669;
+          --warning:   #d97706;
           --sidebar-w: ${collapsed ? W_CLOSED : W_OPEN}px;
         }
 
-        body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+        body { background: var(--bg); color: var(--text); }
 
         .hub-layout {
           display: flex;
           height: 100vh;
           overflow: hidden;
-          background: var(--bg);
+          background:
+            radial-gradient(circle at top left, #ecfeff 0%, transparent 36%),
+            radial-gradient(circle at bottom right, #f0fdfa 0%, transparent 32%),
+            var(--bg);
         }
 
         /* ── Sidebar ── */
@@ -121,12 +123,12 @@ export default function DashboardClientShell({
 
         /* ── Topbar ── */
         .hub-topbar {
-          height: 56px;
+          height: 60px;
           background: var(--surface);
           border-bottom: 1px solid var(--border);
           display: flex;
           align-items: center;
-          padding: 0 20px;
+          padding: 0 16px;
           gap: 12px;
           position: sticky;
           top: 0;
@@ -145,7 +147,7 @@ export default function DashboardClientShell({
         .hub-content {
           flex: 1;
           overflow-y: auto;
-          padding: 28px;
+          padding: 22px;
         }
 
         /* ── Nav items ── */
@@ -206,7 +208,7 @@ export default function DashboardClientShell({
           background: var(--elevated);
           border: 1px solid var(--border2);
           border-radius: 10px;
-          box-shadow: 0 16px 48px #00000080;
+          box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
           z-index: 100;
           overflow: hidden;
           animation: fadeIn 0.12s ease;
@@ -220,7 +222,7 @@ export default function DashboardClientShell({
         .search-overlay {
           position: fixed;
           inset: 0;
-          background: #00000090;
+          background: rgba(17, 24, 39, 0.35);
           backdrop-filter: blur(4px);
           z-index: 200;
           display: flex;
@@ -235,7 +237,7 @@ export default function DashboardClientShell({
           border: 1px solid var(--border2);
           border-radius: 14px;
           overflow: hidden;
-          box-shadow: 0 24px 64px #00000090;
+          box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
         }
         .search-input {
           width: 100%;
@@ -243,7 +245,7 @@ export default function DashboardClientShell({
           border: none;
           outline: none;
           color: var(--text);
-          font-family: 'DM Sans', sans-serif;
+          font-family: inherit;
           font-size: 16px;
           padding: 18px 20px;
         }
@@ -262,6 +264,131 @@ export default function DashboardClientShell({
         .hub-content::-webkit-scrollbar { width: 4px; }
         .hub-content::-webkit-scrollbar-track { background: transparent; }
         .hub-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+        .search-trigger {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: var(--elevated);
+          border: 1px solid var(--border);
+          color: var(--muted);
+          padding: 8px 12px;
+          border-radius: 10px;
+          font-size: 13px;
+        }
+        .search-trigger:hover {
+          border-color: var(--border2);
+          color: var(--text);
+        }
+        .search-kbd {
+          margin-left: 4px;
+          font-size: 11px;
+          border: 1px solid var(--border2);
+          color: var(--muted);
+          padding: 2px 6px;
+          border-radius: 6px;
+          background: #fff;
+        }
+
+        .notif-btn {
+          position: relative;
+          width: 34px;
+          height: 34px;
+          border: 1px solid var(--border);
+          background: var(--elevated);
+          color: var(--muted);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 10px;
+        }
+        .notif-btn.active,
+        .notif-btn:hover {
+          color: var(--text);
+          border-color: var(--border2);
+        }
+        .notif-badge-dot {
+          position: absolute;
+          top: 7px;
+          right: 8px;
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: var(--danger);
+          border: 2px solid var(--surface);
+        }
+
+        .notif-dropdown {
+          top: calc(100% + 10px);
+          right: 0;
+          width: 340px;
+        }
+        .dropdown-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border);
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .text-action-btn {
+          color: var(--accent);
+          font-size: 12px;
+          font-weight: 600;
+          background: transparent;
+          border: none;
+          padding: 0;
+        }
+        .notif-list {
+          max-height: 280px;
+          overflow-y: auto;
+        }
+        .notif-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border);
+        }
+        .notif-item:last-child {
+          border-bottom: none;
+        }
+        .notif-item.unread {
+          background: #f8fafc;
+        }
+        .notif-icon {
+          width: 26px;
+          height: 26px;
+          border-radius: 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .notif-msg {
+          font-size: 13px;
+          color: var(--text);
+          line-height: 1.3;
+        }
+        .notif-time {
+          font-size: 11px;
+          color: var(--muted);
+          margin-top: 2px;
+        }
+        .unread-indicator {
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: var(--accent);
+          flex-shrink: 0;
+        }
+        .empty-state {
+          padding: 16px;
+          text-align: center;
+          color: var(--muted);
+          font-size: 13px;
+        }
 
         /* ── Stat cards ── */
         .stat-card {

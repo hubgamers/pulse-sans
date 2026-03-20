@@ -16,7 +16,7 @@ export default async function TournamentMatchDetailsPage({
     const org = await getOrganizationBySlug(slug)
 
     if (!org) {
-        return <div className="text-slate-300">Organisation introuvable.</div>
+        return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
     const tournament = await prisma.tournament.findFirst({
@@ -101,43 +101,43 @@ export default async function TournamentMatchDetailsPage({
     }
 
     return (
-        <div className="space-y-6 text-white">
+        <div className="space-y-6 text-slate-900">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-400">{org.name}</p>
+                    <p className="text-xs uppercase tracking-widest text-slate-500">{org.name}</p>
                     <h1 className="text-2xl md:text-3xl font-black">Detail du match</h1>
-                    <p className="mt-2 text-sm text-slate-400">
+                    <p className="mt-2 text-sm text-slate-500">
                         {tournament.name} • {tournament.game.name}
                     </p>
                 </div>
                 <Link
                     href={`/dashboard/org/${slug}/tournaments/${tournament.slug}`}
-                    className="inline-flex items-center rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-slate-900/60 transition"
+                    className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-white transition"
                 >
                     Retour au tournoi
                 </Link>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs uppercase text-slate-500">Phase</p>
                     <p className="mt-2 text-sm font-semibold">{match.phase.name}</p>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs uppercase text-slate-500">Piste</p>
                     <p className="mt-2 text-sm font-semibold">{match.pitch.name}</p>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs uppercase text-slate-500">Statut</p>
                     <p className="mt-2 text-sm font-semibold">{match.status}</p>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs uppercase text-slate-500">Horaire</p>
                     <p className="mt-2 text-sm font-semibold">
                         {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('fr-FR') : 'Non planifie'}
                     </p>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs uppercase text-slate-500">Score</p>
                     <p className="mt-2 text-sm font-semibold">
                         {match.result ? `${match.result.homeScore} - ${match.result.awayScore}` : 'N/A'}
@@ -147,7 +147,7 @@ export default async function TournamentMatchDetailsPage({
 
             <div className="grid gap-4 xl:grid-cols-2">
                 {[match.homeTeam, match.awayTeam].map((team, idx) => (
-                    <div key={team?.id || `tbd-${idx}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div key={team?.id || `tbd-${idx}`} className="rounded-xl border border-slate-200 bg-white p-4">
                         <p className="text-xs uppercase tracking-wider text-slate-500">{idx === 0 ? 'Equipe domicile' : 'Equipe exterieur'}</p>
                         <h2 className="mt-1 text-lg font-bold">{team?.name || 'TBD'}</h2>
                         <p className="text-xs text-slate-500">/{team?.slug || '-'}</p>
@@ -155,9 +155,9 @@ export default async function TournamentMatchDetailsPage({
                         <div className="mt-3 space-y-2">
                             {team?.players.length ? (
                                 team.players.map((player) => (
-                                    <div key={player.id} className="rounded-md border border-slate-800 bg-slate-900/50 px-3 py-2">
+                                    <div key={player.id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                                         <p className="text-sm font-semibold">{player.nickname}</p>
-                                        <p className="text-xs text-slate-400">
+                                        <p className="text-xs text-slate-500">
                                             {player.role || 'Role libre'}
                                             {player.number ? ` • #${player.number}` : ''}
                                             {player.isActive ? ' • Actif' : ' • Inactif'}
@@ -178,27 +178,27 @@ export default async function TournamentMatchDetailsPage({
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-                <form action={updateStatusAction} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Mettre a jour le statut</h3>
+                <form action={updateStatusAction} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Mettre a jour le statut</h3>
                     <input type="hidden" name="tournamentId" value={tournament.id} />
                     <input type="hidden" name="orgSlug" value={slug} />
                     <input type="hidden" name="tournamentSlug" value={tournament.slug} />
                     <input type="hidden" name="matchId" value={match.id} />
 
-                    <select name="status" defaultValue={match.status} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                    <select name="status" defaultValue={match.status} className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm">
                         <option value="SCHEDULED">SCHEDULED</option>
                         <option value="LIVE">LIVE</option>
                         <option value="FINISHED">FINISHED</option>
                         <option value="CANCELLED">CANCELLED</option>
                     </select>
 
-                    <button type="submit" className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-900">
+                    <button type="submit" className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
                         Sauvegarder statut
                     </button>
                 </form>
 
-                <form action={saveResultAction} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Enregistrer resultat</h3>
+                <form action={saveResultAction} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Enregistrer resultat</h3>
                     <input type="hidden" name="tournamentId" value={tournament.id} />
                     <input type="hidden" name="orgSlug" value={slug} />
                     <input type="hidden" name="tournamentSlug" value={tournament.slug} />
@@ -210,7 +210,7 @@ export default async function TournamentMatchDetailsPage({
                             type="number"
                             min={0}
                             defaultValue={match.result?.homeScore ?? 0}
-                            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                            className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
                             placeholder="Score domicile"
                         />
                         <input
@@ -218,7 +218,7 @@ export default async function TournamentMatchDetailsPage({
                             type="number"
                             min={0}
                             defaultValue={match.result?.awayScore ?? 0}
-                            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                            className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
                             placeholder="Score exterieur"
                         />
                     </div>
@@ -226,7 +226,7 @@ export default async function TournamentMatchDetailsPage({
                     <input
                         name="notes"
                         defaultValue={match.result?.notes || ''}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
                         placeholder="Notes de match"
                     />
 

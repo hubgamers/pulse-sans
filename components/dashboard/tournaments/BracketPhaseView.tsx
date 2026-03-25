@@ -5,6 +5,8 @@ type BracketMatch = {
     id: string
     roundNumber: number | null
     bracketPos: string | null
+    scheduledAt: string | null
+    pitchName: string | null
     status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'CANCELLED'
     homeTeamName: string
     awayTeamName: string
@@ -123,6 +125,15 @@ function renderMatchCard(match: BracketMatch, orgSlug: string, tournamentSlug: s
                         {match.status}
                     </span>
                 </div>
+                {match.scheduledAt && (
+                    <p className="mb-1 text-[10px] font-medium text-teal-600">
+                        {new Date(match.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {match.pitchName && <span className="ml-1 text-slate-400">· {match.pitchName}</span>}
+                    </p>
+                )}
+                {!match.scheduledAt && match.pitchName && (
+                    <p className="mb-1 text-[10px] text-slate-400">{match.pitchName}</p>
+                )}
                 <p className="text-xs text-slate-800">{match.homeTeamName}</p>
                 <p className="text-xs text-slate-800">{match.awayTeamName}</p>
                 {match.homeScore !== null && match.awayScore !== null && (

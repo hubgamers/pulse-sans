@@ -108,6 +108,8 @@ export default async function PublicPlacementBracketOverlayPage({
                         phaseId: match.phase.id,
                         roundNumber: match.roundNumber,
                         bracketPos: match.bracketPos,
+                        scheduledAt: match.scheduledAt ? match.scheduledAt.toISOString() : null,
+                        pitchName: match.pitch?.name ?? null,
                         status: match.status,
                         homeTeamId: match.homeTeam?.id ?? null,
                         homeTeamName: match.homeTeam?.name || 'TBD',

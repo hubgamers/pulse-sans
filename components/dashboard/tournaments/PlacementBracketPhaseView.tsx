@@ -8,6 +8,8 @@ type BracketMatch = {
     id: string
     roundNumber: number | null
     bracketPos: string | null
+    scheduledAt: string | null
+    pitchName: string | null
     status: 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'CANCELLED'
     homeTeamName: string
     awayTeamName: string
@@ -41,6 +43,8 @@ type DisplayPlayer = {
 type DisplayMatch = {
     id: string
     matchId: string
+    scheduledAt: string | null
+    pitchName: string | null
     players: DisplayPlayer[]
 }
 
@@ -217,6 +221,8 @@ function toDisplayMatch(match: BracketMatch): DisplayMatch {
     return {
         id: match.id,
         matchId: match.id,
+        scheduledAt: match.scheduledAt ?? null,
+        pitchName: match.pitchName ?? null,
         players: [
             { name: match.homeTeamName || 'A DEFINIR', score: match.homeScore },
             { name: match.awayTeamName || 'A DEFINIR', score: match.awayScore },
@@ -311,6 +317,15 @@ const MatchBox = ({
         href={`/dashboard/org/${orgSlug}/tournaments/${tournamentSlug}/matches/${match.matchId}`}
         className={`group relative flex flex-col bg-slate-950 border ${isFinal ? 'border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'border-white/10'} rounded overflow-hidden ${width} z-10 hover:border-teal-400/60`}
     >
+        {match.scheduledAt && (
+            <div className="px-2 pt-0.5 text-[6px] font-semibold text-teal-400 opacity-80 tracking-wide">
+                {new Date(match.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                {match.pitchName && <span className="ml-1 opacity-60">· {match.pitchName}</span>}
+            </div>
+        )}
+        {!match.scheduledAt && match.pitchName && (
+            <div className="px-2 pt-0.5 text-[6px] text-slate-500 opacity-70 tracking-wide">{match.pitchName}</div>
+        )}
         {players.map((p, i) => (
             <div key={i} className={`flex justify-between items-center px-2 py-1 h-4 ${i === 0 ? 'border-b border-white/5' : ''}`}>
                 <span className={`text-[7px] font-bold uppercase italic truncate ${p.score !== null ? 'text-white' : 'text-slate-500'}`}>

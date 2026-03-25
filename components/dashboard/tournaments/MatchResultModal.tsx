@@ -77,6 +77,15 @@ export default function MatchResultModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="relative w-full max-w-md rounded-2xl border border-slate-600 bg-gradient-to-br from-slate-800 to-slate-900 shadow-2xl">
+                {isLoading && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-slate-950/65 backdrop-blur-[1px]">
+                        <div className="flex items-center gap-3 rounded-xl border border-teal-500/30 bg-slate-900/90 px-4 py-3 text-sm font-semibold text-teal-200 shadow-lg">
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-teal-300/30 border-t-teal-300" />
+                            Enregistrement du resultat...
+                        </div>
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className="border-b border-slate-600 px-6 py-4">
                     <div className="flex items-center justify-between">
@@ -88,6 +97,7 @@ export default function MatchResultModal({
                         </div>
                         <button
                             onClick={onClose}
+                            disabled={isLoading}
                             className="rounded-lg p-2 text-slate-400 hover:bg-slate-700/50 hover:text-slate-200 transition"
                         >
                             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,6 +139,7 @@ export default function MatchResultModal({
                                     type="number"
                                     min="0"
                                     max="999"
+                                    disabled={isLoading}
                                     value={homeScore}
                                     onChange={(e) => setHomeScore(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                                     className="w-full rounded-lg border border-slate-600 bg-slate-900/50 px-3 py-2 text-center text-lg font-bold text-white placeholder-slate-500 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
@@ -145,6 +156,7 @@ export default function MatchResultModal({
                                     type="number"
                                     min="0"
                                     max="999"
+                                    disabled={isLoading}
                                     value={awayScore}
                                     onChange={(e) => setAwayScore(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                                     className="w-full rounded-lg border border-slate-600 bg-slate-900/50 px-3 py-2 text-center text-lg font-bold text-white placeholder-slate-500 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
@@ -162,6 +174,7 @@ export default function MatchResultModal({
                         <textarea
                             id="notes"
                             value={notes}
+                            disabled={isLoading}
                             onChange={(e) => setNotes(e.target.value)}
                             className="w-full rounded-lg border border-slate-600 bg-slate-900/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                             placeholder="Ajouter une remarque..."
@@ -188,6 +201,7 @@ export default function MatchResultModal({
                         <button
                             type="button"
                             onClick={onClose}
+                            disabled={isLoading}
                             className="flex-1 rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:border-slate-500 hover:bg-slate-700/50 transition"
                         >
                             Annuler

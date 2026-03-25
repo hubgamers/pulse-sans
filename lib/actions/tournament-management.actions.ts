@@ -251,9 +251,18 @@ const GenerateCustomPlacementBracketSchema = ManageTournamentBaseSchema.extend({
     const date = new Date(String(value))
     return Number.isNaN(date.getTime()) ? undefined : date
   }, z.date().optional()),
+  maxDurationMinutes: z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? 30 : Number(value)),
+    z.number().int().min(5).max(600)
+  ),
+  teamBreakMinutes: z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? 0 : Number(value)),
+    z.number().int().min(0).max(240)
+  ),
   includeLosersReplay: z.preprocess((value) => value === 'on' || value === true, z.boolean()),
   overwritePhaseMatches: z.preprocess((value) => value === 'on' || value === true, z.boolean()),
   placementRanges: z.string().max(300).optional(),
+  rotationMode: z.enum(['sequential', 'interleaved']).optional().default('sequential'),
 })
 
 const BulkBracketSeedAssignSchema = ManageTournamentBaseSchema.extend({
@@ -480,6 +489,13 @@ function readRoutesFromConfig(config: unknown): PhaseRouteConfig[] {
   return raw.routes.filter(
     (r): r is PhaseRouteConfig => r !== null && typeof r === 'object'
   )
+}
+
+function readParallelGroupFromConfig(config: unknown): string | null {
+  if (!config || typeof config !== 'object') return null
+  const raw = config as Record<string, unknown>
+  const value = typeof raw.parallelGroup === 'string' ? raw.parallelGroup.trim() : ''
+  return value.length > 0 ? value : null
 }
 
 function computeGroupStandingsForPhase(
@@ -771,7 +787,7 @@ async function resolveExpectedIncomingQualifierCountForTargetPhase(params: {
 
   const phases = await prisma.phase.findMany({
     where: { tournamentId },
-    select: { id: true, type: true, config: true },
+    select: { id: true, type: true, config: true, isCompleted: true },
   })
 
   const sources = phases
@@ -789,6 +805,10 @@ async function resolveExpectedIncomingQualifierCountForTargetPhase(params: {
   let isDeterministic = true
 
   for (const source of sources) {
+    // Keep this aligned with resolveIncomingQualifierIdsForTargetPhase: only
+    // completed source phases can effectively provide qualifiers.
+    if (!source.isCompleted) continue
+
     if (source.type !== PhaseType.GROUP) {
       isDeterministic = false
       continue
@@ -1288,6 +1308,265 @@ function scheduleRoundRobinMatches(params: {
       awayTeamId: pairing.awayTeamId,
       roundNumber: pairing.round,
       ...(pairing.bracketPos ? { bracketPos: pairing.bracketPos } : {}),
+      scheduledAt: new Date(bestStart),
+    })
+  }
+
+  return scheduled
+}
+
+type BracketSkeletonMatch = {
+  phaseId: string
+  roundNumber: number
+  bracketPos: string
+  homeTeamId?: string | null
+  awayTeamId?: string | null
+}
+
+function buildBracketSkeleton(params: {
+  phaseId: string
+  phaseType: string
+  effectiveParticipantsCount: number
+  seededTeamIds: Array<string>
+  includeLosersReplay: boolean
+  placementRanges?: string | null
+  pitchResources: Array<{ id: string; key: string }>
+  roundDurationMs: number
+}): { skeleton: BracketSkeletonMatch[] } | { error: string } {
+  const {
+    phaseId,
+    phaseType,
+    effectiveParticipantsCount,
+    seededTeamIds,
+    includeLosersReplay,
+    placementRanges,
+    pitchResources,
+    roundDurationMs,
+  } = params
+
+  const rounds = Math.ceil(Math.log2(effectiveParticipantsCount))
+  const normalizedSize = 2 ** rounds
+
+  const skeleton: BracketSkeletonMatch[] = []
+
+  for (let round = 1; round <= rounds; round += 1) {
+    const matchesInRound = normalizedSize / 2 ** round
+    for (let matchNo = 1; matchNo <= matchesInRound; matchNo += 1) {
+      skeleton.push({ phaseId, roundNumber: round, bracketPos: `WB-R${round}-M${matchNo}` })
+    }
+  }
+
+  if (phaseType !== 'PLACEMENT_BRACKET' && includeLosersReplay) {
+    for (let round = 1; round <= rounds; round += 1) {
+      const matchesInRound = Math.max(1, normalizedSize / 2 ** (round + 1))
+      for (let matchNo = 1; matchNo <= matchesInRound; matchNo += 1) {
+        skeleton.push({ phaseId, roundNumber: rounds + round, bracketPos: `LB-R${round}-M${matchNo}` })
+      }
+    }
+  }
+
+  if (phaseType === 'PLACEMENT_BRACKET' && normalizedSize >= 4) {
+    const parsedRanges = parsePlacementRootRanges({ value: placementRanges, normalizedSize, rounds })
+    if ('error' in parsedRanges) return { error: parsedRanges.error }
+
+    const pitchCursorRef = { value: 0 }
+    let dynamicOffsetCursor = rounds * 2
+    for (const range of parsedRanges.ranges) {
+      const stageOffset = range.wbRound ? rounds + range.wbRound : dynamicOffsetCursor
+      skeleton.push(
+        ...buildPlacementRangeSkeleton({
+          phaseId,
+          rangeStart: range.start,
+          rangeEnd: range.end,
+          pitches: pitchResources,
+          pitchCursorRef,
+          baseStartMs: null,
+          roundDurationMs,
+          stageOffset,
+        })
+      )
+      if (!range.wbRound) {
+        dynamicOffsetCursor += Math.max(1, Math.log2(range.end - range.start + 1))
+      }
+    }
+  } else if (normalizedSize >= 4) {
+    for (let place = 3; place <= normalizedSize; place += 2) {
+      skeleton.push({ phaseId, roundNumber: rounds + 10, bracketPos: `P${place}-P${place + 1}` })
+    }
+  }
+
+  const firstRoundMatches = skeleton
+    .filter((m) => m.roundNumber === 1 && m.bracketPos.startsWith('WB-R1-'))
+    .sort((a, b) => a.bracketPos.localeCompare(b.bracketPos))
+
+  for (let i = 0; i < firstRoundMatches.length; i += 1) {
+    const slot = firstRoundMatches[i]
+    slot.homeTeamId = seededTeamIds[i * 2] ?? null
+    slot.awayTeamId = seededTeamIds[i * 2 + 1] ?? null
+  }
+
+  return {
+    skeleton: Array.from(
+      new Map(skeleton.map((item) => [`${item.phaseId}:${item.bracketPos}`, item])).values()
+    ),
+  }
+}
+
+function scheduleBracketMatches(params: {
+  matches: Array<{
+    phaseId: string
+    roundNumber: number
+    bracketPos: string
+    homeTeamId?: string | null
+    awayTeamId?: string | null
+  }>
+  pitchResources: Array<{ id: string; key: string }>
+  startTimeMs: number
+  roundDurationMs: number
+  pitchSchedules: Map<string, Array<{ start: number; end: number }>>
+  rotationMode?: 'sequential' | 'interleaved'
+}) {
+  const { matches, pitchResources, startTimeMs, roundDurationMs, pitchSchedules, rotationMode = 'sequential' } = params
+  const scheduledCountByPhase = new Map<string, number>()
+
+  const bracketMap = new Map(matches.map((match) => [`${match.phaseId}:${match.bracketPos}`, match]))
+
+  function findEarliestPitchSlot(pitchKey: string, earliestStart: number) {
+    const intervals = [...(pitchSchedules.get(pitchKey) ?? [])].sort((a, b) => a.start - b.start)
+    let candidateStart = earliestStart
+
+    for (const interval of intervals) {
+      const candidateEnd = candidateStart + roundDurationMs
+      if (candidateEnd <= interval.start) {
+        break
+      }
+      if (candidateStart >= interval.end) {
+        continue
+      }
+      candidateStart = interval.end
+    }
+
+    return candidateStart
+  }
+
+  function reservePitchSlot(pitchKey: string, start: number, end: number) {
+    const intervals = [...(pitchSchedules.get(pitchKey) ?? []), { start, end }].sort((a, b) => a.start - b.start)
+    pitchSchedules.set(pitchKey, intervals)
+  }
+
+  function getDependencies(phaseId: string, bracketPos: string) {
+    const direct = parseBracketCoordinate(bracketPos)
+    if (direct && direct.round > 1) {
+      return [
+        `${phaseId}:${direct.lane}-R${direct.round - 1}-M${direct.matchNo * 2 - 1}`,
+        `${phaseId}:${direct.lane}-R${direct.round - 1}-M${direct.matchNo * 2}`,
+      ].filter((key) => bracketMap.has(key))
+    }
+
+    const placement = parsePlacementBracketCoordinate(bracketPos)
+    if (placement && placement.round > 1) {
+      return [
+        `${phaseId}:P${placement.start}-${placement.end}-R${placement.round - 1}-M${placement.matchNo * 2 - 1}`,
+        `${phaseId}:P${placement.start}-${placement.end}-R${placement.round - 1}-M${placement.matchNo * 2}`,
+      ].filter((key) => bracketMap.has(key))
+    }
+
+    return []
+  }
+
+  const scheduled: Array<{
+    phaseId: string
+    pitchId: string
+    roundNumber: number
+    bracketPos: string
+    homeTeamId?: string | null
+    awayTeamId?: string | null
+    scheduledAt: Date
+  }> = []
+
+  const scheduledEndByBracketPos = new Map<string, number>()
+  const pending = [...matches].sort((a, b) => a.roundNumber - b.roundNumber || a.bracketPos.localeCompare(b.bracketPos))
+
+  while (pending.length > 0) {
+    let bestPendingIndex = -1
+    let bestPitch = pitchResources[0]
+    let bestStart = Number.POSITIVE_INFINITY
+
+    for (let index = 0; index < pending.length; index += 1) {
+      const match = pending[index]
+      const dependencies = getDependencies(match.phaseId, match.bracketPos)
+      const dependencyEndTimes = dependencies.map((key) => scheduledEndByBracketPos.get(key))
+      if (dependencyEndTimes.some((value) => value === undefined)) {
+        continue
+      }
+
+      const dependencyReadyAt = dependencyEndTimes.length > 0
+        ? Math.max(...(dependencyEndTimes as number[]))
+        : startTimeMs
+      const stageFloor = startTimeMs + (match.roundNumber - 1) * roundDurationMs
+
+      for (const pitch of pitchResources) {
+        const candidateStart = findEarliestPitchSlot(pitch.key, Math.max(stageFloor, dependencyReadyAt))
+
+        const currentBestPhaseCount = scheduledCountByPhase.get(pending[bestPendingIndex]?.phaseId ?? '') ?? 0
+        const candidatePhaseCount = scheduledCountByPhase.get(match.phaseId) ?? 0
+        const isBetterTime = candidateStart < bestStart
+        const isSameTime = candidateStart === bestStart
+        const isBetterRound = isSameTime && match.roundNumber < (pending[bestPendingIndex]?.roundNumber ?? Number.POSITIVE_INFINITY)
+        const isBetterRotation = rotationMode === 'interleaved' && isSameTime &&
+          match.roundNumber === (pending[bestPendingIndex]?.roundNumber ?? match.roundNumber) &&
+          candidatePhaseCount < currentBestPhaseCount
+        if (isBetterTime || isBetterRound || isBetterRotation) {
+          bestStart = candidateStart
+          bestPitch = pitch
+          bestPendingIndex = index
+        }
+      }
+    }
+
+    if (bestPendingIndex === -1) {
+      const fallback = pending.shift()
+      if (!fallback) break
+      const stageFloor = startTimeMs + (fallback.roundNumber - 1) * roundDurationMs
+      let fallbackPitch = pitchResources[0]
+      let fallbackStart = Number.POSITIVE_INFINITY
+
+      for (const pitch of pitchResources) {
+        const candidateStart = findEarliestPitchSlot(pitch.key, stageFloor)
+        if (candidateStart < fallbackStart) {
+          fallbackStart = candidateStart
+          fallbackPitch = pitch
+        }
+      }
+
+      const matchEnd = fallbackStart + roundDurationMs
+      reservePitchSlot(fallbackPitch.key, fallbackStart, matchEnd)
+      scheduledEndByBracketPos.set(`${fallback.phaseId}:${fallback.bracketPos}`, matchEnd)
+      scheduled.push({
+        phaseId: fallback.phaseId,
+        pitchId: fallbackPitch.id,
+        roundNumber: fallback.roundNumber,
+        bracketPos: fallback.bracketPos,
+        ...(fallback.homeTeamId !== undefined ? { homeTeamId: fallback.homeTeamId } : {}),
+        ...(fallback.awayTeamId !== undefined ? { awayTeamId: fallback.awayTeamId } : {}),
+        scheduledAt: new Date(fallbackStart),
+      })
+      continue
+    }
+
+    const match = pending.splice(bestPendingIndex, 1)[0]
+    const matchEnd = bestStart + roundDurationMs
+    reservePitchSlot(bestPitch.key, bestStart, matchEnd)
+    scheduledEndByBracketPos.set(`${match.phaseId}:${match.bracketPos}`, matchEnd)
+    scheduledCountByPhase.set(match.phaseId, (scheduledCountByPhase.get(match.phaseId) ?? 0) + 1)
+
+    scheduled.push({
+      phaseId: match.phaseId,
+      pitchId: bestPitch.id,
+      roundNumber: match.roundNumber,
+      bracketPos: match.bracketPos,
+      ...(match.homeTeamId !== undefined ? { homeTeamId: match.homeTeamId } : {}),
+      ...(match.awayTeamId !== undefined ? { awayTeamId: match.awayTeamId } : {}),
       scheduledAt: new Date(bestStart),
     })
   }
@@ -3874,6 +4153,8 @@ export async function generateCustomPlacementBracketMatches(
     phaseId,
     participantsCount,
     startAt,
+    maxDurationMinutes,
+    teamBreakMinutes,
     includeLosersReplay,
     overwritePhaseMatches,
     placementRanges,
@@ -3909,7 +4190,7 @@ export async function generateCustomPlacementBracketMatches(
           tournamentId,
           OR: [{ phaseId }, { phaseId: null }],
         },
-        select: { id: true },
+        select: { id: true, name: true },
         orderBy: { name: 'asc' },
       }),
       prisma.tournamentRegistration.findMany({
@@ -3931,6 +4212,8 @@ export async function generateCustomPlacementBracketMatches(
       return { success: false, message: 'Ajoutez au moins une piste associee au tournoi/phase.' }
     }
 
+    const pitchResources = uniquePitchResources(pitches)
+
     const existing = await prisma.match.count({ where: { phaseId } })
     if (existing > 0 && !overwritePhaseMatches) {
       return { success: false, message: 'Des matchs existent deja (active overwrite pour regenerer).' }
@@ -3941,6 +4224,7 @@ export async function generateCustomPlacementBracketMatches(
       expectedIncomingQualifiers.hasRouting &&
       expectedIncomingQualifiers.isDeterministic &&
       expectedIncomingQualifiers.expectedCount !== null &&
+      incomingQualifiers.teamIds.length > 0 &&
       incomingQualifiers.teamIds.length !== expectedIncomingQualifiers.expectedCount
     ) {
       return {
@@ -3955,93 +4239,40 @@ export async function generateCustomPlacementBracketMatches(
 
     const rounds = Math.ceil(Math.log2(effectiveParticipantsCount))
     const normalizedSize = 2 ** rounds
-    const baseStartMs = startAt ? startAt.getTime() : null
-    const roundDurationMs = 30 * 60 * 1000
+    const startDate = startAt ?? new Date()
+    const baseStartMs = startDate.getTime()
+    const roundDurationMs = (maxDurationMinutes + teamBreakMinutes) * 60 * 1000
 
-    const skeleton: Array<{
-      phaseId: string
-      pitchId: string
-      roundNumber: number
-      bracketPos: string
-      homeTeamId?: string | null
-      awayTeamId?: string | null
-      scheduledAt?: Date | null
-    }> = []
+    const existingScheduledMatches = await prisma.match.findMany({
+      where: {
+        phase: { tournamentId },
+        scheduledAt: { not: null },
+        status: { not: MatchStatus.CANCELLED },
+      },
+      select: {
+        phaseId: true,
+        scheduledAt: true,
+        pitch: { select: { name: true } },
+      },
+    })
 
-    let pitchCursor = 0
-    for (let round = 1; round <= rounds; round += 1) {
-      const matchesInRound = normalizedSize / 2 ** round
-      for (let matchNo = 1; matchNo <= matchesInRound; matchNo += 1) {
-        skeleton.push({
-          phaseId,
-          pitchId: pitches[pitchCursor % pitches.length].id,
-          roundNumber: round,
-          bracketPos: `WB-R${round}-M${matchNo}`,
-          ...(baseStartMs !== null ? { scheduledAt: new Date(baseStartMs + (round - 1) * roundDurationMs) } : {}),
-        })
-        pitchCursor += 1
-      }
-    }
+    const effectiveExistingMatches = overwritePhaseMatches
+      ? existingScheduledMatches.filter((match) => match.phaseId !== phaseId)
+      : existingScheduledMatches
 
-    if (phase.type !== 'PLACEMENT_BRACKET' && includeLosersReplay) {
-      for (let round = 1; round <= rounds; round += 1) {
-        const matchesInRound = Math.max(1, normalizedSize / 2 ** (round + 1))
-        for (let matchNo = 1; matchNo <= matchesInRound; matchNo += 1) {
-          skeleton.push({
-            phaseId,
-            pitchId: pitches[pitchCursor % pitches.length].id,
-            roundNumber: rounds + round,
-            bracketPos: `LB-R${round}-M${matchNo}`,
-            ...(baseStartMs !== null ? { scheduledAt: new Date(baseStartMs + (rounds + round - 1) * roundDurationMs) } : {}),
-          })
-          pitchCursor += 1
-        }
-      }
-    }
+    const pitchSchedules = new Map<string, Array<{ start: number; end: number }>>(
+      pitchResources.map((pitch) => [pitch.key, []])
+    )
 
-    if (phase.type === 'PLACEMENT_BRACKET' && normalizedSize >= 4) {
-      const parsedRanges = parsePlacementRootRanges({
-        value: placementRanges,
-        normalizedSize,
-        rounds,
-      })
-      if ('error' in parsedRanges) {
-        return { success: false, message: parsedRanges.error }
-      }
-
-      const pitchCursorRef = { value: pitchCursor }
-      let dynamicOffsetCursor = rounds * 2
-      for (const range of parsedRanges.ranges) {
-        const stageOffset = range.wbRound ? rounds + range.wbRound : dynamicOffsetCursor
-        skeleton.push(
-          ...buildPlacementRangeSkeleton({
-            phaseId,
-            rangeStart: range.start,
-            rangeEnd: range.end,
-            pitches,
-            pitchCursorRef,
-            baseStartMs,
-            roundDurationMs,
-            stageOffset,
-          })
-        )
-
-        if (!range.wbRound) {
-          dynamicOffsetCursor += Math.max(1, Math.log2(range.end - range.start + 1))
-        }
-      }
-      pitchCursor = pitchCursorRef.value
-    } else if (normalizedSize >= 4) {
-      for (let place = 3; place <= normalizedSize; place += 2) {
-        skeleton.push({
-          phaseId,
-          pitchId: pitches[pitchCursor % pitches.length].id,
-          roundNumber: rounds + 10,
-          bracketPos: `P${place}-P${place + 1}`,
-          ...(baseStartMs !== null ? { scheduledAt: new Date(baseStartMs + (rounds + 9) * roundDurationMs) } : {}),
-        })
-        pitchCursor += 1
-      }
+    for (const existingMatch of effectiveExistingMatches) {
+      if (!existingMatch.scheduledAt) continue
+      const resourceKey = toPitchResourceKey(existingMatch.pitch.name)
+      if (!pitchSchedules.has(resourceKey)) continue
+      const existingStart = existingMatch.scheduledAt.getTime()
+      const existingEnd = existingStart + DEFAULT_EXISTING_MATCH_DURATION_MINUTES * 60 * 1000
+      const intervals = pitchSchedules.get(resourceKey) ?? []
+      intervals.push({ start: existingStart, end: existingEnd })
+      pitchSchedules.set(resourceKey, intervals)
     }
 
     const fallbackSeededTeamIds = registrations.map((r) => r.teamId)
@@ -4050,42 +4281,49 @@ export async function generateCustomPlacementBracketMatches(
       : fallbackSeededTeamIds
     ).slice(0, effectiveParticipantsCount)
 
-    const firstRoundMatches = skeleton
-      .filter((m) => m.roundNumber === 1 && m.bracketPos.startsWith('WB-R1-'))
-      .sort((a, b) => a.bracketPos.localeCompare(b.bracketPos))
+    const skeletonResult = buildBracketSkeleton({
+      phaseId,
+      phaseType: phase.type,
+      effectiveParticipantsCount,
+      seededTeamIds,
+      includeLosersReplay,
+      placementRanges,
+      pitchResources,
+      roundDurationMs,
+    })
+    if ('error' in skeletonResult) return { success: false, message: skeletonResult.error }
+    const { skeleton: uniqueSkeleton } = skeletonResult
 
-    for (let i = 0; i < firstRoundMatches.length; i += 1) {
-      const slot = firstRoundMatches[i]
-      const home = seededTeamIds[i * 2] ?? null
-      const away = seededTeamIds[i * 2 + 1] ?? null
-      slot.homeTeamId = home
-      slot.awayTeamId = away
-    }
-
-    const uniqueSkeleton = Array.from(
-      new Map(skeleton.map((item) => [`${item.phaseId}:${item.bracketPos}`, item])).values()
-    )
+    const scheduledSkeleton = scheduleBracketMatches({
+      matches: uniqueSkeleton,
+      pitchResources,
+      startTimeMs: baseStartMs,
+      roundDurationMs,
+      pitchSchedules,
+    })
 
     await prisma.$transaction(async (tx) => {
       if (existing > 0 && overwritePhaseMatches) {
         await tx.match.deleteMany({ where: { phaseId } })
       }
-      await tx.match.createMany({ data: uniqueSkeleton })
+      await tx.match.createMany({ data: scheduledSkeleton })
     })
 
     await recordTournamentAction({
       tournamentId,
       actionType: 'BRACKET_GENERATE',
-      message: `${skeleton.length} match(s) de bracket generes. ${Math.min(seededTeamIds.length, normalizedSize)} equipe(s) assignee(s) automatiquement.`,
+      message: `${scheduledSkeleton.length} match(s) de bracket generes. ${Math.min(seededTeamIds.length, normalizedSize)} equipe(s) assignee(s) automatiquement.`,
       payload: {
         phaseId,
         participantsCount: effectiveParticipantsCount,
         requestedParticipantsCount: participantsCount,
         startAt: startAt ? startAt.toISOString() : null,
+        maxDurationMinutes,
+        teamBreakMinutes,
         includeLosersReplay,
         overwritePhaseMatches,
         placementRanges: placementRanges?.trim() || null,
-        generatedCount: uniqueSkeleton.length,
+        generatedCount: scheduledSkeleton.length,
         autoAssignedTeams: Math.min(seededTeamIds.length, normalizedSize),
         seedSource: incomingQualifiers.hasRouting ? 'ROUTES' : 'REGISTRATIONS',
       },
@@ -4094,12 +4332,283 @@ export async function generateCustomPlacementBracketMatches(
     revalidateTournamentPath(orgSlug, tournamentSlug)
     return {
       success: true,
-      message: `${uniqueSkeleton.length} match(s) de bracket personnalise generes (${Math.min(seededTeamIds.length, normalizedSize)} equipe(s) assignee(s), ${effectiveParticipantsCount} participant(s) retenu(s)).`,
+      message: `${scheduledSkeleton.length} match(s) de bracket personnalise generes (${Math.min(seededTeamIds.length, normalizedSize)} equipe(s) assignee(s), ${effectiveParticipantsCount} participant(s) retenu(s)).`,
     }
   } catch (error) {
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Erreur generation bracket personnalise.',
+    }
+  }
+}
+
+export async function generateLinkedBracketMatches(
+  formData: FormData
+): Promise<ActionState> {
+  const baseParsed = ManageTournamentBaseSchema.safeParse(Object.fromEntries(formData))
+  if (!baseParsed.success) return { success: false, message: 'Donnees invalides pour generation liee.' }
+
+  const { tournamentId, orgSlug, tournamentSlug } = baseParsed.data
+  const sourcePhaseId = String(formData.get('phaseId') ?? '').trim()
+  if (!sourcePhaseId) {
+    return { success: false, message: 'Phase source manquante pour generation liee.' }
+  }
+
+  const includeLinkedRaw = formData.get('includeLinked')
+  const includeLinked = includeLinkedRaw === 'on' || includeLinkedRaw === 'true' || includeLinkedRaw === '1'
+
+  if (!includeLinked) {
+    return generateCustomPlacementBracketMatches(formData)
+  }
+
+  const rotationMode: 'sequential' | 'interleaved' =
+    formData.get('rotationMode') === 'interleaved' ? 'interleaved' : 'sequential'
+
+  try {
+    await assertOrganizerCanManageTournament(tournamentId)
+
+    const sourcePhase = await prisma.phase.findUnique({
+      where: { id: sourcePhaseId },
+      select: { id: true, name: true, tournamentId: true, type: true, config: true, order: true },
+    })
+
+    if (!sourcePhase || sourcePhase.tournamentId !== tournamentId) {
+      return { success: false, message: 'Phase source invalide pour generation liee.' }
+    }
+
+    const sourceGroup = readParallelGroupFromConfig(sourcePhase.config)
+    if (!sourceGroup) {
+      return generateCustomPlacementBracketMatches(formData)
+    }
+
+    const candidatePhases = await prisma.phase.findMany({
+      where: {
+        tournamentId,
+        type: { in: [PhaseType.CUSTOM, PhaseType.BRACKET_SINGLE, PhaseType.BRACKET_DOUBLE, PhaseType.PLACEMENT_BRACKET] },
+      },
+      select: { id: true, name: true, type: true, config: true, order: true },
+      orderBy: { order: 'asc' },
+    })
+
+    const linkedPhases = candidatePhases.filter(
+      (phase) => readParallelGroupFromConfig(phase.config) === sourceGroup
+    )
+
+    if (linkedPhases.length <= 1) {
+      return generateCustomPlacementBracketMatches(formData)
+    }
+
+    const requestedParticipantsCount = Number(String(formData.get('participantsCount') ?? '0')) || 0
+    const overwritePhaseMatches = formData.get('overwritePhaseMatches') === 'on' || formData.get('overwritePhaseMatches') === 'true'
+    const includeLosersReplay = formData.get('includeLosersReplay') === 'on' || formData.get('includeLosersReplay') === 'true'
+    const startAtRaw = formData.get('startAt')
+    const parsedStartAt = startAtRaw ? new Date(String(startAtRaw)) : new Date()
+    const startAt = Number.isNaN(parsedStartAt.getTime()) ? new Date() : parsedStartAt
+    const maxDurationMinutes = Math.max(5, Number(formData.get('maxDurationMinutes') ?? '30') || 30)
+    const teamBreakMinutes = Math.max(0, Number(formData.get('teamBreakMinutes') ?? '0') || 0)
+    const placementRanges = formData.get('placementRanges') ? String(formData.get('placementRanges')) : undefined
+    const roundDurationMs = (maxDurationMinutes + teamBreakMinutes) * 60 * 1000
+    const baseStartMs = startAt.getTime()
+
+    if (rotationMode === 'interleaved') {
+      const linkedPhaseIds = linkedPhases.map((p) => p.id)
+
+      const [pitches, registrations, existingScheduledMatches] = await Promise.all([
+        prisma.pitch.findMany({
+          where: {
+            tournamentId,
+            OR: [...linkedPhaseIds.map((id) => ({ phaseId: id })), { phaseId: null }],
+          },
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
+        }),
+        prisma.tournamentRegistration.findMany({
+          where: { tournamentId },
+          select: { teamId: true, isConfirmed: true, seed: true, registeredAt: true },
+          orderBy: [{ isConfirmed: 'desc' }, { seed: 'asc' }, { registeredAt: 'asc' }],
+        }),
+        prisma.match.findMany({
+          where: {
+            phase: { tournamentId },
+            scheduledAt: { not: null },
+            status: { not: MatchStatus.CANCELLED },
+          },
+          select: { phaseId: true, scheduledAt: true, pitch: { select: { name: true } } },
+        }),
+      ])
+
+      if (pitches.length === 0) {
+        return { success: false, message: 'Ajoutez au moins une piste associee au tournoi/phase.' }
+      }
+
+      const pitchResources = uniquePitchResources(pitches)
+      const linkedPhaseIdSet = new Set(linkedPhaseIds)
+
+      const effectiveExistingMatches = overwritePhaseMatches
+        ? existingScheduledMatches.filter((m) => !linkedPhaseIdSet.has(m.phaseId))
+        : existingScheduledMatches
+
+      const pitchSchedules = new Map<string, Array<{ start: number; end: number }>>(
+        pitchResources.map((pitch) => [pitch.key, []])
+      )
+      for (const existingMatch of effectiveExistingMatches) {
+        if (!existingMatch.scheduledAt) continue
+        const resourceKey = toPitchResourceKey(existingMatch.pitch.name)
+        if (!pitchSchedules.has(resourceKey)) continue
+        const existingStart = existingMatch.scheduledAt.getTime()
+        const existingEnd = existingStart + DEFAULT_EXISTING_MATCH_DURATION_MINUTES * 60 * 1000
+        const intervals = pitchSchedules.get(resourceKey) ?? []
+        intervals.push({ start: existingStart, end: existingEnd })
+        pitchSchedules.set(resourceKey, intervals)
+      }
+
+      const allSkeletons: BracketSkeletonMatch[] = []
+
+      for (const phase of linkedPhases) {
+        const [incomingQualifiers, expectedIncomingQualifiers] = await Promise.all([
+          resolveIncomingQualifierIdsForTargetPhase({ tournamentId, targetPhaseId: phase.id }),
+          resolveExpectedIncomingQualifierCountForTargetPhase({ tournamentId, targetPhaseId: phase.id }),
+        ])
+
+        const autoParticipantsCount =
+          (expectedIncomingQualifiers.expectedCount && expectedIncomingQualifiers.expectedCount > 0
+            ? expectedIncomingQualifiers.expectedCount
+            : 0) ||
+          (incomingQualifiers.teamIds.length > 0 ? incomingQualifiers.teamIds.length : 0) ||
+          (requestedParticipantsCount > 0 ? requestedParticipantsCount : 8)
+
+        const effectiveParticipantsCount = incomingQualifiers.hasRouting
+          ? Math.max(autoParticipantsCount, incomingQualifiers.teamIds.length)
+          : autoParticipantsCount
+
+        const fallbackSeededTeamIds = registrations.map((r) => r.teamId)
+        const seededTeamIds = (incomingQualifiers.hasRouting
+          ? incomingQualifiers.teamIds
+          : fallbackSeededTeamIds
+        ).slice(0, effectiveParticipantsCount)
+
+        const skeletonResult = buildBracketSkeleton({
+          phaseId: phase.id,
+          phaseType: phase.type,
+          effectiveParticipantsCount,
+          seededTeamIds,
+          includeLosersReplay,
+          placementRanges,
+          pitchResources,
+          roundDurationMs,
+        })
+
+        if ('error' in skeletonResult) {
+          return { success: false, message: `Erreur structure bracket "${phase.name}": ${skeletonResult.error}` }
+        }
+
+        allSkeletons.push(...skeletonResult.skeleton)
+      }
+
+      const scheduledSkeleton = scheduleBracketMatches({
+        matches: allSkeletons,
+        pitchResources,
+        startTimeMs: baseStartMs,
+        roundDurationMs,
+        pitchSchedules,
+        rotationMode: 'interleaved',
+      })
+
+      await prisma.$transaction(async (tx) => {
+        if (overwritePhaseMatches) {
+          await tx.match.deleteMany({ where: { phaseId: { in: linkedPhaseIds } } })
+        }
+        await tx.match.createMany({ data: scheduledSkeleton })
+      })
+
+      await recordTournamentAction({
+        tournamentId,
+        actionType: 'BRACKET_GENERATE',
+        message: `Generation liee entrelacee: ${scheduledSkeleton.length} match(s) pour le groupe "${sourceGroup}" (${linkedPhases.length} brackets).`,
+        payload: {
+          group: sourceGroup,
+          phases: linkedPhaseIds,
+          rotationMode,
+          startAt: startAt.toISOString(),
+          maxDurationMinutes,
+          teamBreakMinutes,
+          generatedCount: scheduledSkeleton.length,
+        },
+      })
+
+      revalidateTournamentPath(orgSlug, tournamentSlug)
+      return {
+        success: true,
+        message: `${scheduledSkeleton.length} match(s) generes en mode entrelacer pour ${linkedPhases.length} bracket(s) du groupe "${sourceGroup}".`,
+      }
+    }
+
+    // ── Sequential mode ────────────────────────────────────────────────────────
+    let generatedCount = 0
+
+    for (const phase of linkedPhases) {
+      const linkedFormData = new FormData()
+      linkedFormData.set('tournamentId', tournamentId)
+      linkedFormData.set('orgSlug', orgSlug)
+      linkedFormData.set('tournamentSlug', tournamentSlug)
+      linkedFormData.set('phaseId', phase.id)
+
+      const [incomingQualifiers, expectedIncomingQualifiers] = await Promise.all([
+        resolveIncomingQualifierIdsForTargetPhase({
+          tournamentId,
+          targetPhaseId: phase.id,
+        }),
+        resolveExpectedIncomingQualifierCountForTargetPhase({
+          tournamentId,
+          targetPhaseId: phase.id,
+        }),
+      ])
+
+      const autoParticipantsCount =
+        (expectedIncomingQualifiers.expectedCount && expectedIncomingQualifiers.expectedCount > 0
+          ? expectedIncomingQualifiers.expectedCount
+          : 0) ||
+        (incomingQualifiers.teamIds.length > 0 ? incomingQualifiers.teamIds.length : 0) ||
+        (requestedParticipantsCount > 0 ? requestedParticipantsCount : 8)
+
+      linkedFormData.set('participantsCount', String(autoParticipantsCount))
+
+      const passThroughFields = [
+        'startAt',
+        'maxDurationMinutes',
+        'teamBreakMinutes',
+        'includeLosersReplay',
+        'overwritePhaseMatches',
+        'placementRanges',
+        'rotationMode',
+      ]
+
+      for (const field of passThroughFields) {
+        const value = formData.get(field)
+        if (value !== null) {
+          linkedFormData.set(field, String(value))
+        }
+      }
+
+      const result = await generateCustomPlacementBracketMatches(linkedFormData)
+      if (!result.success) {
+        return {
+          success: false,
+          message: `Generation liee interrompue sur "${phase.name}": ${result.message}`,
+        }
+      }
+
+      generatedCount += 1
+    }
+
+    return {
+      success: true,
+      message: `${generatedCount} phase(s) de bracket liees generees pour le groupe "${sourceGroup}".`,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erreur generation liee des brackets.',
     }
   }
 }

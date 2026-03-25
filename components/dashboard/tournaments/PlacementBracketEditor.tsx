@@ -18,6 +18,8 @@ type PlacementMatch = {
   phaseId: string;
   roundNumber: number | null;
   bracketPos: string | null;
+  scheduledAt: string | null;
+  pitchName: string | null;
   status: MatchStatus;
   homeTeamId: string | null;
   homeTeamName: string;
@@ -36,6 +38,8 @@ type DisplayMatch = {
   id: string;
   players: DisplayPlayer[];
   info: string;
+  scheduledAt: string | null;
+  pitchName: string | null;
 };
 
 type BracketRoundData = {
@@ -94,6 +98,8 @@ function parsePlacementMatch(match: PlacementMatch): { start: number; end: numbe
 function toDisplayMatch(match: PlacementMatch): DisplayMatch {
   return {
     id: match.id,
+    scheduledAt: match.scheduledAt ?? null,
+    pitchName: match.pitchName ?? null,
     players: [
       { name: match.homeTeamName || 'À DÉFINIR', score: match.homeScore },
       { name: match.awayTeamName || 'À DÉFINIR', score: match.awayScore },
@@ -163,8 +169,14 @@ function countTreeMatches(tree: PlacementTree): number {
 
 // --- UI Components ---
 
-const MatchBox = ({ players, isFinal, width }: { players: DisplayPlayer[]; isFinal: boolean; width: string }) => (
+const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName }: { players: DisplayPlayer[]; isFinal: boolean; width: string; scheduledAt: string | null; pitchName: string | null }) => (
   <div className={`relative flex flex-col bg-slate-950 border ${isFinal ? 'border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'border-white/10'} rounded overflow-hidden ${width} z-10`}>
+    {(scheduledAt || pitchName) && (
+      <div className="px-2 pt-0.5 text-[6px] font-semibold text-teal-400 opacity-80 tracking-wide">
+        {scheduledAt && new Date(scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+        {pitchName && <span className={scheduledAt ? 'ml-1 opacity-60' : ''}>{scheduledAt ? '· ' : ''}{pitchName}</span>}
+      </div>
+    )}
     {players.map((p, i) => (
       <div key={i} className={`flex justify-between items-center px-2 py-1 h-4 ${i === 0 ? 'border-b border-white/5' : ''}`}>
         <span className={`text-[7px] font-bold uppercase italic truncate ${p.score !== null ? 'text-white' : 'text-slate-500'}`}>
@@ -198,7 +210,9 @@ const BracketRound = ({ round, roundIdx, isLast, matchWidth }: { round: BracketR
               <MatchBox 
                 players={match.players} 
                 isFinal={isLast && matches.length === 1} 
-                width={matchWidth} 
+                width={matchWidth}
+                scheduledAt={match.scheduledAt}
+                pitchName={match.pitchName}
               />
 
               {/* Connecteur Sortant (Droite) - Structure en Bracket */}

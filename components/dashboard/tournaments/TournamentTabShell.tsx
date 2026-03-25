@@ -20,6 +20,7 @@ import {
     deleteTournamentMatch,
     deleteTournamentPitch,
     generateCustomPlacementBracketMatches,
+    generateLinkedBracketMatches,
     generateGroupMatchesFromPlacements,
     generatePhaseRoundRobinMatches,
     removeTournamentRegistration,
@@ -664,6 +665,9 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
     const [nowMs, setNowMs] = useState(() => Date.now())
     const [isAdminPanelCollapsed, setIsAdminPanelCollapsed] = useState(false)
     const [activeTab, setActiveTab] = useState<TabId>('overview')
+    const [activeBracketPhaseId, setActiveBracketPhaseId] = useState(() =>
+        tournament.phases.find((phase) => ['BRACKET_SINGLE', 'BRACKET_DOUBLE', 'PLACEMENT_BRACKET', 'CUSTOM'].includes(phase.type))?.id ?? ''
+    )
     const [phasesStep, setPhasesStep] = useState<1 | 2 | 3>(1)
     const [matchesStep, setMatchesStep] = useState<1 | 2 | 3 | 4>(1)
     const [matchCreateMode, setMatchCreateMode] = useState<'single' | 'bulk'>('single')
@@ -708,7 +712,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
         INITIAL_INLINE_ACTION_STATE
     )
     const [customBracketGenerationState, customBracketGenerationAction] = useActionState(
-        async (_: InlineActionState, formData: FormData) => generateCustomPlacementBracketMatches(formData),
+        async (_: InlineActionState, formData: FormData) => generateLinkedBracketMatches(formData),
         INITIAL_INLINE_ACTION_STATE
     )
     const [overlayBackgroundState, overlayBackgroundAction] = useActionState(
@@ -768,6 +772,47 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
         ['BRACKET_SINGLE', 'BRACKET_DOUBLE', 'PLACEMENT_BRACKET', 'CUSTOM'].includes(p.type)
     )
     const groupPhases = tournament.phases.filter((p) => p.type === 'GROUP')
+
+    const bracketParallelGroups = useMemo(() => {
+        const grouped = new Map<string, PhaseData[]>()
+
+        for (const phase of bracketPhases) {
+            const group = readParallelGroup(phase.config)
+            if (!group) continue
+            const bucket = grouped.get(group) ?? []
+            bucket.push(phase)
+            grouped.set(group, bucket)
+        }
+
+        return Array.from(grouped.entries())
+            .map(([group, phases]) => {
+                const sorted = [...phases].sort((a, b) => a.order - b.order)
+                return {
+                    key: `group:${group}`,
+                    group,
+                    phases: sorted,
+                    leaderPhase: sorted[0],
+                }
+            })
+            .filter((item) => item.leaderPhase)
+            .sort((a, b) => a.leaderPhase.order - b.leaderPhase.order)
+    }, [bracketPhases])
+
+    const bracketSubTabKeys = useMemo(() => {
+        const phaseKeys = bracketPhases.map((phase) => phase.id)
+        const groupKeys = bracketParallelGroups.map((group) => group.key)
+        return [...phaseKeys, ...groupKeys]
+    }, [bracketParallelGroups, bracketPhases])
+
+    useEffect(() => {
+        if (bracketSubTabKeys.length === 0) {
+            if (activeBracketPhaseId !== '') setActiveBracketPhaseId('')
+            return
+        }
+        if (!bracketSubTabKeys.includes(activeBracketPhaseId)) {
+            setActiveBracketPhaseId(bracketSubTabKeys[0])
+        }
+    }, [activeBracketPhaseId, bracketSubTabKeys])
 
     const pitchGroups = useMemo(() => {
         const grouped = new Map<string, {
@@ -952,6 +997,33 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
 
         return items
     }, [incomingQualifiersByPhase, seededTeamsByPhase, tournament.phases])
+
+    const expectedIncomingQualifierCountByPhase = useMemo(() => {
+        const map = new Map<string, number>()
+
+        for (const targetPhase of tournament.phases) {
+            let total = 0
+
+            for (const sourcePhase of tournament.phases) {
+                if (!sourcePhase.isCompleted) continue
+                const routes = readRoutes(sourcePhase.config).filter((route) => route.toPhaseId === targetPhase.id)
+                if (routes.length === 0 || sourcePhase.type !== 'GROUP') continue
+
+                const groupConfig = readGroupConfig(sourcePhase.config)
+                for (const route of routes) {
+                    if ((route.rule === 'TOP' || route.rule === 'BOTTOM') && route.countPerGroup) {
+                        total += groupConfig.count * route.countPerGroup
+                    } else if (route.rule === 'RANGE' && route.startRank && route.endRank && route.endRank >= route.startRank) {
+                        total += groupConfig.count * (route.endRank - route.startRank + 1)
+                    }
+                }
+            }
+
+            map.set(targetPhase.id, total)
+        }
+
+        return map
+    }, [tournament.phases])
 
     const scheduleByPitch = useMemo(() => {
         const byPitch = new Map<string, Map<number, SerializedMatch[]>>()
@@ -1261,21 +1333,6 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                             Lien public
                         </Link>
                     )}
-                    {tournament.isPublic && (
-                        <Link
-                            href={`/public/${orgSlug}/${tournament.slug}/overlay`}
-                            target="_blank"
-                            className="rounded-xl border border-emerald-500/40 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-500/10 transition"
-                        >
-                            Overlay public
-                        </Link>
-                    )}
-                    <Link
-                        href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}/bracket`}
-                        className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-medium hover:border-slate-500 transition"
-                    >
-                        Page bracket
-                    </Link>
                     <Link
                         href={`/dashboard/org/${orgSlug}/tournaments`}
                         className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-white transition"
@@ -2255,7 +2312,141 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                             <EmptyState message="Aucune phase bracket ou personnalisee." />
                         ) : (
                             <div className="space-y-6">
-                                {bracketPhases.map((phase) => {
+                                <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-2">
+                                    {bracketPhases.map((phase) => (
+                                        <button
+                                            key={`bracket-tab-${phase.id}`}
+                                            type="button"
+                                            onClick={() => setActiveBracketPhaseId(phase.id)}
+                                            className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                                                (activeBracketPhaseId || bracketPhases[0]?.id) === phase.id
+                                                    ? 'border-teal-600 bg-teal-50 text-teal-700'
+                                                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            {phase.name}
+                                        </button>
+                                    ))}
+                                    {bracketParallelGroups.map((group) => (
+                                        <button
+                                            key={`bracket-group-tab-${group.group}`}
+                                            type="button"
+                                            onClick={() => setActiveBracketPhaseId(group.key)}
+                                            className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                                                activeBracketPhaseId === group.key
+                                                    ? 'border-cyan-600 bg-cyan-50 text-cyan-700'
+                                                    : 'border-cyan-300 bg-white text-cyan-700 hover:bg-cyan-50'
+                                            }`}
+                                        >
+                                            Groupe {group.group}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {activeBracketPhaseId.startsWith('group:') && (() => {
+                                    const groupName = activeBracketPhaseId.slice('group:'.length)
+                                    const group = bracketParallelGroups.find((item) => item.group === groupName)
+                                    if (!group) return null
+
+                                    const leaderPhase = group.leaderPhase
+
+                                    return (
+                                        <StepSection
+                                            num={1}
+                                            title={`Generer les brackets lies (${group.group})`}
+                                            desc="Un seul formulaire pour generer tous les brackets et matchs de ce groupe parallele."
+                                            color="cyan"
+                                        >
+                                            <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600">
+                                                Phases incluses: {group.phases.map((phase) => phase.name).join(' • ')}
+                                            </div>
+                                            <div className="mb-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                                {group.phases.map((phase) => {
+                                                    const resolvedCount = (incomingQualifiersByPhase.get(phase.id) ?? []).length
+                                                    const expectedCount = expectedIncomingQualifierCountByPhase.get(phase.id) ?? 0
+                                                    const placedCount = (seededTeamsByPhase.get(phase.id) ?? []).length
+                                                    const waitingPropagation = expectedCount > 0 && resolvedCount === 0
+
+                                                    return (
+                                                        <div key={`linked-group-phase-${phase.id}`} className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+                                                            <p className="font-semibold text-slate-900">{phase.name}</p>
+                                                            <p className="mt-1">Equipes attendues via routes: <span className="font-semibold text-slate-900">{expectedCount}</span></p>
+                                                            <p>Qualifiees resolues maintenant: <span className="font-semibold text-slate-900">{resolvedCount}</span></p>
+                                                            <p>Equipes deja placees: <span className="font-semibold text-slate-900">{placedCount}</span></p>
+                                                            {waitingPropagation && (
+                                                                <p className="mt-1 text-[11px] text-amber-700">
+                                                                    En attente de propagation/seed depuis la phase precedente. La structure peut etre generee maintenant, puis alimentee ensuite.
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                            <form action={customBracketGenerationAction} className="grid gap-2 md:grid-cols-10">
+                                                <input type="hidden" name="tournamentId" value={tournament.id} />
+                                                <input type="hidden" name="orgSlug" value={orgSlug} />
+                                                <input type="hidden" name="tournamentSlug" value={tournament.slug} />
+                                                <input type="hidden" name="phaseId" value={leaderPhase.id} />
+                                                <input type="hidden" name="includeLinked" value="on" />
+
+                                                <div>
+                                                    <label className="mb-1 block text-xs text-slate-500">Heure de debut</label>
+                                                    <input name="startAt" type="datetime-local" className={`${inputCls} w-full`} />
+                                                </div>
+                                                <div>
+                                                    <label className="mb-1 block text-xs text-slate-500">Duree max (min)</label>
+                                                    <input
+                                                        name="maxDurationMinutes"
+                                                        type="number"
+                                                        min={5}
+                                                        max={600}
+                                                        defaultValue={planningDefaults.matchMinutes}
+                                                        className={`${inputCls} w-full`}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="mb-1 block text-xs text-slate-500">Battement equipe (min)</label>
+                                                    <input
+                                                        name="teamBreakMinutes"
+                                                        type="number"
+                                                        min={0}
+                                                        max={240}
+                                                        defaultValue={planningDefaults.breakMinutes}
+                                                        className={`${inputCls} w-full`}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="mb-1 block text-xs text-slate-500">Roulement des brackets</label>
+                                                    <select name="rotationMode" defaultValue="sequential" className={`${inputCls} w-full`}>
+                                                        <option value="sequential">Sequentiel (bracket par bracket)</option>
+                                                        <option value="interleaved">Entrelacer (alterner les brackets)</option>
+                                                    </select>
+                                                </div>
+                                                <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
+                                                    <input name="includeLosersReplay" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
+                                                    Perdants rejouent (classement complet)
+                                                </label>
+                                                <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
+                                                    <input name="overwritePhaseMatches" type="checkbox" className="h-4 w-4 accent-amber-500" />
+                                                    <span className="text-amber-700">Ecraser les matchs</span>
+                                                </label>
+                                                <div className="md:col-span-3 flex items-end gap-2">
+                                                    <LoadingSubmitButton className={`${btnGhost} w-full disabled:opacity-60`} loadingLabel="Generation...">
+                                                        Generer tous les brackets lies ({group.group})
+                                                    </LoadingSubmitButton>
+                                                </div>
+
+                                                {customBracketGenerationState.message && (
+                                                    <p className={`md:col-span-10 text-[11px] ${customBracketGenerationState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                                                        {customBracketGenerationState.message}
+                                                    </p>
+                                                )}
+                                            </form>
+                                        </StepSection>
+                                    )
+                                })()}
+
+                                {(bracketPhases.find((phase) => phase.id === (activeBracketPhaseId || bracketPhases[0]?.id)) ? [bracketPhases.find((phase) => phase.id === (activeBracketPhaseId || bracketPhases[0]?.id)) as PhaseData] : []).map((phase) => {
                                     const phaseMatches = matches
                                         .filter((m) => m.phaseId === phase.id)
                                         .map((m) => ({
@@ -2264,12 +2455,16 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                             awayTeamId: m.awayTeamId,
                                             roundNumber: m.roundNumber,
                                             bracketPos: m.bracketPos,
+                                            scheduledAt: m.scheduledAt,
+                                            pitchName: m.pitch?.name ?? null,
                                             status: m.status as 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'CANCELLED',
                                             homeTeamName: m.homeTeam?.name || 'TBD',
                                             awayTeamName: m.awayTeam?.name || 'TBD',
                                             homeScore: m.result?.homeScore ?? null,
                                             awayScore: m.result?.awayScore ?? null,
                                         }))
+                                    const phaseParallelGroup = readParallelGroup(phase.config)
+                                    const canGenerateThisPhase = !phaseParallelGroup
                                     const incomingQualifierCount = (incomingQualifiersByPhase.get(phase.id) ?? []).length
                                     const defaultParticipantsCount = Math.max(incomingQualifierCount, 8)
 
@@ -2291,13 +2486,14 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                 timer={bracketTimerContext}
                                             />
 
-                                            {(phase.type === 'CUSTOM' || phase.type === 'PLACEMENT_BRACKET') && (
+                                            {(phase.type === 'CUSTOM' || phase.type === 'PLACEMENT_BRACKET') && canGenerateThisPhase && (
                                                 <StepSection num={1} title="Generer la structure du bracket personnalise" desc="Definissez le nombre de participants. Pour un bracket a placement, vous pouvez aussi configurer les plages de classement.">
-                                                    <form action={customBracketGenerationAction} className="grid gap-2 md:grid-cols-8">
+                                                    <form action={customBracketGenerationAction} className="grid gap-2 md:grid-cols-10">
                                                         <input type="hidden" name="tournamentId" value={tournament.id} />
                                                         <input type="hidden" name="orgSlug" value={orgSlug} />
                                                         <input type="hidden" name="tournamentSlug" value={tournament.slug} />
                                                         <input type="hidden" name="phaseId" value={phase.id} />
+                                                        {phaseParallelGroup && <input type="hidden" name="includeLinked" value="on" />}
                                                         <div>
                                                             <label className="mb-1 block text-xs text-slate-500">Participants</label>
                                                             <input
@@ -2317,6 +2513,28 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                         <div>
                                                             <label className="mb-1 block text-xs text-slate-500">Heure de debut</label>
                                                             <input name="startAt" type="datetime-local" className={`${inputCls} w-full`} />
+                                                        </div>
+                                                        <div>
+                                                            <label className="mb-1 block text-xs text-slate-500">Duree max (min)</label>
+                                                            <input
+                                                                name="maxDurationMinutes"
+                                                                type="number"
+                                                                min={5}
+                                                                max={600}
+                                                                defaultValue={planningDefaults.matchMinutes}
+                                                                className={`${inputCls} w-full`}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="mb-1 block text-xs text-slate-500">Battement equipe (min)</label>
+                                                            <input
+                                                                name="teamBreakMinutes"
+                                                                type="number"
+                                                                min={0}
+                                                                max={240}
+                                                                defaultValue={planningDefaults.breakMinutes}
+                                                                className={`${inputCls} w-full`}
+                                                            />
                                                         </div>
                                                         {phase.type === 'PLACEMENT_BRACKET' && (
                                                             <div className="md:col-span-2">
@@ -2339,12 +2557,16 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                             <input name="overwritePhaseMatches" type="checkbox" className="h-4 w-4 accent-amber-500" />
                                                             <span className="text-amber-700">Ecraser les matchs</span>
                                                         </label>
-                                                        <div className="md:col-span-2 flex items-end">
-                                                            <LoadingSubmitButton className={`${btnGhost} w-full disabled:opacity-60`} loadingLabel="Generation...">Generer le bracket</LoadingSubmitButton>
+                                                        <div className="md:col-span-3 flex items-end gap-2">
+                                                            <LoadingSubmitButton className={`${btnGhost} w-full disabled:opacity-60`} loadingLabel="Generation...">
+                                                                {phaseParallelGroup
+                                                                    ? `Generer tous les brackets lies (${phaseParallelGroup})`
+                                                                    : 'Generer ce bracket'}
+                                                            </LoadingSubmitButton>
                                                         </div>
 
                                                         {customBracketGenerationState.message && (
-                                                            <p className={`md:col-span-8 text-[11px] ${customBracketGenerationState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                                                            <p className={`md:col-span-10 text-[11px] ${customBracketGenerationState.success ? 'text-emerald-700' : 'text-red-700'}`}>
                                                                 {customBracketGenerationState.message}
                                                             </p>
                                                         )}
@@ -2510,6 +2732,12 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                         )
                                                     })()}
                                                 </StepSection>
+                                            )}
+
+                                            {(phase.type === 'CUSTOM' || phase.type === 'PLACEMENT_BRACKET') && !canGenerateThisPhase && phaseParallelGroup && (
+                                                <div className="rounded-lg border border-cyan-300 bg-cyan-50 p-3 text-xs text-cyan-800">
+                                                    Cette phase est liee au groupe <span className="font-semibold">{phaseParallelGroup}</span>. Utilisez l'onglet de groupe parallele pour generer tous les brackets lies en une seule fois.
+                                                </div>
                                             )}
 
                                             {phaseMatches.some((m) => m.roundNumber === 1) && (

@@ -35,8 +35,17 @@ const initialState: ActionState = {
     message: "",
 };
 
+const matchStatusOrder: Record<MatchStatus, number> = {
+    LIVE: 0,
+    SCHEDULED: 1,
+    FINISHED: 2,
+    CANCELLED: 3,
+};
+
 export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug, matches }: Props) {
     const [state, formAction, isPending] = useActionState(bulkUpdateTournamentMatches, initialState);
+    const [sortBy, setSortBy] = useState<"default" | "status">("default");
+    const [statusFilter, setStatusFilter] = useState<"ALL" | MatchStatus>("ALL");
 
     const [rows, setRows] = useState(
         matches.map((match) => ({
@@ -79,6 +88,33 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
 
     const updatesJson = useMemo(() => JSON.stringify(updates), [updates]);
 
+    const rowMap = useMemo(() => new Map(rows.map((row) => [row.matchId, row])), [rows]);
+
+    const displayedMatches = useMemo(() => {
+        const indexedMatches = matches
+            .map((match, index) => ({ match, index }))
+            .filter(({ match }) => {
+                if (statusFilter === "ALL") return true;
+                const currentStatus = rowMap.get(match.id)?.status ?? match.status;
+                return currentStatus === statusFilter;
+            });
+
+        if (sortBy === "default") {
+            return indexedMatches.map(({ match }) => match);
+        }
+
+        return indexedMatches
+            .sort((a, b) => {
+                const aStatus = rowMap.get(a.match.id)?.status ?? a.match.status;
+                const bStatus = rowMap.get(b.match.id)?.status ?? b.match.status;
+                const statusDiff = matchStatusOrder[aStatus] - matchStatusOrder[bStatus];
+
+                if (statusDiff !== 0) return statusDiff;
+                return a.index - b.index;
+            })
+            .map(({ match }) => match);
+    }, [matches, rowMap, sortBy, statusFilter]);
+
     const updateRow = (matchId: string, patch: Partial<(typeof rows)[number]>) => {
         setRows((prev) => prev.map((row) => (row.matchId === matchId ? { ...row, ...patch } : row)));
     };
@@ -90,19 +126,46 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                     <h3 className="text-lg font-bold">Edition rapide des matchs</h3>
                     <p className="text-xs text-slate-500">Modifie plusieurs statuts/scores puis sauvegarde en une fois.</p>
                 </div>
-                <form action={formAction} className="flex items-center gap-2">
-                    <input type="hidden" name="tournamentId" value={tournamentId} />
-                    <input type="hidden" name="orgSlug" value={orgSlug} />
-                    <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
-                    <input type="hidden" name="updatesJson" value={updatesJson} />
-                    <button
-                        type="submit"
-                        disabled={isPending || updates.length === 0}
-                        className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold hover:bg-teal-600 disabled:opacity-60"
-                    >
-                        {isPending ? "Sauvegarde..." : `Sauvegarder (${updates.length})`}
-                    </button>
-                </form>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>Statut</span>
+                        <select
+                            value={statusFilter}
+                            onChange={(event) => setStatusFilter(event.target.value as "ALL" | MatchStatus)}
+                            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                        >
+                            <option value="ALL">Tous</option>
+                            <option value="LIVE">LIVE</option>
+                            <option value="SCHEDULED">SCHEDULED</option>
+                            <option value="FINISHED">FINISHED</option>
+                            <option value="CANCELLED">CANCELLED</option>
+                        </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>Tri</span>
+                        <select
+                            value={sortBy}
+                            onChange={(event) => setSortBy(event.target.value as "default" | "status")}
+                            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                        >
+                            <option value="default">Ordre actuel</option>
+                            <option value="status">Statut du match</option>
+                        </select>
+                    </label>
+                    <form action={formAction} className="flex items-center gap-2">
+                        <input type="hidden" name="tournamentId" value={tournamentId} />
+                        <input type="hidden" name="orgSlug" value={orgSlug} />
+                        <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
+                        <input type="hidden" name="updatesJson" value={updatesJson} />
+                        <button
+                            type="submit"
+                            disabled={isPending || updates.length === 0}
+                            className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold hover:bg-teal-600 disabled:opacity-60"
+                        >
+                            {isPending ? "Sauvegarde..." : `Sauvegarder (${updates.length})`}
+                        </button>
+                    </form>
+                </div>
             </div>
 
             {state.message && (
@@ -117,8 +180,13 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
             )}
 
             <div className="space-y-2">
-                {matches.map((match) => {
-                    const row = rows.find((item) => item.matchId === match.id);
+                {displayedMatches.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+                        Aucun match ne correspond au filtre sélectionné.
+                    </div>
+                )}
+                {displayedMatches.map((match) => {
+                    const row = rowMap.get(match.id);
                     if (!row) return null;
 
                     return (

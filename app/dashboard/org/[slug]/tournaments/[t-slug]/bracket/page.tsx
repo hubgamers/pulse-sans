@@ -25,7 +25,7 @@ export default async function TournamentBracketPage({
             phases: {
                 orderBy: { order: 'asc' },
                 where: {
-                    type: { in: ['BRACKET_SINGLE', 'BRACKET_DOUBLE', 'CUSTOM'] },
+                    type: { in: ['BRACKET_SINGLE', 'BRACKET_DOUBLE', 'PLACEMENT_BRACKET', 'CUSTOM'] },
                 },
             },
         },
@@ -54,7 +54,7 @@ export default async function TournamentBracketPage({
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                     <p className="text-xs uppercase tracking-widest text-slate-500">{org.name}</p>
-                    <h1 className="text-2xl md:text-3xl font-black">Visualisation Bracket</h1>
+                    <h1 className="text-2xl md:text-3xl font-black">Visualisation des brackets</h1>
                     <p className="mt-2 text-sm text-slate-500">{tournament.name}</p>
                 </div>
                 <Link
@@ -67,7 +67,7 @@ export default async function TournamentBracketPage({
 
             {tournament.phases.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-                    Aucune phase de bracket/personnalisee configuree.
+                    Aucune phase de bracket ou de placement configuree.
                 </div>
             ) : (
                 <div className="space-y-4">

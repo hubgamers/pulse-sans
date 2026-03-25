@@ -91,6 +91,7 @@ type TimerLogPayload = {
     startedAt?: unknown
     timerKind?: unknown
     launchedStatus?: unknown
+    slotAt?: unknown
 }
 
 const INITIAL_INLINE_ACTION_STATE: InlineActionState = {
@@ -767,25 +768,49 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
         })
     }, [tournament.actionLogs])
 
-    const adminTimer = useMemo(() => {
+    const bracketTimerContext = useMemo(() => {
         if (!latestTimerEvent) return null
         const payload = (latestTimerEvent.payload && typeof latestTimerEvent.payload === 'object')
             ? (latestTimerEvent.payload as TimerLogPayload)
             : null
         if (!payload || typeof payload.timerMinutes !== 'number') return null
+
+        const slotAtMs = typeof payload.slotAt === 'string' ? new Date(payload.slotAt).getTime() : NaN
         const startedAtMs = typeof payload.startedAt === 'string' ? new Date(payload.startedAt).getTime() : NaN
         const createdAtMs = new Date(latestTimerEvent.createdAt).getTime()
-        const startMs = Number.isFinite(startedAtMs) ? startedAtMs : createdAtMs
-        const durationSeconds = Math.max(0, Math.min(7200, Math.round(payload.timerMinutes * 60)))
-        const remainingSeconds = Math.max(0, Math.ceil((startMs + durationSeconds * 1000 - nowMs) / 1000))
+        const rawStartMs = Number.isFinite(startedAtMs)
+            ? startedAtMs
+            : (Number.isFinite(createdAtMs) ? createdAtMs : slotAtMs)
+
+        const maxAcceptedFutureMs = Date.now() + 5 * 60 * 1000
+        const startMs = Number.isFinite(rawStartMs) && rawStartMs <= maxAcceptedFutureMs
+            ? rawStartMs
+            : (Number.isFinite(createdAtMs) ? createdAtMs : Date.now())
+
+        const timerSeconds = Math.max(0, Math.min(7200, Math.round(payload.timerMinutes * 60)))
+        if (timerSeconds <= 0) return null
+
+        return {
+            timerSeconds,
+            timerStartMs: startMs,
+            timerMode: payload.timerKind === 'BREAK' ? 'BREAK' : 'MATCH' as 'MATCH' | 'BREAK',
+        }
+    }, [latestTimerEvent])
+
+    const adminTimer = useMemo(() => {
+        if (!bracketTimerContext) return null
+        const remainingSeconds = Math.max(
+            0,
+            Math.ceil((bracketTimerContext.timerStartMs + bracketTimerContext.timerSeconds * 1000 - nowMs) / 1000)
+        )
         const minutes = Math.floor(remainingSeconds / 60)
         const seconds = remainingSeconds % 60
         return {
-            mode: payload.timerKind === 'BREAK' ? 'BREAK' : 'MATCH',
+            mode: bracketTimerContext.timerMode,
             label: `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
             isDone: remainingSeconds === 0,
         }
-    }, [latestTimerEvent, nowMs])
+    }, [bracketTimerContext, nowMs])
 
     const liveWithoutScores = useMemo(
         () => matches.filter((match) => match.status === 'LIVE' && !match.result),
@@ -1731,6 +1756,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                 tournamentSlug={tournament.slug}
                                                 phase={{ id: phase.id, name: phase.name, type: phase.type, order: phase.order }}
                                                 matches={phaseMatches}
+                                                timer={bracketTimerContext}
                                             />
 
                                             {(phase.type === 'CUSTOM' || phase.type === 'PLACEMENT_BRACKET') && (

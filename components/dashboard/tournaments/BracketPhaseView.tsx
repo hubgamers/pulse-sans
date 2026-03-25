@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import PlacementBracketPhaseView from './PlacementBracketPhaseView'
 
 type BracketMatch = {
     id: string
@@ -21,6 +22,11 @@ type Props = {
         order: number
     }
     matches: BracketMatch[]
+    timer?: {
+        timerSeconds: number
+        timerStartMs: number
+        timerMode: 'MATCH' | 'BREAK'
+    } | null
 }
 
 type LaneKey = 'WB' | 'LB' | 'PLACEMENT' | 'OTHER'
@@ -33,18 +39,6 @@ type LaneRound = {
 type LaneData = {
     key: LaneKey
     label: string
-    rounds: LaneRound[]
-}
-
-type PlacementMatch = {
-    start: number
-    end: number
-    match: BracketMatch
-}
-
-type PlacementBracketGroup = {
-    start: number
-    end: number
     rounds: LaneRound[]
 }
 
@@ -115,56 +109,6 @@ function statusPill(status: BracketMatch['status']) {
     return 'bg-slate-700 text-slate-700'
 }
 
-function parsePlacementMatch(match: BracketMatch): PlacementMatch | null {
-    const pos = match.bracketPos || ''
-    const parsed = pos.match(/^P(\d+)-(\d+)-R(\d+)-M(\d+)$/)
-    if (!parsed) return null
-    const start = Number(parsed[1])
-    const end = Number(parsed[2])
-    if (!Number.isInteger(start) || !Number.isInteger(end)) return null
-    return { start, end, match }
-}
-
-function buildPlacementGroups(matches: BracketMatch[]): PlacementBracketGroup[] {
-    const groups = new Map<string, Map<number, BracketMatch[]>>()
-
-    for (const match of matches) {
-        const parsed = parsePlacementMatch(match)
-        if (!parsed) continue
-        const key = `${parsed.start}-${parsed.end}`
-        const roundsMap = groups.get(key) ?? new Map<number, BracketMatch[]>()
-        const roundMatch = match.bracketPos?.match(/^P\d+-\d+-R(\d+)-M\d+$/)
-        const round = roundMatch ? Number(roundMatch[1]) : 1
-        const bucket = roundsMap.get(round) ?? []
-        bucket.push(match)
-        roundsMap.set(round, bucket)
-        groups.set(key, roundsMap)
-    }
-
-    return Array.from(groups.entries())
-        .map(([key, roundsMap]) => {
-            const [startRaw, endRaw] = key.split('-')
-            const start = Number(startRaw)
-            const end = Number(endRaw)
-            return {
-                start,
-                end,
-                rounds: Array.from(roundsMap.entries())
-                    .sort((a, b) => a[0] - b[0])
-                    .map(([round, roundMatches]) => ({
-                        round,
-                        matches: roundMatches.sort((a, b) => (a.bracketPos || '').localeCompare(b.bracketPos || '')),
-                    })),
-            }
-        })
-        .sort((a, b) => {
-            const sizeA = a.end - a.start
-            const sizeB = b.end - b.start
-            if (sizeB !== sizeA) return sizeB - sizeA
-            return a.start - b.start
-        })
-}
-
 function renderMatchCard(match: BracketMatch, orgSlug: string, tournamentSlug: string, showArrow: boolean) {
     return (
         <div key={`${match.id}-wrapper`} className="relative">
@@ -225,13 +169,20 @@ function renderLane(
     )
 }
 
-export default function BracketPhaseView({ orgSlug, tournamentSlug, phase, matches }: Props) {
-    const lanes = buildLanes(matches)
-    const wbLane = lanes.find((lane) => lane.key === 'WB')
-    const lbLane = lanes.find((lane) => lane.key === 'LB')
-    const otherLane = lanes.find((lane) => lane.key === 'OTHER')
-    const placementGroups = buildPlacementGroups(matches)
+export default function BracketPhaseView({ orgSlug, tournamentSlug, phase, matches, timer = null }: Props) {
+    if (phase.type === 'PLACEMENT_BRACKET') {
+        return (
+            <PlacementBracketPhaseView
+                orgSlug={orgSlug}
+                tournamentSlug={tournamentSlug}
+                phase={phase}
+                matches={matches}
+                timer={timer}
+            />
+        )
+    }
 
+    const lanes = buildLanes(matches)
     return (
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center justify-between">
@@ -245,48 +196,9 @@ export default function BracketPhaseView({ orgSlug, tournamentSlug, phase, match
             {matches.length === 0 ? (
                 <p className="text-xs text-slate-500">Aucun match de bracket dans cette phase.</p>
             ) : (
-                phase.type === 'PLACEMENT_BRACKET' ? (
-                    <div className="space-y-4">
-                        <div className="rounded-lg border border-slate-200 bg-white p-2">
-                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-teal-700">Bracket principal</p>
-                            <div className="grid gap-3 xl:grid-cols-2">
-                                {wbLane ? renderLane(wbLane, phase, orgSlug, tournamentSlug) : <p className="text-xs text-slate-500">Aucun Winner Bracket.</p>}
-                                {lbLane ? renderLane(lbLane, phase, orgSlug, tournamentSlug) : <p className="text-xs text-slate-500">Aucun Loser Bracket.</p>}
-                            </div>
-                        </div>
-
-                        {placementGroups.length > 0 && (
-                            <div className="rounded-lg border border-slate-200 bg-white p-2">
-                                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-amber-300">Brackets de classement</p>
-                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                                    {placementGroups.map((placement) => (
-                                        <div key={`placement-${placement.start}-${placement.end}`} className="rounded-md border border-slate-200 bg-white p-2">
-                                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-lime-300">
-                                                {placement.end - placement.start >= 1 ? `PLACE ${placement.start} A ${placement.end}` : `PLACE ${placement.start}`}
-                                            </p>
-                                            <div className="overflow-x-auto">
-                                                <div className="flex min-w-max items-start gap-3">
-                                                    {placement.rounds.map((roundColumn, colIdx) => (
-                                                        <div key={`placement-${placement.start}-${placement.end}-r${roundColumn.round}`} className="w-64 shrink-0 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2">
-                                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Round {roundColumn.round}</p>
-                                                            {roundColumn.matches.map((match) => renderMatchCard(match, orgSlug, tournamentSlug, colIdx < placement.rounds.length - 1))}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {otherLane ? renderLane(otherLane, phase, orgSlug, tournamentSlug) : null}
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {lanes.map((lane) => renderLane(lane, phase, orgSlug, tournamentSlug))}
-                    </div>
-                )
+                <div className="space-y-4">
+                    {lanes.map((lane) => renderLane(lane, phase, orgSlug, tournamentSlug))}
+                </div>
             )}
         </div>
     )

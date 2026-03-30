@@ -28,14 +28,18 @@ export async function getUserOrganizations() {
 }
 
 /**
- * Récupère une organisation spécifique par son slug
+ * Récupère une organisation spécifique par son slug ou son id
  */
 export const getOrganizationBySlug = cache(async (slug: string) => {
     const user = await getAuthUser();
+    const normalized = slug.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized);
 
     return await prisma.organization.findFirst({
         where: {
-            slug,
+            ...(isUuid
+                ? { OR: [{ id: normalized }, { slug: normalized }] }
+                : { slug: normalized }),
             members: { some: { userId: user.id } }
         },
         include: {

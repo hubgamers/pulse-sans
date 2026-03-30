@@ -43,7 +43,7 @@ export default function DashboardClientShell({
 
   // INITS
   const pathname = usePathname()
-  const [collapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [notifs, setNotifs] = useState<NotificationItem[]>([])
@@ -276,6 +276,22 @@ export default function DashboardClientShell({
           border-radius: 10px;
           font-size: 13px;
         }
+        .sidebar-toggle-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--elevated);
+          color: var(--muted);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .sidebar-toggle-btn:hover {
+          color: var(--text);
+          border-color: var(--border2);
+        }
         .search-trigger:hover {
           border-color: var(--border2);
           color: var(--text);
@@ -413,7 +429,13 @@ export default function DashboardClientShell({
           {/* ════════════════════════════════════════
             SIDEBAR
         ════════════════════════════════════════ */}
-          <Sidebar user={user} navItems={NAV_ITEMS} organizations={organizations} />
+          <Sidebar
+            user={user}
+            navItems={NAV_ITEMS}
+            organizations={organizations}
+            collapsed={collapsed}
+            onToggleCollapse={() => setCollapsed(current => !current)}
+          />
 
 
           {/* ════════════════════════════════════════
@@ -422,7 +444,14 @@ export default function DashboardClientShell({
           <div className="hub-main">
 
             {/* Topbar */}
-            <Topbar user={user} notifications={notifs} onMarkAllRead={markAllRead} onSearchClick={() => setShowSearch(true)} />
+            <Topbar
+              user={user}
+              notifications={notifs}
+              onMarkAllRead={markAllRead}
+              onSearchClick={() => setShowSearch(true)}
+              collapsed={collapsed}
+              onToggleSidebar={() => setCollapsed(current => !current)}
+            />
 
             {/* Content */}
             <main className="hub-content">

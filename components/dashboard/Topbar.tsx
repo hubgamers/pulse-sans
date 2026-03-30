@@ -18,9 +18,11 @@ interface TopbarProps {
     notifications: Notification[];
     onMarkAllRead: () => void;
     onSearchClick: () => void;
+    collapsed: boolean;
+    onToggleSidebar: () => void;
 }
 
-export function Topbar({ user, notifications, onMarkAllRead, onSearchClick }: TopbarProps) {
+export function Topbar({ user, notifications, onMarkAllRead, onSearchClick, collapsed, onToggleSidebar }: TopbarProps) {
     const [showNotifs, setShowNotifs] = useState(false)
     const unreadCount = notifications.filter(n => !n.read).length
 
@@ -35,6 +37,16 @@ export function Topbar({ user, notifications, onMarkAllRead, onSearchClick }: To
 
     return (
         <header className="hub-topbar">
+            <button
+                type="button"
+                onClick={onToggleSidebar}
+                aria-label={collapsed ? "Ouvrir la sidebar" : "Réduire la sidebar"}
+                title={collapsed ? "Ouvrir la sidebar" : "Réduire la sidebar"}
+                className="sidebar-toggle-btn"
+            >
+                <Icon d={collapsed ? Icons.chevronRight : Icons.chevronLeft} size={16} />
+            </button>
+
             {/* 1. BARRE DE RECHERCHE (TRIGGER) */}
             <button onClick={onSearchClick} className="search-trigger">
                 <Icon d={Icons.search} size={14} />

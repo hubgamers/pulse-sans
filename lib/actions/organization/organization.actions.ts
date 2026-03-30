@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { OrganizationSchema } from "@/lib/validations/organization";
 import { getAuthUser } from "../utils.actions";
 import { OrgRole } from "@prisma/client";
+import { z } from "zod";
 
 export type FormState = {
   success?: boolean;
@@ -100,4 +101,146 @@ export async function createOrganization(prevState: FormState, formData: FormDat
 
   // Redirection vers la page de l'organisation créée
   redirect(`/dashboard/org/${slug}`);
+}
+
+const AddOrganizationMemberSchema = z.object({
+  organizationId: z.string().uuid("Organisation invalide."),
+  orgSlug: z.string().min(1, "Slug organisation manquant."),
+  identifier: z.string().trim().min(3, "L'email ou le pseudo est requis."),
+  role: z.enum(["ADMIN", "MODERATOR", "MEMBER"]).default("MEMBER"),
+});
+
+export type AddOrganizationMemberState = {
+  success?: boolean;
+  message?: string;
+  errors?: {
+    identifier?: string[];
+    role?: string[];
+    organizationId?: string[];
+    orgSlug?: string[];
+  };
+};
+
+export async function addOrganizationMember(
+  prevState: AddOrganizationMemberState,
+  formData: FormData,
+): Promise<AddOrganizationMemberState> {
+  void prevState;
+  const user = await getAuthUser();
+
+  const validated = AddOrganizationMemberSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!validated.success) {
+    return {
+      success: false,
+      message: "Certains champs sont invalides.",
+      errors: validated.error.flatten().fieldErrors,
+    };
+  }
+
+  const { organizationId, orgSlug, identifier, role } = validated.data;
+
+  try {
+    const requesterMembership = await prisma.organizationMember.findFirst({
+      where: {
+        organizationId,
+        userId: user.id,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!requesterMembership) {
+      return {
+        success: false,
+        message: "Vous n'etes pas membre de cette organisation.",
+      };
+    }
+
+    const canManageMembers = [OrgRole.OWNER, OrgRole.ADMIN].includes(requesterMembership.role);
+    if (!canManageMembers) {
+      return {
+        success: false,
+        message: "Permissions insuffisantes pour ajouter des membres.",
+      };
+    }
+
+    const normalizedIdentifier = identifier.trim().toLowerCase();
+    const emailLike = normalizedIdentifier.includes("@");
+    const guessedUsername = emailLike
+      ? normalizedIdentifier.split("@")[0]?.trim() || ""
+      : normalizedIdentifier;
+
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          {
+            username: {
+              equals: normalizedIdentifier,
+              mode: "insensitive",
+            },
+          },
+          {
+            username: {
+              equals: guessedUsername,
+              mode: "insensitive",
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+    });
+
+    if (!targetUser) {
+      return {
+        success: false,
+        message: "Aucun utilisateur trouve avec cet email ou pseudo.",
+        errors: {
+          identifier: ["Utilisateur introuvable. Essayez son pseudo exact."],
+        },
+      };
+    }
+
+    const existingMember = await prisma.organizationMember.findFirst({
+      where: {
+        organizationId,
+        userId: targetUser.id,
+      },
+      select: { id: true },
+    });
+
+    if (existingMember) {
+      return {
+        success: false,
+        message: "Cet utilisateur a deja acces a l'organisation.",
+        errors: {
+          identifier: ["Ce membre est deja dans l'organisation."],
+        },
+      };
+    }
+
+    await prisma.organizationMember.create({
+      data: {
+        organizationId,
+        userId: targetUser.id,
+        role: role as OrgRole,
+      },
+    });
+
+    revalidatePath(`/dashboard/org/${orgSlug}/members`);
+    revalidatePath(`/dashboard/org/${orgSlug}/settings`);
+
+    return {
+      success: true,
+      message: `@${targetUser.username} a ete ajoute avec le role ${role}.`,
+    };
+  } catch {
+    return {
+      success: false,
+      message: "Erreur lors de l'ajout du membre.",
+    };
+  }
 }

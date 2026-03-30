@@ -76,6 +76,11 @@ export async function createTournament(
   void prevState
   const user = await getAuthUser()
 
+  const submitIntent = formData.get('submitIntent')
+  if (submitIntent !== 'create_tournament') {
+    return { message: 'Veuillez finaliser le formulaire et cliquer sur "Creer le tournoi".' }
+  }
+
   const parsed = CreateTournamentSchema.safeParse(Object.fromEntries(formData))
 
   if (!parsed.success) {
@@ -98,6 +103,8 @@ export async function createTournament(
     endDate,
     isPublic,
   } = parsed.data
+
+  let createdTournamentSlug: string
 
   try {
     const membership = await prisma.organizationMember.findFirst({
@@ -216,12 +223,14 @@ export async function createTournament(
       return createdTournament
     })
 
+    createdTournamentSlug = tournament.slug
     revalidatePath(`/dashboard/org/${organizationId}/tournaments`)
-    redirect(`/dashboard/org/${organizationId}/tournaments/${tournament.slug}`)
   } catch (error) {
     console.error(error)
     return { message: "Erreur lors de la création du tournoi." }
   }
+
+  redirect(`/dashboard/org/${organizationId}/tournaments/${createdTournamentSlug}`)
 }
 
 export async function getUserTournaments() {
@@ -241,6 +250,18 @@ export async function getUserTournaments() {
 
 export async function getTournamentById(id: string) {
   return prisma.tournament.findUnique({ where: { id } })
+}
+
+export async function getTournamentsByOrgId(organizationId : string) {
+  return prisma.tournament.findMany({where : {organizationId}})
+}
+
+export async function slugTournamentExists(slug: string): Promise<boolean> {
+  const count = await prisma.tournament.count({
+    where: { slug }
+  });
+
+  return count > 0;
 }
 
 export async function updateTournament(

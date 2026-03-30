@@ -16,15 +16,16 @@ interface SidebarProps {
     }
     navItems: NavigationItem[]
     organizations: Organization[]
+    collapsed: boolean
+    onToggleCollapse: () => void
 }
 
-export function Sidebar({ user, navItems, organizations }: SidebarProps) {
+export function Sidebar({ user, navItems, organizations, collapsed, onToggleCollapse }: SidebarProps) {
     const router = useRouter()
     const pathname = usePathname()
     const params = useParams()
 
     // --- ÉTATS ---
-    const [collapsed] = useState(false)
     const [showOrgDropdown, setShowOrgDropdown] = useState(false) // Pour le switch d'org
     const [forceGlobalView, setForceGlobalView] = useState(false)
 
@@ -45,6 +46,8 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
         return href
     }
 
+    console.log(navItems)
+
     const displayItems = useMemo(() => {
         const filtered = isShowingOrgMenu
             ? navItems.filter(item => item.context === NavigationContext.ORGANIZATION)
@@ -52,11 +55,11 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
             : navItems.filter(item => item.context !== NavigationContext.ORGANIZATION && item.context !== NavigationContext.ADMIN_SaaS)
 
         return [...filtered].sort((a, b) => (a.order || 0) - (b.order || 0))
-    }, [navItems, isShowingOrgMenu, isShowingAdminMenu, pathname])
+    }, [navItems, isShowingOrgMenu, isShowingAdminMenu])
 
     return (
         <aside style={{
-            width: collapsed ? 64 : 260,
+            width: collapsed ? 64 : 240,
             transition: "width 0.25s ease",
             display: "flex", flexDirection: "column", height: "100vh",
             background: "var(--surface)", borderRight: "1px solid var(--border)",
@@ -65,8 +68,8 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
 
             {/* --- HEADER --- */}
             <div style={{
-                height: 56, display: "flex", alignItems: "center", padding: "0 16px",
-                justifyContent: collapsed ? "center" : "space-between",
+                height: 56, display: "flex", alignItems: "center", padding: collapsed ? "0 10px" : "0 16px",
+                justifyContent: "space-between",
                 borderBottom: "1px solid var(--border)"
             }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -88,6 +91,27 @@ export function Sidebar({ user, navItems, organizations }: SidebarProps) {
                         </span>
                     )}
                 </div>
+                <button
+                    type="button"
+                    onClick={onToggleCollapse}
+                    aria-label={collapsed ? "Ouvrir la sidebar" : "Réduire la sidebar"}
+                    title={collapsed ? "Ouvrir la sidebar" : "Réduire la sidebar"}
+                    style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        border: "1px solid var(--border)",
+                        background: "var(--elevated)",
+                        color: "var(--muted)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                    }}
+                >
+                    <Icon d={collapsed ? Icons.chevronRight : Icons.chevronLeft} size={14} color="currentColor" />
+                </button>
             </div>
 
             {/* --- SELECTEUR D'ORGANISATION (L'aimant à clics) --- */}

@@ -134,7 +134,7 @@ export default async function TournamentMatchDetailsPage({
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <p className="text-xs uppercase text-slate-500">Horaire</p>
                     <p className="mt-2 text-sm font-semibold">
-                        {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('fr-FR') : 'Non planifie'}
+                        {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('fr-FR', { timeZone: 'UTC' }) : 'Non planifie'}
                     </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">

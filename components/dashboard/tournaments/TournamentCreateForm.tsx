@@ -1,8 +1,8 @@
 "use client"
 
-import { useActionState, useMemo, useState, type ChangeEvent } from 'react'
+import { useActionState, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { Game, PhaseType, TournamentStatus } from '@prisma/client'
-import { createTournament, type TournamentFormState } from '@/lib/actions/tournament.actions'
+import { createTournament, slugTournamentExists, type TournamentFormState } from '@/lib/actions/tournament.actions'
 import {
   PHASE_TYPE_OPTIONS,
   QUALIFICATION_RULE_OPTIONS,
@@ -80,6 +80,7 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
+  const [slugExists, setSlugExists] = useState(false)
   const [phases, setPhases] = useState<PhaseUI[]>([
     {
       id: createId(),
@@ -134,7 +135,13 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
   }
 
   const onSlugChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSlug(e.target.value)
+    const slugValue = slugify(e.target.value)
+    // On vérifie que le slug n'existe pas déjà pour éviter les mauvaises surprises à l'utilisateur après la validation du formulaire
+    setTimeout(async () => {
+      const slugExists = await slugTournamentExists(slugValue);
+      setSlugExists(slugExists);
+    }, 3000)
+    setSlug(slugValue)
     setSlugEdited(true)
   }
 
@@ -229,6 +236,14 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
 
   const canContinueStep1 = name.trim().length >= 3 && slug.trim().length >= 3
   const canContinueStep2 = games.length > 0
+  const canSubmit = currentStep === 4
+
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (canSubmit) return
+
+    event.preventDefault()
+    setCurrentStep((s) => Math.min(4, s + 1) as 1 | 2 | 3 | 4)
+  }
 
   return (
     <div className="space-y-6 text-slate-900">
@@ -254,11 +269,10 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
               key={item.step}
               type="button"
               onClick={() => setCurrentStep(item.step as 1 | 2 | 3 | 4)}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition ${
-                isActive
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition ${isActive
                   ? 'border-teal-600 bg-teal-50 text-teal-700'
                   : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
-              }`}
+                }`}
             >
               <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${isDone ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                 {isDone ? <CheckCircle2 size={13} /> : item.step}
@@ -269,7 +283,7 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
         })}
       </div>
 
-      <form action={formAction} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 md:p-7">
+      <form action={formAction} onSubmit={handleFormSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 md:p-7">
         <input type="hidden" name="organizationId" value={organizationId} />
         <input type="hidden" name="phasesJson" value={phaseJson} />
 
@@ -303,13 +317,13 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
                 required
               />
               <p className="mt-1 text-xs text-slate-500">URL: /dashboard/org/{orgSlug}/tournaments/{slug || '...'}</p>
-              <FieldError error={state.errors?.slug} />
+              <FieldError error={state.errors?.slug || (slugExists ? ['Ce slug est déjà utilisé.'] : undefined)} />
             </div>
           </div>
 
           <div>
             <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-              Description
+              Description (optionnelle)
             </label>
             <textarea
               name="description"
@@ -415,227 +429,227 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
         </section>
 
         <section className={currentStep === 3 ? 'space-y-6' : 'hidden'}>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 md:p-5 space-y-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
-                <GitBranch size={14} /> Constructeur de phases
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Commencez par un modele simple, puis adaptez seulement si necessaire.
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Pour des phases simultanees (ex: Bracket A et Bracket B), utilisez le meme ordre et le meme groupe parallele.
-              </p>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 md:p-5 space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                  <GitBranch size={14} /> Constructeur de phases
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Commencez par un modele simple, puis adaptez seulement si necessaire.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Pour des phases simultanees (ex: Bracket A et Bracket B), utilisez le meme ordre et le meme groupe parallele.
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={applyPresetGroupToBracket}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50"
+                >
+                  Modele poules + bracket
+                </button>
+                <button
+                  type="button"
+                  onClick={applyPresetSimpleBracket}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50"
+                >
+                  Modele bracket direct
+                </button>
+                <button
+                  type="button"
+                  onClick={addPhase}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50"
+                >
+                  <Plus size={14} /> Ajouter phase
+                </button>
+              </div>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={applyPresetGroupToBracket}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-              >
-                Modele poules + bracket
-              </button>
-              <button
-                type="button"
-                onClick={applyPresetSimpleBracket}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-              >
-                Modele bracket direct
-              </button>
-              <button
-                type="button"
-                onClick={addPhase}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50"
-              >
-                <Plus size={14} /> Ajouter phase
-              </button>
-            </div>
-          </div>
 
-          <FieldError error={state.errors?.phasesJson} />
+            <FieldError error={state.errors?.phasesJson} />
 
-          <div className="space-y-4">
-            {phases.map((phase) => (
-              <div key={phase.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-sm font-bold">{phase.name || 'Nouvelle phase'}</h3>
-                  <button
-                    type="button"
-                    onClick={() => removePhase(phase.id)}
-                    className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-500"
-                  >
-                    <Trash2 size={13} /> Supprimer
-                  </button>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-5">
-                  <div>
-                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Code phase</label>
-                    <input
-                      value={phase.key}
-                      onChange={(e) => updatePhase(phase.id, { key: slugify(e.target.value) })}
-                      className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
-                      placeholder="poule-a"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Nom</label>
-                    <input
-                      value={phase.name}
-                      onChange={(e) => updatePhase(phase.id, { name: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
-                      placeholder="Poule A"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Type</label>
-                    <select
-                      value={phase.type}
-                      onChange={(e) => updatePhase(phase.id, { type: e.target.value as PhaseType })}
-                      className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
-                    >
-                      {PHASE_TYPE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Ordre</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={phase.order}
-                      onChange={(e) => updatePhase(phase.id, { order: Number(e.target.value) || 1 })}
-                      className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Groupe parallele</label>
-                    <input
-                      value={phase.parallelGroup}
-                      onChange={(e) => updatePhase(phase.id, { parallelGroup: slugify(e.target.value) })}
-                      className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
-                      placeholder="bracket-ab"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-wider text-slate-500">Regles de qualification sortantes</p>
+            <div className="space-y-4">
+              {phases.map((phase) => (
+                <div key={phase.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-sm font-bold">{phase.name || 'Nouvelle phase'}</h3>
                     <button
                       type="button"
-                      onClick={() => addRoute(phase.id)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-semibold hover:bg-slate-50"
+                      onClick={() => removePhase(phase.id)}
+                      className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-500"
                     >
-                      <Plus size={12} /> Ajouter regle
+                      <Trash2 size={13} /> Supprimer
                     </button>
                   </div>
 
-                  {phase.routes.length === 0 && <p className="text-xs text-slate-500">Aucune regle pour cette phase.</p>}
+                  <div className="grid gap-3 md:grid-cols-5">
+                    <div>
+                      <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Code phase</label>
+                      <input
+                        value={phase.key}
+                        onChange={(e) => updatePhase(phase.id, { key: slugify(e.target.value) })}
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+                        placeholder="poule-a"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Nom</label>
+                      <input
+                        value={phase.name}
+                        onChange={(e) => updatePhase(phase.id, { name: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+                        placeholder="Poule A"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Type</label>
+                      <select
+                        value={phase.type}
+                        onChange={(e) => updatePhase(phase.id, { type: e.target.value as PhaseType })}
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+                      >
+                        {PHASE_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Ordre</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={phase.order}
+                        onChange={(e) => updatePhase(phase.id, { order: Number(e.target.value) || 1 })}
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] uppercase tracking-wider text-slate-500">Groupe parallele</label>
+                      <input
+                        value={phase.parallelGroup}
+                        onChange={(e) => updatePhase(phase.id, { parallelGroup: slugify(e.target.value) })}
+                        className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+                        placeholder="bracket-ab"
+                      />
+                    </div>
+                  </div>
 
-                  {phase.routes.map((route) => (
-                    <div key={route.id} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-12">
-                      <div className="md:col-span-3">
-                        <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Vers phase</label>
-                        <select
-                          value={route.toPhaseKey}
-                          onChange={(e) => updateRoute(phase.id, route.id, { toPhaseKey: e.target.value })}
-                          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                        >
-                          <option value="">Choisir</option>
-                          {phases
-                            .filter((candidate) => candidate.id !== phase.id)
-                            .map((candidate) => (
-                              <option key={candidate.id} value={candidate.key}>
-                                {candidate.name} ({candidate.key})
+                  <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-wider text-slate-500">Regles de qualification sortantes</p>
+                      <button
+                        type="button"
+                        onClick={() => addRoute(phase.id)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-semibold hover:bg-slate-50"
+                      >
+                        <Plus size={12} /> Ajouter regle
+                      </button>
+                    </div>
+
+                    {phase.routes.length === 0 && <p className="text-xs text-slate-500">Aucune regle pour cette phase.</p>}
+
+                    {phase.routes.map((route) => (
+                      <div key={route.id} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-12">
+                        <div className="md:col-span-3">
+                          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Vers phase</label>
+                          <select
+                            value={route.toPhaseKey}
+                            onChange={(e) => updateRoute(phase.id, route.id, { toPhaseKey: e.target.value })}
+                            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                          >
+                            <option value="">Choisir</option>
+                            {phases
+                              .filter((candidate) => candidate.id !== phase.id)
+                              .map((candidate) => (
+                                <option key={candidate.id} value={candidate.key}>
+                                  {candidate.name} ({candidate.key})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Regle</label>
+                          <select
+                            value={route.rule}
+                            onChange={(e) => updateRoute(phase.id, route.id, { rule: e.target.value as QualificationRule })}
+                            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                          >
+                            {QUALIFICATION_RULE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
                               </option>
                             ))}
-                        </select>
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Regle</label>
-                        <select
-                          value={route.rule}
-                          onChange={(e) => updateRoute(phase.id, route.id, { rule: e.target.value as QualificationRule })}
-                          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                        >
-                          {QUALIFICATION_RULE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                          </select>
+                        </div>
 
-                      {(route.rule === 'TOP' || route.rule === 'BOTTOM') && (
+                        {(route.rule === 'TOP' || route.rule === 'BOTTOM') && (
+                          <div className="md:col-span-2">
+                            <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">N / poule</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={route.countPerGroup ?? 1}
+                              onChange={(e) => updateRoute(phase.id, route.id, { countPerGroup: Number(e.target.value) || 1 })}
+                              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                            />
+                          </div>
+                        )}
+
+                        {route.rule === 'RANGE' && (
+                          <>
+                            <div className="md:col-span-2">
+                              <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Start</label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={route.startRank ?? 1}
+                                onChange={(e) => updateRoute(phase.id, route.id, { startRank: Number(e.target.value) || 1 })}
+                                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">End</label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={route.endRank ?? 2}
+                                onChange={(e) => updateRoute(phase.id, route.id, { endRank: Number(e.target.value) || 2 })}
+                                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                              />
+                            </div>
+                          </>
+                        )}
+
                         <div className="md:col-span-2">
-                          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">N / poule</label>
+                          <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Label</label>
                           <input
-                            type="number"
-                            min={1}
-                            value={route.countPerGroup ?? 1}
-                            onChange={(e) => updateRoute(phase.id, route.id, { countPerGroup: Number(e.target.value) || 1 })}
+                            value={route.label ?? ''}
+                            onChange={(e) => updateRoute(phase.id, route.id, { label: e.target.value })}
                             className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                            placeholder="Ex: Winners"
                           />
                         </div>
-                      )}
 
-                      {route.rule === 'RANGE' && (
-                        <>
-                          <div className="md:col-span-2">
-                            <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Start</label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={route.startRank ?? 1}
-                              onChange={(e) => updateRoute(phase.id, route.id, { startRank: Number(e.target.value) || 1 })}
-                              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">End</label>
-                            <input
-                              type="number"
-                              min={1}
-                              value={route.endRank ?? 2}
-                              onChange={(e) => updateRoute(phase.id, route.id, { endRank: Number(e.target.value) || 2 })}
-                              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                            />
-                          </div>
-                        </>
-                      )}
-
-                      <div className="md:col-span-2">
-                        <label className="mb-1 block text-[10px] uppercase tracking-wider text-slate-500">Label</label>
-                        <input
-                          value={route.label ?? ''}
-                          onChange={(e) => updateRoute(phase.id, route.id, { label: e.target.value })}
-                          className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                          placeholder="Ex: Winners"
-                        />
+                        <div className="md:col-span-1 md:flex md:items-end">
+                          <button
+                            type="button"
+                            onClick={() => removeRoute(phase.id, route.id)}
+                            className="w-full rounded-lg border border-red-300 px-2 py-2 text-[11px] text-red-600 hover:bg-red-50"
+                          >
+                            X
+                          </button>
+                        </div>
                       </div>
-
-                      <div className="md:col-span-1 md:flex md:items-end">
-                        <button
-                          type="button"
-                          onClick={() => removeRoute(phase.id, route.id)}
-                          className="w-full rounded-lg border border-red-300 px-2 py-2 text-[11px] text-red-600 hover:bg-red-50"
-                        >
-                          X
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
         </section>
 
         <section className={currentStep === 4 ? 'space-y-4' : 'hidden'}>
@@ -674,6 +688,7 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
 
           {currentStep < 4 ? (
             <button
+              key="next-step"
               type="button"
               onClick={() => setCurrentStep((s) => Math.min(4, s + 1) as 1 | 2 | 3 | 4)}
               disabled={(currentStep === 1 && !canContinueStep1) || (currentStep === 2 && !canContinueStep2)}
@@ -683,7 +698,10 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
             </button>
           ) : (
             <button
+              key="submit-tournament"
               type="submit"
+              name="submitIntent"
+              value="create_tournament"
               disabled={isPending || games.length === 0}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-600 transition disabled:cursor-not-allowed disabled:opacity-60"
             >

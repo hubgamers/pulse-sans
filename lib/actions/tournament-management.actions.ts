@@ -174,6 +174,16 @@ const ConfigurePlacementBracketRankingSegmentsSchema = ManageTournamentBaseSchem
   segmentsText: z.string().max(1000).optional(),
 })
 
+const ConfigureInterleavedTimeSlotsSchema = ManageTournamentBaseSchema.extend({
+  phaseId: z.string().uuid(),
+  timeSlotsJson: z.string().min(2),
+})
+
+const ConfigureGroupInterleavedTimeSlotsSchema = ManageTournamentBaseSchema.extend({
+  sourcePhaseId: z.string().uuid(),
+  timeSlotsJson: z.string().min(2),
+})
+
 const AutoPlaceGroupTeamsSchema = ManageTournamentBaseSchema.extend({
   phaseId: z.string().uuid(),
   confirmedOnly: z.preprocess((value) => value === 'on' || value === true, z.boolean()),
@@ -1574,6 +1584,27 @@ function scheduleBracketMatches(params: {
   }
 
   return scheduled
+}
+
+function buildInterleavedTimeSlotsFromMatches(matches: Array<{ id: string; scheduledAt: Date | null }>) {
+  const byStartMs = new Map<number, string[]>()
+
+  for (const match of matches) {
+    if (!match.scheduledAt) continue
+    const startMs = match.scheduledAt.getTime()
+    const bucket = byStartMs.get(startMs) ?? []
+    bucket.push(match.id)
+    byStartMs.set(startMs, bucket)
+  }
+
+  return Array.from(byStartMs.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([startTimeMs, selectedMatchIds], index) => ({
+      id: `rotation-${index + 1}`,
+      startTimeMs,
+      label: `R${index + 1}`,
+      selectedMatchIds,
+    }))
 }
 
 export async function createTournamentPitch(
@@ -4160,6 +4191,7 @@ export async function generateCustomPlacementBracketMatches(
     includeLosersReplay,
     overwritePhaseMatches,
     placementRanges,
+    rotationMode,
   } = parsed.data
 
   try {
@@ -4167,7 +4199,7 @@ export async function generateCustomPlacementBracketMatches(
 
     const phase = await prisma.phase.findUnique({
       where: { id: phaseId },
-      select: { id: true, type: true, tournamentId: true },
+      select: { id: true, type: true, tournamentId: true, config: true },
     })
 
     if (!phase || phase.tournamentId !== tournamentId) {
@@ -4241,6 +4273,7 @@ export async function generateCustomPlacementBracketMatches(
 
     const rounds = Math.ceil(Math.log2(effectiveParticipantsCount))
     const normalizedSize = 2 ** rounds
+    const hasExplicitStartAt = Boolean(startAt)
     const startDate = startAt ?? new Date()
     const baseStartMs = startDate.getTime()
     const roundDurationMs = (maxDurationMinutes + teamBreakMinutes) * 60 * 1000
@@ -4258,9 +4291,11 @@ export async function generateCustomPlacementBracketMatches(
       },
     })
 
-    const effectiveExistingMatches = overwritePhaseMatches
-      ? existingScheduledMatches.filter((match) => match.phaseId !== phaseId)
-      : existingScheduledMatches
+    const effectiveExistingMatches = hasExplicitStartAt
+      ? []
+      : overwritePhaseMatches
+        ? existingScheduledMatches.filter((match) => match.phaseId !== phaseId)
+        : existingScheduledMatches
 
     const pitchSchedules = new Map<string, Array<{ start: number; end: number }>>(
       pitchResources.map((pitch) => [pitch.key, []])
@@ -4309,6 +4344,29 @@ export async function generateCustomPlacementBracketMatches(
         await tx.match.deleteMany({ where: { phaseId } })
       }
       await tx.match.createMany({ data: scheduledSkeleton })
+
+      if (rotationMode === 'interleaved') {
+        const phaseMatches = await tx.match.findMany({
+          where: { phaseId },
+          select: { id: true, scheduledAt: true },
+        })
+
+        const interleavedTimeSlots = buildInterleavedTimeSlotsFromMatches(phaseMatches)
+        const phaseConfig = phase.config && typeof phase.config === 'object'
+          ? { ...(phase.config as Record<string, unknown>) }
+          : {}
+
+        await tx.phase.update({
+          where: { id: phaseId },
+          data: {
+            config: {
+              ...phaseConfig,
+              rotationMode: 'interleaved',
+              interleavedTimeSlots,
+            } as Prisma.InputJsonValue,
+          },
+        })
+      }
     })
 
     await recordTournamentAction({
@@ -4325,6 +4383,7 @@ export async function generateCustomPlacementBracketMatches(
         includeLosersReplay,
         overwritePhaseMatches,
         placementRanges: placementRanges?.trim() || null,
+        rotationMode,
         generatedCount: scheduledSkeleton.length,
         autoAssignedTeams: Math.min(seededTeamIds.length, normalizedSize),
         seedSource: incomingQualifiers.hasRouting ? 'ROUTES' : 'REGISTRATIONS',
@@ -4404,6 +4463,7 @@ export async function generateLinkedBracketMatches(
     const overwritePhaseMatches = formData.get('overwritePhaseMatches') === 'on' || formData.get('overwritePhaseMatches') === 'true'
     const includeLosersReplay = formData.get('includeLosersReplay') === 'on' || formData.get('includeLosersReplay') === 'true'
     const startAtRaw = formData.get('startAt')
+    const hasExplicitStartAt = typeof startAtRaw === 'string' && startAtRaw.trim().length > 0
     const parsedStartAt = startAtRaw ? new Date(String(startAtRaw)) : new Date()
     const startAt = Number.isNaN(parsedStartAt.getTime()) ? new Date() : parsedStartAt
     const maxDurationMinutes = Math.max(5, Number(formData.get('maxDurationMinutes') ?? '30') || 30)
@@ -4446,9 +4506,11 @@ export async function generateLinkedBracketMatches(
       const pitchResources = uniquePitchResources(pitches)
       const linkedPhaseIdSet = new Set(linkedPhaseIds)
 
-      const effectiveExistingMatches = overwritePhaseMatches
-        ? existingScheduledMatches.filter((m) => !linkedPhaseIdSet.has(m.phaseId))
-        : existingScheduledMatches
+      const effectiveExistingMatches = hasExplicitStartAt
+        ? []
+        : overwritePhaseMatches
+          ? existingScheduledMatches.filter((m) => !linkedPhaseIdSet.has(m.phaseId))
+          : existingScheduledMatches
 
       const pitchSchedules = new Map<string, Array<{ start: number; end: number }>>(
         pitchResources.map((pitch) => [pitch.key, []])
@@ -4521,6 +4583,32 @@ export async function generateLinkedBracketMatches(
           await tx.match.deleteMany({ where: { phaseId: { in: linkedPhaseIds } } })
         }
         await tx.match.createMany({ data: scheduledSkeleton })
+
+        const generatedMatches = await tx.match.findMany({
+          where: { phaseId: { in: linkedPhaseIds } },
+          select: { id: true, phaseId: true, scheduledAt: true },
+        })
+
+        // Store rotation mode in each phase config for group-level interleaved time slot management
+        for (const phase of linkedPhases) {
+          const phaseConfig = phase.config && typeof phase.config === 'object' ? { ...(phase.config as Record<string, unknown>) } : {}
+          const phaseTimeSlots = buildInterleavedTimeSlotsFromMatches(
+            generatedMatches
+              .filter((match) => match.phaseId === phase.id)
+              .map((match) => ({ id: match.id, scheduledAt: match.scheduledAt }))
+          )
+
+          await tx.phase.update({
+            where: { id: phase.id },
+            data: {
+              config: {
+                ...phaseConfig,
+                rotationMode: 'interleaved',
+                interleavedTimeSlots: phaseTimeSlots,
+              } as Prisma.InputJsonValue,
+            },
+          })
+        }
       })
 
       await recordTournamentAction({
@@ -4971,6 +5059,277 @@ export async function bulkAssignBracketSeeds(
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Erreur lors de l\'affectation du bracket.',
+    }
+  }
+}
+
+export async function configureInterleavedTimeSlots(
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = ConfigureInterleavedTimeSlotsSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, message: 'Configuration entrelacee invalide.' }
+
+  const { tournamentId, orgSlug, tournamentSlug, phaseId, timeSlotsJson } = parsed.data
+
+  try {
+    await assertOrganizerCanManageTournament(tournamentId)
+
+    const phase = await prisma.phase.findUnique({
+      where: { id: phaseId },
+      select: { id: true, tournamentId: true, type: true, config: true },
+    })
+
+    if (!phase || phase.tournamentId !== tournamentId) {
+      return { success: false, message: 'Phase invalide pour ce tournoi.' }
+    }
+
+    if (phase.type !== 'PLACEMENT_BRACKET') {
+      return { success: false, message: 'Cette action est reservee aux phases de placement.' }
+    }
+
+    // Parse and validate the time slots JSON
+    let rawTimeSlots: unknown
+    try {
+      rawTimeSlots = JSON.parse(timeSlotsJson)
+    } catch {
+      return { success: false, message: 'Format JSON des creneaux invalide.' }
+    }
+
+    if (!Array.isArray(rawTimeSlots)) {
+      return { success: false, message: 'La liste des creneaux est invalide.' }
+    }
+
+    // Validate time slots structure
+    const timeSlotSchema = z.object({
+      id: z.string().min(1),
+      startTimeMs: z.number().int().positive(),
+      label: z.string().min(1).max(100),
+      selectedMatchIds: z.array(z.string().uuid()),
+    })
+
+    const validationResult = z.array(timeSlotSchema).safeParse(rawTimeSlots)
+    if (!validationResult.success) {
+      return { success: false, message: 'Un ou plusieurs creneaux sont mal formes.' }
+    }
+
+    const timeSlots = validationResult.data
+
+    // Verify that all match IDs exist in this phase
+    if (timeSlots.length > 0) {
+      const allMatchIds = new Set<string>()
+      for (const slot of timeSlots) {
+        slot.selectedMatchIds.forEach((id) => allMatchIds.add(id))
+      }
+
+      if (allMatchIds.size > 0) {
+        const existingMatches = await prisma.match.findMany({
+          where: {
+            phaseId,
+            id: { in: Array.from(allMatchIds) },
+          },
+          select: { id: true },
+        })
+
+        const existingIds = new Set(existingMatches.map((m) => m.id))
+        const invalidIds = Array.from(allMatchIds).filter((id) => !existingIds.has(id))
+
+        if (invalidIds.length > 0) {
+          return { success: false, message: 'Un ou plusieurs matchs ne valident pas pour cette phase.' }
+        }
+      }
+    }
+
+    // Verify no duplicate match assignments across slots
+    const allAssignedMatchIds: string[] = []
+    for (const slot of timeSlots) {
+      allAssignedMatchIds.push(...slot.selectedMatchIds)
+    }
+    const uniqueMatches = new Set(allAssignedMatchIds)
+    if (uniqueMatches.size !== allAssignedMatchIds.length) {
+      return { success: false, message: 'Un match est assigne multiple fois au meme creneau.' }
+    }
+
+    // Update phase config with interleaved time slots
+    const baseConfig: Prisma.InputJsonObject =
+      phase.config && typeof phase.config === 'object'
+        ? ({ ...(phase.config as Record<string, unknown>) } as Prisma.InputJsonObject)
+        : {}
+
+    const slotScheduleUpdates = timeSlots
+      .filter((slot) => slot.selectedMatchIds.length > 0)
+      .map((slot) =>
+        prisma.match.updateMany({
+          where: {
+            phaseId,
+            id: { in: slot.selectedMatchIds },
+          },
+          data: {
+            scheduledAt: new Date(slot.startTimeMs),
+          },
+        })
+      )
+
+    await prisma.$transaction([
+      prisma.phase.update({
+        where: { id: phaseId },
+        data: {
+          config: {
+            ...baseConfig,
+            interleavedTimeSlots: timeSlots,
+          } as Prisma.InputJsonValue,
+        },
+      }),
+      ...slotScheduleUpdates,
+    ])
+
+    await recordTournamentAction({
+      tournamentId,
+      actionType: 'INTERLEAVED_TIME_SLOTS_UPDATE',
+      message: `${timeSlots.length} creneau(x) entrelace(s) configure(s).`,
+      payload: {
+        phaseId,
+        slotCount: timeSlots.length,
+        totalAssignedMatches: allAssignedMatchIds.length,
+        scheduledMatchesUpdated: allAssignedMatchIds.length,
+      },
+    })
+
+    revalidateTournamentPath(orgSlug, tournamentSlug)
+    return { success: true, message: `Configuration des ${timeSlots.length} creneau(x) entrelace(s) enregistree.` }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erreur configuration des creneaux entrelaces.',
+    }
+  }
+}
+
+/**
+ * Configure interleaved time slots for all phases in a parallel bracket group
+ */
+export async function configureGroupInterleavedTimeSlots(
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = ConfigureGroupInterleavedTimeSlotsSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, message: 'Configuration entrelacee groupe invalide.' }
+
+  const { tournamentId, orgSlug, tournamentSlug, sourcePhaseId, timeSlotsJson } = parsed.data
+
+  try {
+    await assertOrganizerCanManageTournament(tournamentId)
+
+    const sourcePhase = await prisma.phase.findUnique({
+      where: { id: sourcePhaseId },
+      select: { id: true, tournamentId: true, type: true, config: true },
+    })
+
+    if (!sourcePhase || sourcePhase.tournamentId !== tournamentId) {
+      return { success: false, message: 'Phase source invalide pour ce tournoi.' }
+    }
+
+    if (sourcePhase.type !== 'PLACEMENT_BRACKET' && sourcePhase.type !== 'CUSTOM') {
+      return { success: false, message: 'Cette action est reservee aux phases de brackets personnalises/placement.' }
+    }
+
+    // Find parallel group
+    const sourceConfig = sourcePhase.config && typeof sourcePhase.config === 'object' ? sourcePhase.config as Record<string, unknown> : {}
+    const parallelGroup = typeof sourceConfig.parallelGroup === 'string' ? sourceConfig.parallelGroup : null
+
+    if (!parallelGroup) {
+      return { success: false, message: 'Aucun groupe parallele trouve pour cette phase.' }
+    }
+
+    // Find all linked phases in the same group
+    const linkedPhases = await prisma.phase.findMany({
+      where: {
+        tournamentId,
+        config: {
+          path: ['parallelGroup'],
+          equals: parallelGroup,
+        },
+      },
+      select: { id: true, config: true },
+    })
+
+    if (linkedPhases.length === 0) {
+      return { success: false, message: 'Aucune phase associee au groupe trouve.' }
+    }
+
+    // Parse and validate time slots JSON
+    let rawTimeSlots: unknown
+    try {
+      rawTimeSlots = JSON.parse(timeSlotsJson)
+    } catch {
+      return { success: false, message: 'Format JSON des creneaux invalide.' }
+    }
+
+    if (!Array.isArray(rawTimeSlots)) {
+      return { success: false, message: 'La liste des creneaux est invalide.' }
+    }
+
+    // Validate time slots structure
+    const timeSlotSchema = z.object({
+      id: z.string().min(1),
+      startTimeMs: z.number().int().positive(),
+      label: z.string().min(1).max(100),
+      selectedMatchIds: z.array(z.string().uuid()),
+    })
+
+    const validationResult = z.array(timeSlotSchema).safeParse(rawTimeSlots)
+    if (!validationResult.success) {
+      return { success: false, message: 'Un ou plusieurs creneaux sont mal formes.' }
+    }
+
+    const timeSlots = validationResult.data
+
+    // Verify no duplicate match assignments across slots
+    const allAssignedMatchIds: string[] = []
+    for (const slot of timeSlots) {
+      allAssignedMatchIds.push(...slot.selectedMatchIds)
+    }
+    const uniqueMatches = new Set(allAssignedMatchIds)
+    if (uniqueMatches.size !== allAssignedMatchIds.length) {
+      return { success: false, message: 'Un match est assigne multiple fois au meme creneau.' }
+    }
+
+    // Update config for all linked phases with interleaved time slots
+    await prisma.$transaction(
+      linkedPhases.map((phase) => {
+        const baseConfig: Prisma.InputJsonObject =
+          phase.config && typeof phase.config === 'object'
+            ? ({ ...(phase.config as Record<string, unknown>) } as Prisma.InputJsonObject)
+            : {}
+
+        return prisma.phase.update({
+          where: { id: phase.id },
+          data: {
+            config: {
+              ...baseConfig,
+              interleavedTimeSlots: timeSlots,
+            } as Prisma.InputJsonValue,
+          },
+        })
+      })
+    )
+
+    await recordTournamentAction({
+      tournamentId,
+      actionType: 'GROUP_INTERLEAVED_TIME_SLOTS_UPDATE',
+      message: `${timeSlots.length} creneau(x) entrelace(s) configure(s) pour le groupe "${parallelGroup}" (${linkedPhases.length} phases).`,
+      payload: {
+        parallelGroup,
+        phaseCount: linkedPhases.length,
+        slotCount: timeSlots.length,
+        totalAssignedMatches: allAssignedMatchIds.length,
+      },
+    })
+
+    revalidateTournamentPath(orgSlug, tournamentSlug)
+    return { success: true, message: `Configuration des ${timeSlots.length} creneau(x) entrelace(s) enregistree pour ${linkedPhases.length} bracket(s).` }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erreur configuration des creneaux groups entrelaces.',
     }
   }
 }

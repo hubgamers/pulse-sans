@@ -39,8 +39,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
       orderBy: { order: 'asc' }
     });
   } else {
-    // L'utilisateur normal ne reçoit QUE le dashboard user (Sécurité SQL)
-    navItems = await findNavigationItems(NavigationContext.USER_DASHBOARD);
+    // L'utilisateur normal reçoit TOUT sauf les contextes admin (Sécurité SQL)
+    navItems = await prisma.navigationItem.findMany({
+      where: { 
+        isActive: true,
+        context: {
+          notIn: [NavigationContext.ADMIN_SaaS]
+        }
+      },
+      include: { children: true },
+      orderBy: { order: 'asc' }
+    });
   }
 
   // 3. Fusionner les infos d'auth et les infos de la BDD

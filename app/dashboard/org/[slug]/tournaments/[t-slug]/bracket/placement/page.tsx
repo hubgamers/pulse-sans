@@ -18,10 +18,14 @@ function readLaunchSlotPayload(value: unknown): LaunchSlotPayload | null {
 
 export default async function PlacementBracketEditPage({
     params,
+    searchParams,
 }: {
     params: Promise<{ slug: string; 't-slug': string }>
+    searchParams?: Promise<{ phaseId?: string }>
 }) {
     const { slug, 't-slug': tournamentSlug } = await params
+    const resolvedSearchParams = searchParams ? await searchParams : undefined
+    const requestedPhaseId = resolvedSearchParams?.phaseId?.trim() || null
     const org = await getOrganizationBySlug(slug)
 
     if (!org) {
@@ -128,6 +132,7 @@ export default async function PlacementBracketEditPage({
                 orgSlug={slug}
                 tournamentSlug={tournament.slug}
                 tournamentId={tournament.id}
+                initialPhaseId={requestedPhaseId}
                 phases={phases.map((phase) => ({
                     id: phase.id,
                     name: phase.name,

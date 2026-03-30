@@ -24,28 +24,28 @@ const OAUTH_PROVIDERS: Array<{
   icon: typeof Chrome;
   accent: string;
 }> = [
-  {
-    id: "google",
-    label: "Google",
-    hint: "Connexion rapide avec Gmail ou Workspace",
-    icon: Chrome,
-    accent: "from-rose-500/15 to-orange-400/10 text-rose-600",
-  },
-  {
-    id: "discord",
-    label: "Discord",
-    hint: "Parfait pour les staffs et communautés gaming",
-    icon: Disc,
-    accent: "from-indigo-500/15 to-sky-500/10 text-indigo-600",
-  },
-  {
-    id: "linkedin_oidc",
-    label: "LinkedIn",
-    hint: "Pratique pour les profils pro et partenaires",
-    icon: Linkedin,
-    accent: "from-sky-500/15 to-cyan-400/10 text-sky-700",
-  },
-];
+    {
+      id: "google",
+      label: "Google",
+      hint: "Connexion rapide avec Gmail ou Workspace",
+      icon: Chrome,
+      accent: "from-rose-500/15 to-orange-400/10 text-rose-600",
+    },
+    {
+      id: "discord",
+      label: "Discord",
+      hint: "Parfait pour les staffs et communautés gaming",
+      icon: Disc,
+      accent: "from-indigo-500/15 to-sky-500/10 text-indigo-600",
+    },
+    {
+      id: "linkedin_oidc",
+      label: "LinkedIn",
+      hint: "Pratique pour les profils pro et partenaires",
+      icon: Linkedin,
+      accent: "from-sky-500/15 to-cyan-400/10 text-sky-700",
+    },
+  ];
 
 function AuthPageFallback() {
   return <div className="min-h-screen bg-slate-50" />;
@@ -73,7 +73,7 @@ function SaaSAuthContent() {
   const [showGeneratePasswordLink, setShowGeneratePasswordLink] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(
     searchParams.get("error") === "auth-code-error"
-      ? "La connexion OAuth n'a pas pu être finalisée. Réessayez." 
+      ? "La connexion OAuth n'a pas pu être finalisée. Réessayez."
       : null
   );
 
@@ -135,7 +135,6 @@ function SaaSAuthContent() {
           }
           return;
         }
-
         router.push("/dashboard");
         router.refresh();
         return;
@@ -299,77 +298,75 @@ function SaaSAuthContent() {
                   </p>
                 </div>
               ) : (
-              <div className="mb-6 grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLogin(true);
-                    setMessage(null);
-                    setErrorMessage(null);
-                  }}
-                  className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                    isLogin ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Se connecter
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLogin(false);
-                    setMessage(null);
-                    setErrorMessage(null);
-                  }}
-                  className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                    !isLogin ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  S'inscrire
-                </button>
-              </div>
+                <div className="mb-6 grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(true);
+                      setMessage(null);
+                      setErrorMessage(null);
+                    }}
+                    className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${isLogin ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                      }`}
+                  >
+                    Se connecter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(false);
+                      setMessage(null);
+                      setErrorMessage(null);
+                    }}
+                    className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${!isLogin ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                      }`}
+                  >
+                    S'inscrire
+                  </button>
+                </div>
               )}
 
               {!isRecoveryFlow && (
-              <div className="mb-8 grid gap-3">
-                {OAUTH_PROVIDERS.map((provider) => {
-                  const ProviderIcon = provider.icon;
-                  const isLoading = oauthLoading === provider.id;
+                <div className="mb-8 grid gap-3">
+                  {OAUTH_PROVIDERS.map((provider) => {
+                    const ProviderIcon = provider.icon;
+                    const isLoading = oauthLoading === provider.id;
 
-                  return (
-                    <button
-                      key={provider.id}
-                      type="button"
-                      onClick={() => void handleOAuthSignIn(provider.id)}
-                      disabled={Boolean(oauthLoading) || isSubmitting}
-                      className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg disabled:cursor-wait disabled:opacity-70"
-                    >
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${provider.accent}`}>
-                        <ProviderIcon className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {isLoading ? `Connexion ${provider.label}...` : `Continuer avec ${provider.label}`}
-                        </p>
-                        <p className="text-xs leading-5 text-slate-500">{provider.hint}</p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-slate-700" />
-                    </button>
-                  );
-                })}
-              </div>
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => void handleOAuthSignIn(provider.id)}
+                        disabled={Boolean(oauthLoading) || isSubmitting}
+                        className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg disabled:cursor-wait disabled:opacity-70"
+                      >
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${provider.accent}`}>
+                          <ProviderIcon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {isLoading ? `Connexion ${provider.label}...` : `Continuer avec ${provider.label}`}
+                          </p>
+                          <p className="text-xs leading-5 text-slate-500">{provider.hint}</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-slate-700" />
+                      </button>
+                    );
+                  })}
+                </div>
               )}
 
               {!isRecoveryFlow && (
-              <div className="relative mb-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-dashed border-slate-300" />
+                <div className="relative mb-8">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-dashed border-slate-300" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                      ou avec votre email
+                    </span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    ou avec votre email
-                  </span>
-                </div>
-              </div>
               )}
 
               {isRecoveryFlow ? (
@@ -440,101 +437,101 @@ function SaaSAuthContent() {
                   </button>
                 </form>
               ) : (
-              <form className="space-y-5" onSubmit={handleEmailAuth}>
-                {!isLogin && (
+                <form className="space-y-5" onSubmit={handleEmailAuth}>
+                  {!isLogin && (
+                    <label className="block space-y-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Nom complet</span>
+                      <div className="flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 focus-within:border-teal-600 focus-within:bg-white">
+                        <User className="h-4 w-4 shrink-0 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Alexandre Martin"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="h-full w-full border-none bg-transparent px-0 py-0 text-sm focus:bg-transparent focus:ring-0"
+                          required={!isLogin}
+                        />
+                      </div>
+                    </label>
+                  )}
+
                   <label className="block space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Nom complet</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Email</span>
                     <div className="flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 focus-within:border-teal-600 focus-within:bg-white">
-                      <User className="h-4 w-4 shrink-0 text-slate-400" />
+                      <Mail className="h-4 w-4 shrink-0 text-slate-400" />
                       <input
-                        type="text"
-                        placeholder="Alexandre Martin"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="alex@hubgamers.gg"
                         className="h-full w-full border-none bg-transparent px-0 py-0 text-sm focus:bg-transparent focus:ring-0"
-                        required={!isLogin}
+                        required
                       />
                     </div>
                   </label>
-                )}
 
-                <label className="block space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Email</span>
-                  <div className="flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 focus-within:border-teal-600 focus-within:bg-white">
-                    <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="alex@hubgamers.gg"
-                      className="h-full w-full border-none bg-transparent px-0 py-0 text-sm focus:bg-transparent focus:ring-0"
-                      required
-                    />
-                  </div>
-                </label>
+                  <label className="block space-y-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Mot de passe</span>
+                      {isLogin && (
+                        <button
+                          type="button"
+                          onClick={() => void handleForgotPassword()}
+                          className="text-xs font-semibold text-teal-700 transition hover:text-teal-600"
+                        >
+                          Mot de passe oublié ?
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 focus-within:border-teal-600 focus-within:bg-white">
+                      <Lock className="h-4 w-4 shrink-0 text-slate-400" />
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="h-full w-full border-none bg-transparent px-0 py-0 text-sm focus:bg-transparent focus:ring-0"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                  </label>
 
-                <label className="block space-y-2">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Mot de passe</span>
-                    {isLogin && (
-                      <button
-                        type="button"
-                        onClick={() => void handleForgotPassword()}
-                        className="text-xs font-semibold text-teal-700 transition hover:text-teal-600"
-                      >
-                        Mot de passe oublié ?
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 focus-within:border-teal-600 focus-within:bg-white">
-                    <Lock className="h-4 w-4 shrink-0 text-slate-400" />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="h-full w-full border-none bg-transparent px-0 py-0 text-sm focus:bg-transparent focus:ring-0"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </label>
+                  {errorMessage && (
+                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                      <p>{errorMessage}</p>
+                      {isLogin && showGeneratePasswordLink && (
+                        <button
+                          type="button"
+                          onClick={() => void handleForgotPassword()}
+                          disabled={isSendingPasswordLink}
+                          className="mt-3 inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {isSendingPasswordLink ? "Envoi du lien..." : "Générer un mot de passe par email"}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
-                {errorMessage && (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                    <p>{errorMessage}</p>
-                    {isLogin && showGeneratePasswordLink && (
-                      <button
-                        type="button"
-                        onClick={() => void handleForgotPassword()}
-                        disabled={isSendingPasswordLink}
-                        className="mt-3 inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-wait disabled:opacity-70"
-                      >
-                        {isSendingPasswordLink ? "Envoi du lien..." : "Générer un mot de passe par email"}
-                      </button>
-                    )}
-                  </div>
-                )}
+                  {message && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                      {message}
+                    </div>
+                  )}
 
-                {message && (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    {message}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || Boolean(oauthLoading)}
-                  className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-4 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-wait disabled:bg-slate-400"
-                >
-                  {isSubmitting
-                    ? "Chargement..."
-                    : isLogin
-                      ? "Se connecter par email"
-                      : "Créer mon compte"}
-                  {!isSubmitting && <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />}
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || Boolean(oauthLoading)}
+                    className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-4 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-wait disabled:bg-slate-400"
+                  >
+                    {isSubmitting
+                      ? "Chargement..."
+                      : isLogin
+                        ? "Se connecter par email"
+                        : "Créer mon compte"}
+                    {!isSubmitting && <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />}
+                  </button>
+                </form>
               )}
 
               <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs leading-6 text-slate-500">

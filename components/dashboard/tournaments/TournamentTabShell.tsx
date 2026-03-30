@@ -1069,6 +1069,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         day: '2-digit',
                         hour: '2-digit',
                         minute: '2-digit',
+                        timeZone: 'UTC',
                     })
                     return {
                         slotStart,
@@ -1162,6 +1163,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                     day: '2-digit',
                     hour: '2-digit',
                     minute: '2-digit',
+                    timeZone: 'UTC'
                 }),
                 matches: [...slotMatches].sort((a, b) => {
                     const pitchCmp = comparePitchNames(a.pitch.name, b.pitch.name)
@@ -1625,7 +1627,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                 </span>
                                             </div>
                                             <p className="mt-1 text-[11px] text-slate-500">
-                                                {new Date(log.createdAt).toLocaleString('fr-FR')}
+                                                {new Date(log.createdAt).toLocaleString('fr-FR', { timeZone: 'UTC' })}
                                                 {log.actorName ? ` • ${log.actorName}` : ''}
                                             </p>
                                         </div>
@@ -2233,7 +2235,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                     <input name="maxDurationMinutes" type="number" min={5} max={600} defaultValue={30} className={`${inputCls} w-full`} />
                                                 </div>
                                                 <div>
-                                                    <label className="mb-1 block text-xs text-slate-500">Battement equipe (min)</label>
+                                                    <label className="mb-1 block text-xs text-slate-500">Battement général (min)</label>
                                                     <input name="teamBreakMinutes" type="number" min={0} max={240} defaultValue={10} className={`${inputCls} w-full`} />
                                                 </div>
                                                 <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
@@ -2405,7 +2407,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="mb-1 block text-xs text-slate-500">Battement equipe (min)</label>
+                                                    <label className="mb-1 block text-xs text-slate-500">Battement général (min)</label>
                                                     <input
                                                         name="teamBreakMinutes"
                                                         type="number"
@@ -2479,6 +2481,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                             </div>
 
                                             <BracketPhaseView
+                                                tournamentId={tournament.id}
                                                 orgSlug={orgSlug}
                                                 tournamentSlug={tournament.slug}
                                                 phase={{ id: phase.id, name: phase.name, type: phase.type, order: phase.order, config: phase.config }}
@@ -2526,7 +2529,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="mb-1 block text-xs text-slate-500">Battement equipe (min)</label>
+                                                            <label className="mb-1 block text-xs text-slate-500">Battement général (min)</label>
                                                             <input
                                                                 name="teamBreakMinutes"
                                                                 type="number"
@@ -3093,7 +3096,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                         <input name="maxDurationMinutes" type="number" min={5} max={600} defaultValue={30} className={`${inputCls} w-full`} />
                                     </div>
                                     <div>
-                                        <label className="mb-1 block text-xs text-slate-500">Battement equipe (min)</label>
+                                        <label className="mb-1 block text-xs text-slate-500">Battement général (min)</label>
                                         <input name="teamBreakMinutes" type="number" min={0} max={240} defaultValue={10} className={`${inputCls} w-full`} />
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -3267,7 +3270,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                         {match.phase.name} • {match.pitch.name}
                                                         {match.roundNumber ? ` • Round ${match.roundNumber}` : ''}
                                                         {match.bracketPos ? ` • ${match.bracketPos}` : ''}
-                                                        {match.scheduledAt ? ` • ${new Date(match.scheduledAt).toLocaleString('fr-FR')}` : ''}
+                                                        {match.scheduledAt ? ` • ${new Date(match.scheduledAt).toLocaleString('fr-FR', { timeZone: 'UTC' })}` : ''}
                                                     </p>
                                                 </div>
                                                 <div className="flex shrink-0 items-center gap-2">
@@ -3333,7 +3336,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                         awayScore: m.result?.awayScore ?? null,
                                         notes: m.result?.notes || '',
                                         scheduledAtLabel: m.scheduledAt
-                                            ? new Date(m.scheduledAt).toLocaleString('fr-FR')
+                                            ? new Date(m.scheduledAt).toLocaleString('fr-FR', { timeZone: 'UTC' })
                                             : 'Non planifie',
                                     }))}
                                 />

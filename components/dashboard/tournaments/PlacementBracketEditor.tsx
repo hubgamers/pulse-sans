@@ -64,6 +64,7 @@ type AppProps = {
   orgSlug?: string;
   tournamentSlug?: string;
   tournamentId?: string;
+  initialPhaseId?: string | null;
   phases?: PlacementPhase[];
   matches?: PlacementMatch[];
   timerSeconds?: number;
@@ -270,7 +271,7 @@ const BracketCard = ({ title, rounds, className = '', matchWidth = 'w-[80px]' }:
 
 // --- Main App ---
 
-export default function App({ phases = [], matches = [], timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55 }: AppProps) {
+export default function App({ initialPhaseId = null, phases = [], matches = [], timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55 }: AppProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const router = useRouter();
 
@@ -310,7 +311,7 @@ export default function App({ phases = [], matches = [], timerSeconds = 0, timer
   }, [remainingTimerSeconds]);
 
   const sortedPhases = [...phases].sort((a, b) => a.order - b.order);
-  const currentPhase = sortedPhases[0];
+  const currentPhase = sortedPhases.find((phase) => phase.id === initialPhaseId) ?? sortedPhases[0];
   const isPlacementBracketPhase = currentPhase?.type === 'PLACEMENT_BRACKET';
 
   // Keep the editor scoped to the current phase to avoid mixing trees across phases.

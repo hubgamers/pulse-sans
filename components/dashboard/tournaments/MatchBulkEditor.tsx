@@ -166,10 +166,10 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                             className="rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
                         >
                             <option value="ALL">Tous</option>
-                            <option value="LIVE">LIVE</option>
-                            <option value="SCHEDULED">SCHEDULED</option>
-                            <option value="FINISHED">FINISHED</option>
-                            <option value="CANCELLED">CANCELLED</option>
+                            <option value="LIVE">En direct</option>
+                            <option value="SCHEDULED">Programmé</option>
+                            <option value="FINISHED">Terminé</option>
+                            <option value="CANCELLED">Annulé</option>
                         </select>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-slate-500">
@@ -233,10 +233,10 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                     onChange={(event) => updateRow(match.id, { status: event.target.value as MatchStatus })}
                                     className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
                                 >
-                                    <option value="SCHEDULED">SCHEDULED</option>
-                                    <option value="LIVE">LIVE</option>
-                                    <option value="FINISHED">FINISHED</option>
-                                    <option value="CANCELLED">CANCELLED</option>
+                                    <option value="SCHEDULED">Programmé</option>
+                                    <option value="LIVE">En direct</option>
+                                    <option value="FINISHED">Terminé</option>
+                                    <option value="CANCELLED">Annulé</option>
                                 </select>
                             </div>
                             <div className="md:col-span-2">
@@ -249,7 +249,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                         updateRow(match.id, { homeScore: value === "" ? null : Number(value) });
                                     }}
                                     className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                                    placeholder="Home"
+                                    placeholder="Domicile"
                                 />
                             </div>
                             <div className="md:col-span-2">
@@ -262,7 +262,7 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                         updateRow(match.id, { awayScore: value === "" ? null : Number(value) });
                                     }}
                                     className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                                    placeholder="Away"
+                                    placeholder="Extérieur"
                                 />
                             </div>
                             <div className="md:col-span-3">

@@ -84,13 +84,15 @@ function getMatchStatusTone(status: string) {
     return { badge: 'border-white/10 bg-white/5 text-slate-500', score: 'text-amber-400' }
 }
 
-function initialsFromTeamName(name: string) {
+function initialsFromTeamName(name: string): string {
     return name
-        .split(' ')
+        .trim()
+        .split(/[\s-]+/) // Sépare par les espaces ET les tirets (ex: "Paris-SG")
+        .map(word => word[0])
         .filter(Boolean)
-        .slice(0, 2)
-        .map((chunk) => chunk[0]?.toUpperCase() ?? '')
+        .slice(0, 6) // 3 lettres est souvent le standard (ex: PSG, RMD, LIV)
         .join('')
+        .toUpperCase();
 }
 
 export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refreshMs = 10000, timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55 }: Props) {
@@ -258,7 +260,7 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
                                             const tone = getMatchStatusTone(match.status)
                                             const isLive = match.status === 'LIVE'
                                             const isActiveSlotLive = Boolean(match.isActiveSlotLive)
-                                            
+
                                             return (
                                                 <div key={match.id} className={`rounded border px-2 py-1.5 transition-all ${isLive ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-950/40 border-white/5'} ${isActiveSlotLive ? 'ring-1 ring-amber-400/50 shadow-[0_0_8px_rgba(251,191,36,0.2)] animate-pulse' : ''}`}>
                                                     <div className="flex items-center justify-between gap-1">
@@ -289,10 +291,10 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
 
             {/* PROGRESS BAR FOOTER */}
             <div className="absolute bottom-0 left-0 h-1 w-full bg-slate-900/50">
-                <div 
-                    key={`${activeSlide}-${refreshCycle}`} 
-                    className="h-full bg-teal-500 shadow-[0_0_12px_rgba(20,184,166,0.8)]" 
-                    style={{ animation: `progress ${rotationMs}ms linear forwards` }} 
+                <div
+                    key={`${activeSlide}-${refreshCycle}`}
+                    className="h-full bg-teal-500 shadow-[0_0_12px_rgba(20,184,166,0.8)]"
+                    style={{ animation: `progress ${rotationMs}ms linear forwards` }}
                 />
             </div>
 

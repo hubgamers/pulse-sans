@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { TeamSchema, TeamUpdateSchema } from '@/lib/validations/team'
 import { revalidatePath } from 'next/cache'
 import { getAuthUser } from '../utils.actions'
+import { redirect } from 'next/navigation'
 
 export type TeamFormState = {
     success?: boolean
@@ -35,6 +36,7 @@ export async function createTeam(
     }
 
     const { name, slug, organizationId, logoUrl } = validated.data
+    const redirectPath = `/dashboard/org/${organizationId}/teams`
 
     try {
         await prisma.team.create({
@@ -45,8 +47,7 @@ export async function createTeam(
                 logoUrl: logoUrl || null,
             }
         })
-        revalidatePath(`/dashboard/org/${organizationId}/teams`)
-        return { success: true, message: "Equipe creee avec succes." }
+        revalidatePath(redirectPath)
     } catch {
         return {
             success: false,
@@ -54,6 +55,8 @@ export async function createTeam(
             errors: { slug: ["Slug deja utilise dans cette organisation."] },
         }
     }
+
+    redirect(redirectPath)
 }
 
 export async function updateTeam(
@@ -169,10 +172,10 @@ export async function bulkCreateTeamsWithPlayers(
             }
 
             // Use provided slug or generate from teamName
-            const teamSlug = teamData.teamSlug && teamData.teamSlug.trim().length > 0 
+            const teamSlug = teamData.teamSlug && teamData.teamSlug.trim().length > 0
                 ? slugify(teamData.teamSlug)
                 : slugify(teamData.teamName)
-            
+
             if (teamSlug.length === 0) {
                 errors.push(`Impossible de generer un slug pour "${teamData.teamName}"`)
                 continue

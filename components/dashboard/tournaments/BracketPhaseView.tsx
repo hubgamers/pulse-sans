@@ -15,6 +15,7 @@ type BracketMatch = {
 }
 
 type Props = {
+    tournamentId: string
     orgSlug: string
     tournamentSlug: string
     phase: {
@@ -181,10 +182,11 @@ function renderLane(
     )
 }
 
-export default function BracketPhaseView({ orgSlug, tournamentSlug, phase, matches, timer = null }: Props) {
+export default function BracketPhaseView({ tournamentId, orgSlug, tournamentSlug, phase, matches, timer = null }: Props) {
     if (phase.type === 'PLACEMENT_BRACKET') {
         return (
             <PlacementBracketPhaseView
+                tournamentId={tournamentId}
                 orgSlug={orgSlug}
                 tournamentSlug={tournamentSlug}
                 phase={phase}

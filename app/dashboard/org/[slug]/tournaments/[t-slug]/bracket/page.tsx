@@ -75,6 +75,7 @@ export default async function TournamentBracketPage({
                     {tournament.phases.map((phase) => (
                         <BracketPhaseView
                             key={`bracket-page-${phase.id}`}
+                            tournamentId={tournament.id}
                             orgSlug={slug}
                             tournamentSlug={tournament.slug}
                             phase={{

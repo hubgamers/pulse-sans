@@ -152,7 +152,7 @@ export default function GroupPlacementBoard({
                         <span className="text-xs text-slate-500">Toutes les équipes sont placees.</span>
                     ) : (
                         unassignedTeams.sort((a, b) => {
-                            return a.team.name.localeCompare(b.team.name);
+                            return a.name.localeCompare(b.name);
                         }).map((team) => (
                     <div
                         key={`${phaseId}-pool-${team.id}`}

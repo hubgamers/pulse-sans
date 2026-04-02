@@ -8,6 +8,7 @@ import {
     autoPlaceGroupTeams,
     closeTournamentPhase,
     configureGroupPhase,
+    configureGroupPitchAssignments,
     configurePlacementBracketLabels,
     configurePlacementBracketRankingSegments,
     createTournamentMatch,
@@ -80,7 +81,12 @@ type RouteConfig = {
 }
 
 type GroupPlacement = { teamId: string; groupIndex: number; slot: number }
-type GroupConfig = { count: number; teamsPerGroup: number; placements: GroupPlacement[] }
+type GroupConfig = {
+    count: number
+    teamsPerGroup: number
+    placements: GroupPlacement[]
+    preferredPitchIdByGroup: Record<number, string>
+}
 
 type GroupStandingRow = {
     teamId: string
@@ -211,10 +217,10 @@ function formatRouteRule(route: RouteConfig) {
 }
 
 function readGroupConfig(config: unknown): GroupConfig {
-    if (!config || typeof config !== 'object') return { count: 2, teamsPerGroup: 4, placements: [] }
+    if (!config || typeof config !== 'object') return { count: 2, teamsPerGroup: 4, placements: [], preferredPitchIdByGroup: {} }
     const groups = (config as { groups?: unknown }).groups
-    if (!groups || typeof groups !== 'object') return { count: 2, teamsPerGroup: 4, placements: [] }
-    const raw = groups as { count?: unknown; teamsPerGroup?: unknown; placements?: unknown }
+    if (!groups || typeof groups !== 'object') return { count: 2, teamsPerGroup: 4, placements: [], preferredPitchIdByGroup: {} }
+    const raw = groups as { count?: unknown; teamsPerGroup?: unknown; placements?: unknown; preferredPitchIdByGroup?: unknown }
     const count = typeof raw.count === 'number' && raw.count > 0 ? raw.count : 2
     const teamsPerGroup = typeof raw.teamsPerGroup === 'number' && raw.teamsPerGroup > 0 ? raw.teamsPerGroup : 4
     const placements = Array.isArray(raw.placements)
@@ -226,7 +232,19 @@ function readGroupConfig(config: unknown): GroupConfig {
                 typeof p.slot === 'number'
         )
         : []
-    return { count, teamsPerGroup, placements }
+
+    const preferredPitchIdByGroupRaw =
+        raw.preferredPitchIdByGroup && typeof raw.preferredPitchIdByGroup === 'object'
+            ? (raw.preferredPitchIdByGroup as Record<string, unknown>)
+            : {}
+
+    const preferredPitchIdByGroup = Object.fromEntries(
+        Object.entries(preferredPitchIdByGroupRaw)
+            .filter(([groupIndex, pitchId]) => Number.isInteger(Number(groupIndex)) && Number(groupIndex) > 0 && typeof pitchId === 'string' && pitchId.length > 0)
+            .map(([groupIndex, pitchId]) => [Number(groupIndex), pitchId as string])
+    ) as Record<number, string>
+
+    return { count, teamsPerGroup, placements, preferredPitchIdByGroup }
 }
 
 function readPlacementLabels(config: unknown): Record<string, string> {
@@ -2144,6 +2162,9 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         ) : (
                             groupPhases.map((phase) => {
                                 const groupConfig = readGroupConfig(phase.config)
+                                const availablePitches = tournament.pitches.filter(
+                                    (pitch) => !pitch.phase || pitch.phase.id === phase.id
+                                )
                                 return (
                                     <div key={phase.id} className="space-y-4 rounded-2xl border border-slate-300 bg-white p-4">
                                         {/* Phase header */}
@@ -2221,6 +2242,45 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
 
                                         {/* Step 3: Generate matches */}
                                         <StepSection num={3} title="Generer les matchs de poule" desc="Choisissez l'heure de debut, la duree max d'un match et le temps de recuperation entre deux matchs d'une equipe." color="emerald">
+                                            <form action={va(configureGroupPitchAssignments)} className="mb-3 grid gap-2 md:grid-cols-4">
+                                                <input type="hidden" name="tournamentId" value={tournament.id} />
+                                                <input type="hidden" name="orgSlug" value={orgSlug} />
+                                                <input type="hidden" name="tournamentSlug" value={tournament.slug} />
+                                                <input type="hidden" name="phaseId" value={phase.id} />
+
+                                                {Array.from({ length: groupConfig.count }, (_, index) => {
+                                                    const groupIndex = index + 1
+                                                    const selectName = `groupPitch_${groupIndex}`
+
+                                                    return (
+                                                        <div key={`${phase.id}-group-pitch-${groupIndex}`}>
+                                                            <label className="mb-1 block text-xs text-slate-500">Poule {groupIndex} - Piste</label>
+                                                            <select
+                                                                name={selectName}
+                                                                defaultValue={groupConfig.preferredPitchIdByGroup[groupIndex] ?? ''}
+                                                                className={`${inputCls} w-full`}
+                                                            >
+                                                                <option value="">Rotation auto</option>
+                                                                {availablePitches.map((pitch) => (
+                                                                    <option key={`${phase.id}-pitch-opt-${groupIndex}-${pitch.id}`} value={pitch.id}>
+                                                                        {pitch.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )
+                                                })}
+
+                                                <div className="md:col-span-4">
+                                                    <LoadingSubmitButton
+                                                        className={`${btnGhost} border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 disabled:opacity-60`}
+                                                        loadingLabel="Enregistrement..."
+                                                    >
+                                                        Enregistrer les pistes par poule
+                                                    </LoadingSubmitButton>
+                                                </div>
+                                            </form>
+
                                             <form action={va(generateGroupMatchesFromPlacements)} className="grid gap-2 md:grid-cols-5">
                                                 <input type="hidden" name="tournamentId" value={tournament.id} />
                                                 <input type="hidden" name="orgSlug" value={orgSlug} />

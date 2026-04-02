@@ -165,6 +165,10 @@ const ConfigureGroupPhaseSchema = ManageTournamentBaseSchema.extend({
   teamsPerGroup: z.preprocess((value) => Number(value), z.number().int().min(2).max(64)),
 })
 
+const ConfigureGroupPitchAssignmentsSchema = ManageTournamentBaseSchema.extend({
+  phaseId: z.string().uuid(),
+})
+
 const ConfigurePlacementBracketLabelsSchema = ManageTournamentBaseSchema.extend({
   phaseId: z.string().uuid(),
 })
@@ -318,6 +322,7 @@ type GroupPhaseConfig = {
   count: number
   teamsPerGroup: number
   placements: GroupPlacement[]
+  preferredPitchIdByGroup: Record<number, string>
 }
 
 async function assertOrganizerCanManageTournament(tournamentId: string) {
@@ -419,7 +424,46 @@ function readGroupPhaseConfig(config: unknown): GroupPhaseConfig {
     })
     .filter((item): item is GroupPlacement => Boolean(item))
 
-  return { count, teamsPerGroup, placements }
+  const preferredPitchIdByGroupRaw =
+    rawGroups.preferredPitchIdByGroup && typeof rawGroups.preferredPitchIdByGroup === 'object'
+      ? (rawGroups.preferredPitchIdByGroup as Record<string, unknown>)
+      : {}
+
+  const preferredPitchIdByGroup = Object.fromEntries(
+    Object.entries(preferredPitchIdByGroupRaw)
+      .filter(([groupIndex, pitchId]) => Number.isInteger(Number(groupIndex)) && Number(groupIndex) > 0 && typeof pitchId === 'string' && pitchId.length > 0)
+      .map(([groupIndex, pitchId]) => [Number(groupIndex), pitchId as string])
+  ) as Record<number, string>
+
+  return { count, teamsPerGroup, placements, preferredPitchIdByGroup }
+}
+
+function resolvePreferredPitchKeyByGroup(params: {
+  groupsWithTeams: Array<{ groupIndex: number }>
+  groupConfig: GroupPhaseConfig
+  pitches: Array<{ id: string; name: string }>
+  pitchResources: Array<{ id: string; key: string }>
+}) {
+  const { groupsWithTeams, groupConfig, pitches, pitchResources } = params
+
+  const preferredPitchKeyByGroup = new Map<number, string>()
+  const pitchById = new Map(pitches.map((pitch) => [pitch.id, pitch]))
+
+  for (const group of groupsWithTeams) {
+    const preferredPitchId = groupConfig.preferredPitchIdByGroup[group.groupIndex]
+    if (!preferredPitchId) continue
+    const preferredPitch = pitchById.get(preferredPitchId)
+    if (!preferredPitch) continue
+    preferredPitchKeyByGroup.set(group.groupIndex, toPitchResourceKey(preferredPitch.name))
+  }
+
+  for (let index = 0; index < groupsWithTeams.length; index += 1) {
+    const group = groupsWithTeams[index]
+    if (preferredPitchKeyByGroup.has(group.groupIndex)) continue
+    preferredPitchKeyByGroup.set(group.groupIndex, pitchResources[index % pitchResources.length].key)
+  }
+
+  return preferredPitchKeyByGroup
 }
 
 function withGroupConfig(
@@ -3007,9 +3051,12 @@ export async function generatePhaseRoundRobinMatches(
         return { success: false, message: 'Aucune poule avec au moins 2 équipes placees.' }
       }
 
-      const preferredPitchKeyByGroup = new Map<number, string>(
-        groupsWithTeams.map((group, index) => [group.groupIndex, pitchResources[index % pitchResources.length].key])
-      )
+      const preferredPitchKeyByGroup = resolvePreferredPitchKeyByGroup({
+        groupsWithTeams,
+        groupConfig,
+        pitches,
+        pitchResources,
+      })
 
       for (const group of groupsWithTeams) {
         const pairings = buildRoundRobinPairings(group.teamIds)
@@ -3120,6 +3167,9 @@ export async function configureGroupPhase(
           count: groupCount,
           teamsPerGroup,
           placements: filteredPlacements,
+          preferredPitchIdByGroup: Object.fromEntries(
+            Object.entries(existing.preferredPitchIdByGroup).filter(([groupIndex]) => Number(groupIndex) <= groupCount)
+          ) as Record<number, string>,
         }),
       },
     })
@@ -3387,6 +3437,74 @@ export async function autoPlaceGroupTeams(
   }
 }
 
+export async function configureGroupPitchAssignments(
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = ConfigureGroupPitchAssignmentsSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, message: 'Configuration des pistes par poule invalide.' }
+
+  const { tournamentId, orgSlug, tournamentSlug, phaseId } = parsed.data
+
+  try {
+    await assertOrganizerCanManageTournament(tournamentId)
+    const phase = await assertGroupPhaseBelongsTournament(phaseId, tournamentId)
+    const groupConfig = readGroupPhaseConfig(phase.config)
+
+    const preferredPitchIdByGroup: Record<number, string> = {}
+    const selectedPitchIds = new Set<string>()
+
+    for (let groupIndex = 1; groupIndex <= groupConfig.count; groupIndex += 1) {
+      const rawValue = String(formData.get(`groupPitch_${groupIndex}`) ?? '').trim()
+      if (!rawValue) continue
+      preferredPitchIdByGroup[groupIndex] = rawValue
+      selectedPitchIds.add(rawValue)
+    }
+
+    if (selectedPitchIds.size > 0) {
+      const allowedPitches = await prisma.pitch.findMany({
+        where: {
+          id: { in: Array.from(selectedPitchIds) },
+          tournamentId,
+          OR: [{ phaseId }, { phaseId: null }],
+        },
+        select: { id: true },
+      })
+
+      if (allowedPitches.length !== selectedPitchIds.size) {
+        return { success: false, message: 'Une ou plusieurs pistes selectionnees sont invalides pour cette phase.' }
+      }
+    }
+
+    await prisma.phase.update({
+      where: { id: phaseId },
+      data: {
+        config: withGroupConfig(phase.config, {
+          ...groupConfig,
+          preferredPitchIdByGroup,
+        }),
+      },
+    })
+
+    await recordTournamentAction({
+      tournamentId,
+      actionType: 'GROUP_PITCH_ASSIGNMENTS_UPDATE',
+      message: 'Pistes preferees par poule mises a jour.',
+      payload: {
+        phaseId,
+        preferredPitchIdByGroup,
+      },
+    })
+
+    revalidateTournamentPath(orgSlug, tournamentSlug)
+    return { success: true, message: 'Pistes par poule enregistrees.' }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erreur configuration pistes par poule.',
+    }
+  }
+}
+
 export async function setGroupPlacement(
   formData: FormData
 ): Promise<ActionState> {
@@ -3645,9 +3763,12 @@ export async function generateGroupMatchesFromPlacements(
     )
 
     const pairingsToSchedule: SchedulablePairing[] = []
-    const preferredPitchKeyByGroup = new Map<number, string>(
-      groupsWithTeams.map((group, index) => [group.groupIndex, pitchResources[index % pitchResources.length].key])
-    )
+    const preferredPitchKeyByGroup = resolvePreferredPitchKeyByGroup({
+      groupsWithTeams,
+      groupConfig,
+      pitches,
+      pitchResources,
+    })
 
     for (const group of groupsWithTeams) {
       const pairings = buildRoundRobinPairings(group.teamIds)

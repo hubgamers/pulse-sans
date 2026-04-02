@@ -44,19 +44,34 @@ export default function GroupPlacementBoard({
 }: Props) {
     const [state, formAction, isPending] = useActionState(bulkSetGroupPlacements, initialState);
 
-    const initialMap = useMemo(() => {
-        const map: Record<string, string> = {};
-        for (const placement of placements) {
-            map[`${placement.groupIndex}-${placement.slot}`] = placement.teamId;
-        }
-        return map;
+    const placementsSignature = useMemo(() => {
+        return placements
+            .map((placement) => `${placement.groupIndex}:${placement.slot}:${placement.teamId}`)
+            .sort()
+            .join("|");
     }, [placements]);
 
-    const [assignments, setAssignments] = useState<Record<string, string>>(initialMap);
+    const syncedMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        if (!placementsSignature) return map;
+
+        for (const token of placementsSignature.split("|")) {
+            if (!token) continue;
+            const [groupRaw, slotRaw, teamId] = token.split(":");
+            const groupIndex = Number(groupRaw);
+            const slot = Number(slotRaw);
+            if (!Number.isInteger(groupIndex) || !Number.isInteger(slot) || !teamId) continue;
+            map[`${groupIndex}-${slot}`] = teamId;
+        }
+
+        return map;
+    }, [placementsSignature]);
+
+    const [assignments, setAssignments] = useState<Record<string, string>>(syncedMap);
 
     useEffect(() => {
-        setAssignments(initialMap);
-    }, [initialMap]);
+        setAssignments(syncedMap);
+    }, [syncedMap]);
 
     const teamNameById = useMemo(() => new Map(teamOptions.map((team) => [team.id, team.name])), [teamOptions]);
 

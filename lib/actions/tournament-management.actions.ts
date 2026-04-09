@@ -243,8 +243,14 @@ const BulkCreateMatchesSchema = ManageTournamentBaseSchema.extend({
 const BulkMatchUpdateItemSchema = z.object({
   matchId: z.string().uuid(),
   status: z.enum(['SCHEDULED', 'LIVE', 'FINISHED', 'CANCELLED']).optional(),
-  homeScore: z.number().int().min(0).max(999).optional(),
-  awayScore: z.number().int().min(0).max(999).optional(),
+  homeScore: z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
+    z.number().int().min(0).max(999).optional()
+  ),
+  awayScore: z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? undefined : Number(value)),
+    z.number().int().min(0).max(999).optional()
+  ),
   notes: z.string().max(500).optional(),
 })
 
@@ -620,6 +626,108 @@ function computeGroupStandingsForPhase(
     .map((r) => r.teamId)
 }
 
+function collectGroupQualifierIdsByRoute(
+  groupStandings: string[][],
+  route: PhaseRouteConfig
+): string[] {
+  const rankBuckets: string[][] = []
+
+  if (route.rule === 'TOP' && route.countPerGroup) {
+    for (let rank = 0; rank < route.countPerGroup; rank += 1) {
+      const bucket: string[] = []
+      for (const group of groupStandings) {
+        if (group[rank]) bucket.push(group[rank])
+      }
+      rankBuckets.push(bucket)
+    }
+  } else if (route.rule === 'BOTTOM' && route.countPerGroup) {
+    for (let rank = 0; rank < route.countPerGroup; rank += 1) {
+      const bucket: string[] = []
+      for (const group of groupStandings) {
+        const idx = group.length - 1 - rank
+        if (idx >= 0 && group[idx]) bucket.push(group[idx])
+      }
+      rankBuckets.push(bucket)
+    }
+  } else if (route.rule === 'RANGE' && route.startRank && route.endRank) {
+    for (let rank = route.startRank - 1; rank < route.endRank; rank += 1) {
+      const bucket: string[] = []
+      for (const group of groupStandings) {
+        if (group[rank]) bucket.push(group[rank])
+      }
+      rankBuckets.push(bucket)
+    }
+  }
+
+  if (rankBuckets.length !== 2) {
+    return rankBuckets.flat()
+  }
+
+  const [higherRank, lowerRank] = rankBuckets
+  const ordered: string[] = []
+  const consumedLower = new Set<number>()
+  const pairCount = Math.min(higherRank.length, lowerRank.length)
+
+  // Mirror lower-ranked qualifiers to avoid same-group pairings when possible.
+  for (let index = 0; index < pairCount; index += 1) {
+    const higherTeamId = higherRank[index]
+    if (higherTeamId) ordered.push(higherTeamId)
+
+    const mirroredLowerIndex = lowerRank.length - 1 - index
+    const lowerTeamId = lowerRank[mirroredLowerIndex]
+    if (lowerTeamId) {
+      ordered.push(lowerTeamId)
+      consumedLower.add(mirroredLowerIndex)
+    }
+  }
+
+  for (let index = pairCount; index < higherRank.length; index += 1) {
+    const teamId = higherRank[index]
+    if (teamId) ordered.push(teamId)
+  }
+
+  for (let index = 0; index < lowerRank.length; index += 1) {
+    if (consumedLower.has(index)) continue
+    const teamId = lowerRank[index]
+    if (teamId) ordered.push(teamId)
+  }
+
+  return ordered
+}
+
+function compareRoundOneBracketPos(a: string | null, b: string | null): number {
+  const parse = (value: string | null) => {
+    if (!value) {
+      return { laneOrder: 99, matchNo: Number.POSITIVE_INFINITY, raw: '' }
+    }
+
+    const wbOrLb = value.match(/^(WB|LB)-R1-M(\d+)$/)
+    if (wbOrLb) {
+      const laneOrder = wbOrLb[1] === 'WB' ? 0 : 1
+      return { laneOrder, matchNo: Number(wbOrLb[2]), raw: value }
+    }
+
+    const placement = value.match(/^P\d+-\d+-R1-M(\d+)$/)
+    if (placement) {
+      return { laneOrder: 2, matchNo: Number(placement[1]), raw: value }
+    }
+
+    const fallback = value.match(/-M(\d+)$/)
+    if (fallback) {
+      return { laneOrder: 3, matchNo: Number(fallback[1]), raw: value }
+    }
+
+    return { laneOrder: 98, matchNo: Number.POSITIVE_INFINITY, raw: value }
+  }
+
+  const left = parse(a)
+  const right = parse(b)
+
+  if (left.laneOrder !== right.laneOrder) return left.laneOrder - right.laneOrder
+  if (left.matchNo !== right.matchNo) return left.matchNo - right.matchNo
+  return left.raw.localeCompare(right.raw)
+}
+
 async function propagateQualifiersToNextPhase(
   tx: Prisma.TransactionClient,
   phase: { id: string; type: PhaseType; config: unknown }
@@ -652,26 +760,7 @@ async function propagateQualifiersToNextPhase(
         )
       }
 
-      if (route.rule === 'TOP' && route.countPerGroup) {
-        for (let rank = 0; rank < route.countPerGroup; rank += 1) {
-          for (const group of groupStandings) {
-            if (group[rank]) qualifierIds.push(group[rank])
-          }
-        }
-      } else if (route.rule === 'BOTTOM' && route.countPerGroup) {
-        for (let rank = 0; rank < route.countPerGroup; rank += 1) {
-          for (const group of groupStandings) {
-            const idx = group.length - 1 - rank
-            if (idx >= 0 && group[idx]) qualifierIds.push(group[idx])
-          }
-        }
-      } else if (route.rule === 'RANGE' && route.startRank && route.endRank) {
-        for (let rank = route.startRank - 1; rank < route.endRank; rank += 1) {
-          for (const group of groupStandings) {
-            if (group[rank]) qualifierIds.push(group[rank])
-          }
-        }
-      }
+      qualifierIds = collectGroupQualifierIdsByRoute(groupStandings, route)
     } else if (
       phase.type === PhaseType.BRACKET_SINGLE ||
       phase.type === PhaseType.BRACKET_DOUBLE ||
@@ -709,6 +798,7 @@ async function propagateQualifiersToNextPhase(
       select: { id: true, homeTeamId: true, awayTeamId: true, bracketPos: true },
       orderBy: { bracketPos: 'asc' },
     })
+    slotMatches.sort((a, b) => compareRoundOneBracketPos(a.bracketPos, b.bracketPos))
 
     let qualIdx = 0
     for (const slot of slotMatches) {
@@ -777,28 +867,9 @@ async function resolveIncomingQualifierIdsForTargetPhase(params: {
       }
 
       for (const route of source.routes) {
-        if (route.rule === 'TOP' && route.countPerGroup) {
-          for (let rank = 0; rank < route.countPerGroup; rank += 1) {
-            for (const group of groupStandings) {
-              const teamId = group[rank]
-              if (teamId && !qualifierIds.includes(teamId)) qualifierIds.push(teamId)
-            }
-          }
-        } else if (route.rule === 'BOTTOM' && route.countPerGroup) {
-          for (let rank = 0; rank < route.countPerGroup; rank += 1) {
-            for (const group of groupStandings) {
-              const idx = group.length - 1 - rank
-              const teamId = idx >= 0 ? group[idx] : undefined
-              if (teamId && !qualifierIds.includes(teamId)) qualifierIds.push(teamId)
-            }
-          }
-        } else if (route.rule === 'RANGE' && route.startRank && route.endRank) {
-          for (let rank = route.startRank - 1; rank < route.endRank; rank += 1) {
-            for (const group of groupStandings) {
-              const teamId = group[rank]
-              if (teamId && !qualifierIds.includes(teamId)) qualifierIds.push(teamId)
-            }
-          }
+        const orderedForRoute = collectGroupQualifierIdsByRoute(groupStandings, route)
+        for (const teamId of orderedForRoute) {
+          if (teamId && !qualifierIds.includes(teamId)) qualifierIds.push(teamId)
         }
       }
 
@@ -3869,6 +3940,7 @@ export async function bulkUpdateTournamentMatches(
         phase: { select: { type: true } },
         homeTeamId: true,
         awayTeamId: true,
+        result: { select: { homeScore: true, awayScore: true } },
       },
     })
 
@@ -3893,9 +3965,19 @@ export async function bulkUpdateTournamentMatches(
       const match = matchById.get(update.matchId)
       if (!match) continue
 
-      if (update.homeScore !== undefined && update.awayScore !== undefined) {
-        const homeScore = update.homeScore
-        const awayScore = update.awayScore
+      const hasScoreUpdate = update.homeScore !== undefined || update.awayScore !== undefined
+
+      if (hasScoreUpdate) {
+        const homeScore = update.homeScore ?? match.result?.homeScore
+        const awayScore = update.awayScore ?? match.result?.awayScore
+
+        if (homeScore === undefined || awayScore === undefined) {
+          return {
+            success: false,
+            message: 'Pour modifier un score, renseignez les 2 scores (ou gardez l\'autre score deja existant).',
+          }
+        }
+
         let winnerId: string | null = null
         if (homeScore > awayScore) winnerId = match.homeTeamId ?? null
         if (awayScore > homeScore) winnerId = match.awayTeamId ?? null
@@ -3917,6 +3999,7 @@ export async function bulkUpdateTournamentMatches(
           loserId,
         })
 
+        // Any score update implies a finished match.
         ops.push(
           prisma.match.update({
             where: { id: update.matchId },
@@ -4214,6 +4297,7 @@ export async function retryTournamentPropagation(
           },
           orderBy: { bracketPos: 'asc' },
         })
+        roundOneMatches.sort((a, b) => compareRoundOneBracketPos(a.bracketPos, b.bracketPos))
 
         if (roundOneMatches.length === 0) continue
 

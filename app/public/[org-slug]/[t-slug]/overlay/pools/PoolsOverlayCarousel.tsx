@@ -234,7 +234,7 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
                                                                 <img
                                                                     src={row.teamLogoUrl}
                                                                     alt={`Logo ${row.teamName}`}
-                                                                    className="h-13 w-13 rounded-md border border-white/10 object-contain"
+                                                                    className="h-13 w-13 object-contain block shrink-0"
                                                                 />
                                                             ) : (
                                                                 <div className="flex h-13 w-13 items-center justify-center rounded-md border border-white/10 bg-slate-800 text-[9px] font-black text-slate-200">

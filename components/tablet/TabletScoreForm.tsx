@@ -90,6 +90,7 @@ export default function TabletScoreForm({ initialMatches }: { initialMatches: Ta
             <h2 className="text-2xl font-bold mb-6 text-blue-400 text-center h-16 flex items-center">
               {selectedMatch.homeTeam?.name ?? 'TBD'}
             </h2>
+            
             <input
               type="number"
               inputMode="numeric"

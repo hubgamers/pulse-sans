@@ -282,6 +282,11 @@ const GenerateCustomPlacementBracketSchema = ManageTournamentBaseSchema.extend({
   includeLosersReplay: z.preprocess((value) => value === 'on' || value === true, z.boolean()),
   overwritePhaseMatches: z.preprocess((value) => value === 'on' || value === true, z.boolean()),
   placementRanges: z.string().max(300).optional(),
+  placementOffset: z.preprocess((value) => {
+    if (value === '' || value === null || value === undefined) return 0
+    const num = Number(value)
+    return Number.isNaN(num) ? 0 : num
+  }, z.number().int().min(0)).optional(),
   rotationMode: z.enum(['sequential', 'interleaved']).optional().default('sequential'),
 })
 
@@ -1210,13 +1215,19 @@ function parsePlacementRootRanges(params: {
   value: string | undefined
   normalizedSize: number
   rounds: number
+  offset?: number
 }): { ranges: Array<{ start: number; end: number; wbRound: number | null }> } | { error: string } {
-  const { value, normalizedSize, rounds } = params
+  const { value, normalizedSize, rounds, offset = 0 } = params
   const requiredRoots = defaultPlacementRootRanges(normalizedSize, rounds)
-  const requiredByKey = new Map(requiredRoots.map((item) => [`${item.start}-${item.end}`, item.wbRound]))
+  const shiftedRoots = requiredRoots.map((item) => ({
+    start: item.start + offset,
+    end: item.end + offset,
+    wbRound: item.wbRound,
+  }))
+  const requiredByKey = new Map(shiftedRoots.map((item) => [`${item.start}-${item.end}`, item.wbRound]))
 
   if (!value || value.trim().length === 0) {
-    return { ranges: requiredRoots }
+    return { ranges: shiftedRoots }
   }
 
   const tokens = value
@@ -1225,7 +1236,7 @@ function parsePlacementRootRanges(params: {
     .filter((item) => item.length > 0)
 
   if (tokens.length === 0) {
-    return { ranges: requiredRoots }
+    return { ranges: shiftedRoots }
   }
 
   const unique = new Map<string, { start: number; end: number }>()
@@ -1235,14 +1246,30 @@ function parsePlacementRootRanges(params: {
       return { error: `Format de plage invalide: "${token}". Utilisez le format 5-8, 3-4.` }
     }
 
-    const start = Number(parsed[1])
-    const end = Number(parsed[2])
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+    const rawStart = Number(parsed[1])
+    const rawEnd = Number(parsed[2])
+    if (!Number.isInteger(rawStart) || !Number.isInteger(rawEnd) || rawStart < 1 || rawEnd < rawStart) {
       return { error: `Plage invalide: "${token}".` }
     }
-    if (end > normalizedSize) {
+
+    let start = rawStart
+    let end = rawEnd
+
+    if (offset > 0) {
+      const relativeStart = rawStart - offset
+      const relativeEnd = rawEnd - offset
+      if (relativeStart >= 1 && relativeEnd <= normalizedSize) {
+        start = rawStart
+        end = rawEnd
+      } else if (rawStart >= 1 && rawEnd <= normalizedSize) {
+        start = rawStart + offset
+        end = rawEnd + offset
+      }
+    }
+
+    if (end > normalizedSize + offset) {
       return {
-        error: `La plage "${token}" depasse le nombre de participants normalise (${normalizedSize}).`,
+        error: `La plage "${token}" depasse le nombre de participants normalise (${normalizedSize + offset}).`,
       }
     }
 
@@ -1272,7 +1299,7 @@ function parsePlacementRootRanges(params: {
     }
   }
 
-  for (const root of requiredRoots) {
+  for (const root of shiftedRoots) {
     const key = `${root.start}-${root.end}`
     if (!unique.has(key)) {
       return {
@@ -1565,6 +1592,7 @@ function buildBracketSkeleton(params: {
   seededTeamIds: Array<string>
   includeLosersReplay: boolean
   placementRanges?: string | null
+  placementOffset?: number
   pitchResources: Array<{ id: string; key: string }>
   roundDurationMs: number
 }): { skeleton: BracketSkeletonMatch[] } | { error: string } {
@@ -1575,6 +1603,7 @@ function buildBracketSkeleton(params: {
     seededTeamIds,
     includeLosersReplay,
     placementRanges,
+    placementOffset = 0,
     pitchResources,
     roundDurationMs,
   } = params
@@ -1656,6 +1685,7 @@ function buildBracketSkeleton(params: {
       value: placementRanges ?? undefined,
       normalizedSize,
       rounds,
+      offset: placementOffset,
     })
 
     if ('error' in parsedRanges) {
@@ -4622,6 +4652,7 @@ export async function generateCustomPlacementBracketMatches(
     includeLosersReplay,
     overwritePhaseMatches,
     placementRanges,
+    placementOffset = 0,
     rotationMode,
   } = parsed.data
 
@@ -4756,6 +4787,7 @@ export async function generateCustomPlacementBracketMatches(
       seededTeamIds,
       includeLosersReplay,
       placementRanges,
+      placementOffset,
       pitchResources,
       roundDurationMs,
     })
@@ -4958,6 +4990,7 @@ export async function generateLinkedBracketMatches(
       }
 
       const allSkeletons: BracketSkeletonMatch[] = []
+      let phasePlacementOffset = 0
 
       for (const phase of linkedPhases) {
         const [incomingQualifiers, expectedIncomingQualifiers] = await Promise.all([
@@ -4979,8 +5012,10 @@ export async function generateLinkedBracketMatches(
         const fallbackSeededTeamIds = registrations.map((r) => r.teamId)
         const seededTeamIds = (incomingQualifiers.hasRouting
           ? incomingQualifiers.teamIds
-          : fallbackSeededTeamIds
-        ).slice(0, effectiveParticipantsCount)
+          : fallbackSeededTeamIds).slice(0, effectiveParticipantsCount)
+
+        const phaseRounds = Math.ceil(Math.log2(effectiveParticipantsCount))
+        const phaseNormalizedSize = 2 ** phaseRounds
 
         const skeletonResult = buildBracketSkeleton({
           phaseId: phase.id,
@@ -4989,6 +5024,7 @@ export async function generateLinkedBracketMatches(
           seededTeamIds,
           includeLosersReplay,
           placementRanges,
+          placementOffset: phasePlacementOffset,
           pitchResources,
           roundDurationMs,
         })
@@ -4998,6 +5034,7 @@ export async function generateLinkedBracketMatches(
         }
 
         allSkeletons.push(...skeletonResult.skeleton)
+        phasePlacementOffset += phaseNormalizedSize
       }
 
       const scheduledSkeleton = scheduleBracketMatches({
@@ -5066,6 +5103,7 @@ export async function generateLinkedBracketMatches(
 
     // ── Sequential mode ────────────────────────────────────────────────────────
     let generatedCount = 0
+    let placementOffset = 0
 
     for (const phase of linkedPhases) {
       const linkedFormData = new FormData()
@@ -5092,7 +5130,15 @@ export async function generateLinkedBracketMatches(
         (incomingQualifiers.teamIds.length > 0 ? incomingQualifiers.teamIds.length : 0) ||
         (requestedParticipantsCount > 0 ? requestedParticipantsCount : 8)
 
+      const effectiveParticipantsCount = incomingQualifiers.hasRouting
+        ? Math.max(autoParticipantsCount, incomingQualifiers.teamIds.length)
+        : autoParticipantsCount
+
+      const phaseRounds = Math.ceil(Math.log2(effectiveParticipantsCount))
+      const phaseNormalizedSize = 2 ** phaseRounds
+
       linkedFormData.set('participantsCount', String(autoParticipantsCount))
+      linkedFormData.set('placementOffset', String(placementOffset))
 
       const passThroughFields = [
         'startAt',
@@ -5120,6 +5166,7 @@ export async function generateLinkedBracketMatches(
       }
 
       generatedCount += 1
+      placementOffset += phaseNormalizedSize
     }
 
     return {

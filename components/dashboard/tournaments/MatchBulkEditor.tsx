@@ -106,12 +106,12 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                     const currentStatus = rowMap.get(match.id)?.status ?? match.status;
                     if (currentStatus !== statusFilter) return false;
                 }
-                
+
                 // Apply phase filter
                 if (phaseFilter !== "ALL" && match.phaseName !== phaseFilter) {
                     return false;
                 }
-                
+
                 return true;
             });
 
@@ -196,14 +196,27 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                             {isPending ? "Sauvegarde..." : `Sauvegarder (${updates.length})`}
                         </button>
                     </form>
+                    <button
+                        onClick={() => setRows(matches.map((match) => ({
+                            matchId: match.id,
+                            status: match.status,
+                            homeScore: match.homeScore,
+                            awayScore: match.awayScore,
+                            notes: match.notes,
+                        })))}
+                        disabled={isPending}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                    >
+                        Actualiser
+                    </button>
                 </div>
             </div>
 
             {state.message && (
                 <div
                     className={`rounded-lg border px-3 py-2 text-sm ${state.success
-                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                            : "border-red-500/30 bg-red-500/10 text-red-300"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        : "border-red-500/30 bg-red-500/10 text-red-300"
                         }`}
                 >
                     {state.message}

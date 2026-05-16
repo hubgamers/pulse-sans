@@ -1044,10 +1044,8 @@ async function resolveExpectedIncomingQualifierCountForTargetPhase(params: {
   let isDeterministic = true
 
   for (const source of sources) {
-    // Keep this aligned with resolveIncomingQualifierIdsForTargetPhase: only
-    // completed source phases can effectively provide qualifiers.
-    if (!source.isCompleted) continue
-
+    // Deterministic expected counts can be inferred from group route config
+    // even before the source phase is completed.
     if (source.type !== PhaseType.GROUP) {
       isDeterministic = false
       continue

@@ -1023,7 +1023,6 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
             let total = 0
 
             for (const sourcePhase of tournament.phases) {
-                if (!sourcePhase.isCompleted) continue
                 const routes = readRoutes(sourcePhase.config).filter((route) => route.toPhaseId === targetPhase.id)
                 if (routes.length === 0 || sourcePhase.type !== 'GROUP') continue
 
@@ -2544,7 +2543,8 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                     const phaseParallelGroup = readParallelGroup(phase.config)
                                     const canGenerateThisPhase = !phaseParallelGroup
                                     const incomingQualifierCount = (incomingQualifiersByPhase.get(phase.id) ?? []).length
-                                    const defaultParticipantsCount = Math.max(incomingQualifierCount, 8)
+                                    const expectedCount = Math.max(expectedIncomingQualifierCountByPhase.get(phase.id) ?? 0, 0)
+                                    const defaultParticipantsCount = Math.max(incomingQualifierCount, expectedCount, 8)
 
                                     return (
                                         <div key={phase.id} className="space-y-3 rounded-2xl border border-slate-300 bg-white p-4">
@@ -2583,9 +2583,16 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                                                                 defaultValue={defaultParticipantsCount}
                                                                 className={`${inputCls} w-full`}
                                                             />
-                                                            {incomingQualifierCount > 0 && (
+                                                            {(incomingQualifierCount > 0 || expectedCount > 0) && (
                                                                 <p className="mt-1 text-[11px] text-slate-500">
-                                                                    {incomingQualifierCount} equipe(s) qualifiee(s) detectee(s) pour cette phase.
+                                                                    {incomingQualifierCount > 0 ? (
+                                                                        <>{incomingQualifierCount} equipe(s) qualifiee(s) detectee(s) pour cette phase.</>
+                                                                    ) : (
+                                                                        <>Aucune equipe qualifiee detectee pour le moment.</>
+                                                                    )}
+                                                                    {expectedCount > 0 && (
+                                                                        <>{' '}Attendu: {expectedCount} equipe(s) via les routes de poules.</>
+                                                                    )}
                                                                 </p>
                                                             )}
                                                         </div>

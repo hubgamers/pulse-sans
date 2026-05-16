@@ -1443,7 +1443,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                             <div className="mb-3">
                                 <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Maintenance propagation</h2>
                                 <p className="mt-1 text-xs text-slate-500">
-                                    Utilisez ce bouton si des qualifiees restent en attente apres une reinitialisation ou un incident de propagation.
+                                    Utilisez ce bouton si des qualifiees restent en attente apres une reinitialisation, une modification de score ou un incident de propagation.
                                 </p>
                             </div>
 

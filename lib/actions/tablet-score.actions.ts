@@ -2,12 +2,13 @@
 
 import { MatchStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { rerunTournamentPropagationForTournament } from '@/lib/actions/tournament-management.actions'
 
 export async function submitScoreFromTablet(matchId: string, homeScore: number, awayScore: number) {
   try {
     const match = await prisma.match.findUnique({
       where: { id: matchId },
-      include: { result: true },
+      include: { result: true, phase: { select: { tournamentId: true } } },
     })
 
     if (!match) {
@@ -43,6 +44,18 @@ export async function submitScoreFromTablet(matchId: string, homeScore: number, 
         playedAt: new Date(),
       },
     })
+
+    try {
+      if (match.phase?.tournamentId) {
+        await rerunTournamentPropagationForTournament(match.phase.tournamentId, true)
+      }
+    } catch (error) {
+      console.error('Propagation retry error after tablet score submission:', error)
+      return {
+        success: true,
+        message: error instanceof Error ? `Resultat enregistre. Propagation non relancee: ${error.message}` : 'Resultat enregistre. Propagation non relancee.',
+      }
+    }
 
     return { success: true }
   } catch (error) {

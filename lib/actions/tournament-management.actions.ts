@@ -3162,8 +3162,20 @@ export async function recordTournamentMatchResult(
       })
     })
 
+    let propagationMessage = 'Propagation tentee.'
+    try {
+      const propagation = await rerunTournamentPropagationForTournament(tournamentId, true)
+      propagationMessage = `Propagation relancee (${propagation.finishedBracketMatches} match(s), ${propagation.completedPhases} phase(s)).`
+    } catch (error) {
+      propagationMessage = `Resultat enregistre. Relance propagation impossible: ${
+        error instanceof Error ? error.message : 'Erreur inconnue'
+      }`
+      revalidateTournamentPath(orgSlug, tournamentSlug)
+      return { success: true, message: propagationMessage }
+    }
+
     revalidateTournamentPath(orgSlug, tournamentSlug)
-    return { success: true, message: 'Resultat enregistre.' }
+    return { success: true, message: `Resultat enregistre. ${propagationMessage}` }
   } catch (error) {
     return { success: false, message: error instanceof Error ? error.message : 'Erreur resultat.' }
   }
@@ -4316,15 +4328,25 @@ export async function bulkUpdateTournamentMatches(
       })
     }
 
+    let propagationMessage = ''
+    if (finishedWithScores.length > 0) {
+      try {
+        const propagation = await rerunTournamentPropagationForTournament(tournamentId, true)
+        propagationMessage = ` Propagation relancee (${propagation.finishedBracketMatches} match(s), ${propagation.completedPhases} phase(s)).`
+      } catch (error) {
+        propagationMessage = ` Propagation non relancee: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+      }
+    }
+
     await recordTournamentAction({
       tournamentId,
       actionType: 'MATCH_BULK_UPDATE',
-      message: `${updates.length} match(s) mis a jour en masse.`,
+      message: `${updates.length} match(s) mis a jour en masse.${propagationMessage}`,
       payload: { updatedCount: updates.length },
     })
 
     revalidateTournamentPath(orgSlug, tournamentSlug)
-    return { success: true, message: `${updates.length} match(s) mis a jour.` }
+    return { success: true, message: `${updates.length} match(s) mis a jour.${propagationMessage}` }
   } catch (error) {
     return {
       success: false,
@@ -4439,6 +4461,178 @@ export async function closeTournamentPhase(
   }
 }
 
+export async function rerunTournamentPropagationForTournament(
+  tournamentId: string,
+  force = false
+): Promise<{
+  finishedBracketMatches: number
+  completedPhases: number
+  routedBracketTargets: Array<{ phaseId: string; hasRouting: boolean; teamIds: string[] }>
+}> {
+  const phases = await prisma.phase.findMany({
+    where: { tournamentId },
+    select: { id: true, type: true, isCompleted: true, config: true },
+    orderBy: { order: 'asc' },
+  })
+
+  const bracketPhaseIds = phases
+    .filter(
+      (phase) =>
+        phase.type === PhaseType.BRACKET_SINGLE ||
+        phase.type === PhaseType.BRACKET_DOUBLE ||
+        phase.type === PhaseType.PLACEMENT_BRACKET ||
+        phase.type === PhaseType.CUSTOM
+    )
+    .map((phase) => phase.id)
+
+  const finishedBracketMatches = bracketPhaseIds.length > 0
+    ? await prisma.match.findMany({
+      where: {
+        phaseId: { in: bracketPhaseIds },
+        status: MatchStatus.FINISHED,
+        result: { isNot: null },
+      },
+      select: {
+        phaseId: true,
+        bracketPos: true,
+        roundNumber: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        result: { select: { homeScore: true, awayScore: true } },
+        phase: { select: { type: true } },
+      },
+      orderBy: [{ roundNumber: 'asc' }, { bracketPos: 'asc' }],
+    })
+    : []
+
+  const completedPhases = phases.filter((phase) => phase.isCompleted)
+
+  const routedBracketTargets = await Promise.all(
+    phases
+      .filter(
+        (phase) =>
+          phase.type === PhaseType.BRACKET_SINGLE ||
+          phase.type === PhaseType.BRACKET_DOUBLE ||
+          phase.type === PhaseType.PLACEMENT_BRACKET ||
+          phase.type === PhaseType.CUSTOM
+      )
+      .map(async (phase) => {
+        const incoming = await resolveIncomingQualifierIdsForTargetPhase({
+          tournamentId,
+          targetPhaseId: phase.id,
+        })
+        return {
+          phaseId: phase.id,
+          hasRouting: incoming.hasRouting,
+          teamIds: incoming.teamIds,
+        }
+      })
+  )
+
+  await prisma.$transaction(async (tx) => {
+    for (const phase of completedPhases) {
+      await propagateQualifiersToNextPhase(tx, {
+        id: phase.id,
+        type: phase.type,
+        config: phase.config,
+      })
+    }
+
+    // Recovery step: reconcile round-1 bracket seeding from routing qualifiers.
+    // This intentionally overwrites non-finished round-1 slots to fix stale assignments.
+    for (const target of routedBracketTargets) {
+      if (!target.hasRouting) continue
+
+      if (force) {
+        await tx.match.updateMany({
+          where: {
+            phaseId: target.phaseId,
+            status: { notIn: [MatchStatus.FINISHED, MatchStatus.CANCELLED] },
+          },
+          data: {
+            homeTeamId: null,
+            awayTeamId: null,
+          },
+        })
+      }
+
+      const roundOneMatches = await tx.match.findMany({
+        where: {
+          phaseId: target.phaseId,
+          roundNumber: 1,
+        },
+        select: {
+          id: true,
+          status: true,
+          bracketPos: true,
+          homeTeamId: true,
+          awayTeamId: true,
+        },
+        orderBy: { bracketPos: 'asc' },
+      })
+      roundOneMatches.sort((a, b) => compareRoundOneBracketPos(a.bracketPos, b.bracketPos))
+
+      if (roundOneMatches.length === 0) continue
+
+      const lockedTeamIds = new Set<string>()
+      for (const match of roundOneMatches) {
+        if (match.status !== MatchStatus.FINISHED && match.status !== MatchStatus.CANCELLED) continue
+        if (match.homeTeamId) lockedTeamIds.add(match.homeTeamId)
+        if (match.awayTeamId) lockedTeamIds.add(match.awayTeamId)
+      }
+
+      const queue = target.teamIds.filter((teamId) => !lockedTeamIds.has(teamId))
+
+      for (const match of roundOneMatches) {
+        if (match.status === MatchStatus.FINISHED || match.status === MatchStatus.CANCELLED) continue
+
+        const nextHome = queue.shift() ?? null
+        const nextAway = queue.shift() ?? null
+
+        if (match.homeTeamId === nextHome && match.awayTeamId === nextAway) continue
+
+        await tx.match.update({
+          where: { id: match.id },
+          data: {
+            homeTeamId: nextHome,
+            awayTeamId: nextAway,
+          },
+        })
+      }
+    }
+
+    for (const match of finishedBracketMatches) {
+      if (!match.result) continue
+      const winnerId =
+        match.result.homeScore >= match.result.awayScore
+          ? match.homeTeamId
+          : match.awayTeamId
+      const loserId =
+        winnerId === null
+          ? null
+          : winnerId === match.homeTeamId
+            ? match.awayTeamId
+            : match.homeTeamId
+
+      await propagateWinnerToNextBracketMatch(tx, {
+        phaseId: match.phaseId,
+        phaseType: match.phase.type,
+        bracketPos: match.bracketPos,
+        homeTeamId: match.homeTeamId,
+        awayTeamId: match.awayTeamId,
+        winnerId,
+        loserId,
+      })
+    }
+  })
+
+  return {
+    finishedBracketMatches: finishedBracketMatches.length,
+    completedPhases: completedPhases.length,
+    routedBracketTargets,
+  }
+}
+
 export async function retryTournamentPropagation(
   formData: FormData
 ): Promise<ActionState> {
@@ -4450,171 +4644,16 @@ export async function retryTournamentPropagation(
   try {
     await assertOrganizerCanManageTournament(tournamentId)
 
-    const phases = await prisma.phase.findMany({
-      where: { tournamentId },
-      select: { id: true, name: true, type: true, isCompleted: true, config: true },
-      orderBy: { order: 'asc' },
-    })
-
-    const bracketPhaseIds = phases
-      .filter(
-        (phase) =>
-          phase.type === PhaseType.BRACKET_SINGLE ||
-          phase.type === PhaseType.BRACKET_DOUBLE ||
-          phase.type === PhaseType.PLACEMENT_BRACKET ||
-          phase.type === PhaseType.CUSTOM
-      )
-      .map((phase) => phase.id)
-
-    const finishedBracketMatches = bracketPhaseIds.length > 0
-      ? await prisma.match.findMany({
-        where: {
-          phaseId: { in: bracketPhaseIds },
-          status: MatchStatus.FINISHED,
-          result: { isNot: null },
-        },
-        select: {
-          phaseId: true,
-          bracketPos: true,
-          roundNumber: true,
-          homeTeamId: true,
-          awayTeamId: true,
-          result: { select: { homeScore: true, awayScore: true } },
-          phase: { select: { type: true } },
-        },
-        orderBy: [{ roundNumber: 'asc' }, { bracketPos: 'asc' }],
-      })
-      : []
-
-    const completedPhases = phases.filter((phase) => phase.isCompleted)
-
-    const routedBracketTargets = await Promise.all(
-      phases
-        .filter(
-          (phase) =>
-            phase.type === PhaseType.BRACKET_SINGLE ||
-            phase.type === PhaseType.BRACKET_DOUBLE ||
-            phase.type === PhaseType.PLACEMENT_BRACKET ||
-            phase.type === PhaseType.CUSTOM
-        )
-        .map(async (phase) => {
-          const incoming = await resolveIncomingQualifierIdsForTargetPhase({
-            tournamentId,
-            targetPhaseId: phase.id,
-          })
-          return {
-            phaseId: phase.id,
-            hasRouting: incoming.hasRouting,
-            teamIds: incoming.teamIds,
-          }
-        })
-    )
-
-    await prisma.$transaction(async (tx) => {
-      for (const phase of completedPhases) {
-        await propagateQualifiersToNextPhase(tx, {
-          id: phase.id,
-          type: phase.type,
-          config: phase.config,
-        })
-      }
-
-      // Recovery step: reconcile round-1 bracket seeding from routing qualifiers.
-      // This intentionally overwrites non-finished round-1 slots to fix stale assignments.
-      for (const target of routedBracketTargets) {
-        if (!target.hasRouting) continue
-
-        if (force) {
-          await tx.match.updateMany({
-            where: {
-              phaseId: target.phaseId,
-              status: { notIn: [MatchStatus.FINISHED, MatchStatus.CANCELLED] },
-            },
-            data: {
-              homeTeamId: null,
-              awayTeamId: null,
-            },
-          })
-        }
-
-        const roundOneMatches = await tx.match.findMany({
-          where: {
-            phaseId: target.phaseId,
-            roundNumber: 1,
-          },
-          select: {
-            id: true,
-            status: true,
-            bracketPos: true,
-            homeTeamId: true,
-            awayTeamId: true,
-          },
-          orderBy: { bracketPos: 'asc' },
-        })
-        roundOneMatches.sort((a, b) => compareRoundOneBracketPos(a.bracketPos, b.bracketPos))
-
-        if (roundOneMatches.length === 0) continue
-
-        const lockedTeamIds = new Set<string>()
-        for (const match of roundOneMatches) {
-          if (match.status !== MatchStatus.FINISHED && match.status !== MatchStatus.CANCELLED) continue
-          if (match.homeTeamId) lockedTeamIds.add(match.homeTeamId)
-          if (match.awayTeamId) lockedTeamIds.add(match.awayTeamId)
-        }
-
-        const queue = target.teamIds.filter((teamId) => !lockedTeamIds.has(teamId))
-
-        for (const match of roundOneMatches) {
-          if (match.status === MatchStatus.FINISHED || match.status === MatchStatus.CANCELLED) continue
-
-          const nextHome = queue.shift() ?? null
-          const nextAway = queue.shift() ?? null
-
-          if (match.homeTeamId === nextHome && match.awayTeamId === nextAway) continue
-
-          await tx.match.update({
-            where: { id: match.id },
-            data: {
-              homeTeamId: nextHome,
-              awayTeamId: nextAway,
-            },
-          })
-        }
-      }
-
-      for (const match of finishedBracketMatches) {
-        if (!match.result) continue
-        const winnerId =
-          match.result.homeScore >= match.result.awayScore
-            ? match.homeTeamId
-            : match.awayTeamId
-        const loserId =
-          winnerId === null
-            ? null
-            : winnerId === match.homeTeamId
-              ? match.awayTeamId
-              : match.homeTeamId
-
-        await propagateWinnerToNextBracketMatch(tx, {
-          phaseId: match.phaseId,
-          phaseType: match.phase.type,
-          bracketPos: match.bracketPos,
-          homeTeamId: match.homeTeamId,
-          awayTeamId: match.awayTeamId,
-          winnerId,
-          loserId,
-        })
-      }
-    })
+    const propagation = await rerunTournamentPropagationForTournament(tournamentId, force)
 
     await recordTournamentAction({
       tournamentId,
       actionType: 'PROPAGATION_RETRY',
-      message: `Relance manuelle de propagation executee (${finishedBracketMatches.length} match(s) bracket, ${completedPhases.length} phase(s) cloturees).`,
+      message: `Relance manuelle de propagation executee (${propagation.finishedBracketMatches} match(s) bracket, ${propagation.completedPhases} phase(s) cloturees).`,
       payload: {
-        finishedBracketMatches: finishedBracketMatches.length,
-        completedPhases: completedPhases.length,
-        routedTargets: routedBracketTargets.filter((target) => target.hasRouting).length,
+        finishedBracketMatches: propagation.finishedBracketMatches,
+        completedPhases: propagation.completedPhases,
+        routedTargets: propagation.routedBracketTargets.filter((target) => target.hasRouting).length,
         forced: force,
       },
     })
@@ -4622,7 +4661,7 @@ export async function retryTournamentPropagation(
     revalidateTournamentPath(orgSlug, tournamentSlug)
     return {
       success: true,
-      message: `${force ? 'Propagation forcee relancee' : 'Propagation relancee'}. Verification appliquee sur ${finishedBracketMatches.length} match(s) de bracket, ${completedPhases.length} phase(s) cloturees et ${routedBracketTargets.filter((target) => target.hasRouting).length} bracket(s) re-seedes.`,
+      message: `${force ? 'Propagation forcee relancee' : 'Propagation relancee'}. Verification appliquee sur ${propagation.finishedBracketMatches} match(s) de bracket, ${propagation.completedPhases} phase(s) cloturees et ${propagation.routedBracketTargets.filter((target) => target.hasRouting).length} bracket(s) re-seedes.`,
     }
   } catch (error) {
     return {

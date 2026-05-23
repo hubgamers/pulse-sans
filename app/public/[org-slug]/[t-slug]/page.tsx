@@ -5,6 +5,7 @@ import {
     formatMatchDateLabel,
     getPublicTournamentBySlugs,
 } from '@/lib/actions/tournament/public.queries'
+import { StandingsImageExporter } from '@/components/public/StandingsImageExporter'
 
 export const dynamic = 'force-dynamic'
 
@@ -152,7 +153,17 @@ export default async function PublicTournamentPage({
 
                 <section className="grid gap-4 xl:grid-cols-2">
                     <div className="rounded-xl border border-slate-200 bg-white p-4">
-                        <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">Classement global</h2>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">Classement global</h2>
+                                <p className="mt-1 text-xs text-slate-500">Téléchargez le classement général avec les logos des équipes.</p>
+                            </div>
+                            <StandingsImageExporter
+                                rows={standings}
+                                title={`${tournament.name} · Classement général`}
+                                subtitle="Classement général"
+                            />
+                        </div>
                         <div className="mt-3 overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead className="text-xs uppercase text-slate-500">
@@ -168,7 +179,22 @@ export default async function PublicTournamentPage({
                                     {standings.map((row, index) => (
                                         <tr key={row.teamId} className="border-t border-slate-200">
                                             <td className="py-2 font-semibold">{index + 1}</td>
-                                            <td className="py-2">{row.teamName}</td>
+                                            <td className="py-2">
+                                                <div className="flex items-center gap-3">
+                                                    {row.teamLogoUrl ? (
+                                                        <img
+                                                            src={row.teamLogoUrl}
+                                                            alt={`${row.teamName} logo`}
+                                                            className="h-8 w-8 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold uppercase text-slate-600">
+                                                            {row.teamName.slice(0, 2)}
+                                                        </div>
+                                                    )}
+                                                    <span>{row.teamName}</span>
+                                                </div>
+                                            </td>
                                             <td className="py-2 font-semibold">{row.points}</td>
                                             <td className="py-2">{row.wins}-{row.draws}-{row.losses}</td>
                                             <td className="py-2">{row.goalDiff >= 0 ? `+${row.goalDiff}` : row.goalDiff}</td>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useActionState, type ChangeEvent } from 'react'
+import { useState, useEffect, useActionState, useCallback, useMemo, type ChangeEvent } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
 import {
     configurePlacementBracketLabels,
     configurePlacementBracketRankingSegments,
@@ -53,6 +54,12 @@ const INITIAL_INLINE_ACTION_STATE: InlineActionState = {
     message: '',
 }
 
+const TAB_IDS: TabId[] = ['overview', 'phases', 'registrations', 'pools', 'bracket', 'planning', 'planning-time', 'matches']
+
+function isTabId(tab: string | null): tab is TabId {
+    return TAB_IDS.includes(tab as TabId)
+}
+
 type Props = {
     orgSlug: string
     tournament: TournamentData
@@ -63,10 +70,13 @@ type Props = {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function TournamentTabShell({ orgSlug, tournament, availableTeams, matches }: Props) {
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const tabParam = searchParams.get('tab')
     const planningDefaults = readPlanningDefaultsFromLogs(tournament.actionLogs)
     const [nowMs, setNowMs] = useState(() => Date.now())
     const [isAdminPanelCollapsed, setIsAdminPanelCollapsed] = useState(false)
-    const [activeTab, setActiveTab] = useState<TabId>('overview')
+    const [selectedTab, setSelectedTab] = useState<TabId>(() => isTabId(tabParam) ? tabParam : 'overview')
     const [activeBracketPhaseId, setActiveBracketPhaseId] = useState(() =>
         tournament.phases.find((phase) => ['BRACKET_SINGLE', 'BRACKET_DOUBLE', 'PLACEMENT_BRACKET', 'CUSTOM'].includes(phase.type))?.id ?? ''
     )
@@ -202,7 +212,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
         standingsOverlayGlobal,
     } = useTournamentStandingsOverlay(standingsOverlay, tournament, matches, teamNameById)
 
-    const tabs = [
+    const tabs = useMemo(() => [
         { id: 'overview' as TabId, label: "Vue d'ensemble" },
         { id: 'phases' as TabId, label: 'Configuration', badge: tournament.phases.length },
         { id: 'registrations' as TabId, label: 'Équipes & Pistes', badge: tournament.registrations.length },
@@ -211,7 +221,37 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
         { id: 'planning' as TabId, label: 'Planning pistes', badge: matches.filter((m) => Boolean(m.scheduledAt)).length },
         { id: 'planning-time' as TabId, label: 'Planning horaire', badge: scheduleByTime.slots.length },
         { id: 'matches' as TabId, label: 'Matchs', badge: matches.length },
-    ]
+    ], [
+        bracketPhases.length,
+        groupPhases.length,
+        matches,
+        scheduleByTime.slots.length,
+        tournament.phases.length,
+        tournament.registrations.length,
+    ])
+
+    const makeTabHref = useCallback((tab: TabId) => {
+        const params = new URLSearchParams(searchParams.toString())
+        params.set('tab', tab)
+        return `${pathname}?${params.toString()}`
+    }, [pathname, searchParams])
+
+    const activeTab = tabs.some((tab) => tab.id === selectedTab) ? selectedTab : 'overview'
+
+    const selectTab = useCallback((tab: TabId) => {
+        setSelectedTab(tab)
+        window.history.pushState(null, '', makeTabHref(tab))
+    }, [makeTabHref])
+
+    useEffect(() => {
+        const syncSelectedTabFromUrl = () => {
+            const nextTab = new URLSearchParams(window.location.search).get('tab')
+            setSelectedTab(isTabId(nextTab) ? nextTab : 'overview')
+        }
+
+        window.addEventListener('popstate', syncSelectedTabFromUrl)
+        return () => window.removeEventListener('popstate', syncSelectedTabFromUrl)
+    }, [])
 
     const statusMeta = isTournamentStatus(tournament.status)
         ? STATUS_META[tournament.status as TournamentStatus]
@@ -238,7 +278,8 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 tournament={tournament}
                 tabs={tabs}
                 activeTab={activeTab}
-                setActiveTab={setActiveTab}
+                setActiveTab={selectTab}
+                makeTabHref={makeTabHref}
                 statusMeta={statusMeta}
             />
 
@@ -268,7 +309,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         setOverlayBgUrl={setOverlayBgUrl}
                         setOverlayBgPreview={setOverlayBgPreview}
                         setOverlayBgUploadError={setOverlayBgUploadError}
-                        setActiveTab={setActiveTab}
+                        setActiveTab={selectTab}
                         inputCls={inputCls}
                         btnPrimary={btnPrimary}
                     />
@@ -403,7 +444,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 liveWithoutScores={liveWithoutScores}
                 finishedWithoutScores={finishedWithoutScores}
                 overdueScheduled={overdueScheduled}
-                setActiveTab={setActiveTab}
+                setActiveTab={selectTab}
                 setMatchesStep={setMatchesStep}
             />
 

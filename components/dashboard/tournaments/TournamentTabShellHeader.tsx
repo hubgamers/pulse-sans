@@ -7,10 +7,11 @@ type TournamentTabShellHeaderProps = {
     tabs: Array<{ id: TabId; label: string; badge?: number }>
     activeTab: TabId
     setActiveTab: (tab: TabId) => void
+    makeTabHref: (tab: TabId) => string
     statusMeta: { label: string; cls: string }
 }
 
-export default function TournamentTabShellHeader({ orgSlug, tournament, tabs, activeTab, setActiveTab, statusMeta }: TournamentTabShellHeaderProps) {
+export default function TournamentTabShellHeader({ orgSlug, tournament, tabs, activeTab, setActiveTab, makeTabHref, statusMeta }: TournamentTabShellHeaderProps) {
     return (
         <>
             <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -52,9 +53,15 @@ export default function TournamentTabShellHeader({ orgSlug, tournament, tabs, ac
 
             <div className="flex border-b border-teal-200">
                 {tabs.map((tab) => (
-                    <button
+                    <Link
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
+                        href={makeTabHref(tab.id)}
+                        scroll={false}
+                        onClick={(event) => {
+                            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                            event.preventDefault()
+                            setActiveTab(tab.id)
+                        }}
                         className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.id
                             ? 'border-teal-600 text-slate-900'
                             : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -67,7 +74,7 @@ export default function TournamentTabShellHeader({ orgSlug, tournament, tabs, ac
                                 {tab.badge}
                             </span>
                         )}
-                    </button>
+                    </Link>
                 ))}
             </div>
         </>

@@ -53,7 +53,11 @@ function formatMatchTime(match: TabletMatch) {
   if (!match.scheduledAt) return '--:--'
   const time = new Date(match.scheduledAt)
   if (Number.isNaN(time.getTime())) return '--:--'
-  return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return time.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC',
+  })
 }
 
 function normalize(value: string) {

@@ -9,6 +9,7 @@ import {
     readOverlayBackgroundConfig,
     type OverlayBackgroundSearchParams,
 } from '../_lib/background'
+import { OverlaySponsorStrip, readOverlaySponsors } from '../_lib/sponsors'
 
 type OverlaySearchParams = OverlayBackgroundSearchParams & {
     phaseId?: string | string[]
@@ -90,6 +91,7 @@ export default async function TournamentStandingsOverlayPage({
     const groupOverviews = computeGroupOverviews(tournament.registrations, tournament.phases, matches)
     const background = readOverlayBackgroundConfig(query, tournament.bannerUrl)
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
+    const sponsors = readOverlaySponsors(tournament.sponsorConfig)
 
     if (groupOverviews.length === 0) {
         return (
@@ -112,6 +114,7 @@ export default async function TournamentStandingsOverlayPage({
                         </p>
                     </section>
                 </div>
+                <OverlaySponsorStrip sponsors={sponsors} variant="light" />
             </main>
         )
     }
@@ -266,6 +269,7 @@ export default async function TournamentStandingsOverlayPage({
                     </section>
                 )}
             </div>
+            <OverlaySponsorStrip sponsors={sponsors} />
         </main>
     )
 }

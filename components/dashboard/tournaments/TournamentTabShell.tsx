@@ -14,11 +14,13 @@ import {
     startTournamentBreakTimer,
     startTournamentMatchesByScheduleSlot,
     updateTournamentOverlayBackground,
+    updateTournamentOverlaySponsors,
 } from '@/lib/actions/tournament-management.actions'
 import { createClient } from '@/lib/supabase/client'
 import type {
     TabId,
     InlineActionState,
+    OverlaySponsor,
     SerializedMatch,
     TournamentData,
 } from './TournamentTabShell.types'
@@ -60,6 +62,27 @@ function isTabId(tab: string | null): tab is TabId {
     return TAB_IDS.includes(tab as TabId)
 }
 
+function readInitialSponsors(config: unknown): OverlaySponsor[] {
+    if (!config || typeof config !== 'object') return []
+    const sponsors = (config as { sponsors?: unknown }).sponsors
+    if (!Array.isArray(sponsors)) return []
+
+    return sponsors
+        .map((item, index) => {
+            if (!item || typeof item !== 'object') return null
+            const raw = item as Record<string, unknown>
+            const name = typeof raw.name === 'string' ? raw.name : ''
+            const logoUrl = typeof raw.logoUrl === 'string' ? raw.logoUrl : ''
+            if (!name || !logoUrl) return null
+            return {
+                id: typeof raw.id === 'string' && raw.id ? raw.id : `sponsor-${index}`,
+                name,
+                logoUrl,
+            }
+        })
+        .filter((item): item is OverlaySponsor => Boolean(item))
+}
+
 type Props = {
     orgSlug: string
     tournament: TournamentData
@@ -91,6 +114,9 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
     const [overlayBgPreview, setOverlayBgPreview] = useState(tournament.bannerUrl ?? '')
     const [overlayBgUploading, setOverlayBgUploading] = useState(false)
     const [overlayBgUploadError, setOverlayBgUploadError] = useState('')
+    const [overlaySponsors, setOverlaySponsors] = useState<OverlaySponsor[]>(() => readInitialSponsors(tournament.sponsorConfig))
+    const [sponsorUploadId, setSponsorUploadId] = useState<string | null>(null)
+    const [sponsorUploadError, setSponsorUploadError] = useState('')
     const [bulkPitchCreateState, bulkPitchCreateAction] = useActionState(
         async (_: InlineActionState, formData: FormData) => bulkCreateTournamentPitches(formData),
         INITIAL_INLINE_ACTION_STATE
@@ -129,6 +155,10 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
     )
     const [overlayBackgroundState, overlayBackgroundAction] = useActionState(
         async (_: InlineActionState, formData: FormData) => updateTournamentOverlayBackground(formData),
+        INITIAL_INLINE_ACTION_STATE
+    )
+    const [overlaySponsorsState, overlaySponsorsAction] = useActionState(
+        async (_: InlineActionState, formData: FormData) => updateTournamentOverlaySponsors(formData),
         INITIAL_INLINE_ACTION_STATE
     )
     const [retryPropagationState, retryPropagationAction] = useActionState(
@@ -173,6 +203,56 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
         setOverlayBgUrl(data.publicUrl)
         setOverlayBgPreview(data.publicUrl)
         setOverlayBgUploading(false)
+    }
+
+    const addOverlaySponsor = () => {
+        setOverlaySponsors((current) => [
+            ...current,
+            { id: `sponsor-${Date.now()}`, name: '', logoUrl: '' },
+        ].slice(0, 12))
+    }
+
+    const updateOverlaySponsor = (id: string, patch: Partial<OverlaySponsor>) => {
+        setOverlaySponsors((current) => current.map((sponsor) => sponsor.id === id ? { ...sponsor, ...patch } : sponsor))
+    }
+
+    const removeOverlaySponsor = (id: string) => {
+        setOverlaySponsors((current) => current.filter((sponsor) => sponsor.id !== id))
+    }
+
+    const onSponsorLogoChange = async (sponsorId: string, event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+        if (!allowedTypes.includes(file.type)) {
+            setSponsorUploadError('Format non supporte. Utilisez PNG, JPEG, WEBP ou SVG.')
+            return
+        }
+        if (file.size > 4 * 1024 * 1024) {
+            setSponsorUploadError('Le logo doit faire moins de 4 Mo.')
+            return
+        }
+
+        setSponsorUploadError('')
+        setSponsorUploadId(sponsorId)
+
+        const supabase = createClient()
+        const ext = file.name.split('.').pop() ?? 'png'
+        const path = `tournaments/${tournament.id}/sponsors/${sponsorId}-${Date.now()}.${ext}`
+        const { error } = await supabase.storage.from('logos').upload(path, file, { upsert: true })
+
+        if (error) {
+            setSponsorUploadError(error.message.toLowerCase().includes('row-level security')
+                ? 'Upload bloque par la policy Supabase Storage (RLS). Verifiez le bucket logos.'
+                : 'Erreur lors de l upload : ' + error.message)
+            setSponsorUploadId(null)
+            return
+        }
+
+        const { data } = supabase.storage.from('logos').getPublicUrl(path)
+        updateOverlaySponsor(sponsorId, { logoUrl: data.publicUrl })
+        setSponsorUploadId(null)
     }
 
     useEffect(() => {
@@ -305,7 +385,16 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         overlayBgPreview={overlayBgPreview}
                         overlayBgUploading={overlayBgUploading}
                         overlayBgUploadError={overlayBgUploadError}
+                        overlaySponsors={overlaySponsors}
+                        overlaySponsorsAction={overlaySponsorsAction}
+                        overlaySponsorsState={overlaySponsorsState}
+                        sponsorUploadId={sponsorUploadId}
+                        sponsorUploadError={sponsorUploadError}
                         onOverlayBackgroundChange={onOverlayBackgroundChange}
+                        onSponsorLogoChange={onSponsorLogoChange}
+                        addOverlaySponsor={addOverlaySponsor}
+                        updateOverlaySponsor={updateOverlaySponsor}
+                        removeOverlaySponsor={removeOverlaySponsor}
                         setOverlayBgUrl={setOverlayBgUrl}
                         setOverlayBgPreview={setOverlayBgPreview}
                         setOverlayBgUploadError={setOverlayBgUploadError}

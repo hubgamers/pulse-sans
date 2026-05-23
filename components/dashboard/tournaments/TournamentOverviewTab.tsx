@@ -1,7 +1,7 @@
 'use client'
 
 import type { ChangeEvent, ComponentProps } from 'react'
-import type { InlineActionState, SerializedMatch, TabId, TournamentData } from './TournamentTabShell.types'
+import type { InlineActionState, OverlaySponsor, SerializedMatch, TabId, TournamentData } from './TournamentTabShell.types'
 import { formatRouteRule, readParallelGroup, readRoutes } from './TournamentTabShell.utils'
 import { EmptyState, LoadingSubmitButton, PhaseTypeBadge } from './TournamentTabShell.helpers'
 
@@ -22,7 +22,16 @@ type TournamentOverviewTabProps = {
     overlayBgPreview: string
     overlayBgUploading: boolean
     overlayBgUploadError: string
+    overlaySponsors: OverlaySponsor[]
+    overlaySponsorsAction: ComponentProps<'form'>['action']
+    overlaySponsorsState: InlineActionState
+    sponsorUploadId: string | null
+    sponsorUploadError: string
     onOverlayBackgroundChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
+    onSponsorLogoChange: (sponsorId: string, event: ChangeEvent<HTMLInputElement>) => Promise<void>
+    addOverlaySponsor: () => void
+    updateOverlaySponsor: (id: string, patch: Partial<OverlaySponsor>) => void
+    removeOverlaySponsor: (id: string) => void
     setOverlayBgUrl: (value: string) => void
     setOverlayBgPreview: (value: string) => void
     setOverlayBgUploadError: (value: string) => void
@@ -48,7 +57,16 @@ export default function TournamentOverviewTab({
     overlayBgPreview,
     overlayBgUploading,
     overlayBgUploadError,
+    overlaySponsors,
+    overlaySponsorsAction,
+    overlaySponsorsState,
+    sponsorUploadId,
+    sponsorUploadError,
     onOverlayBackgroundChange,
+    onSponsorLogoChange,
+    addOverlaySponsor,
+    updateOverlaySponsor,
+    removeOverlaySponsor,
     setOverlayBgUrl,
     setOverlayBgPreview,
     setOverlayBgUploadError,
@@ -56,6 +74,14 @@ export default function TournamentOverviewTab({
     inputCls,
     btnPrimary,
 }: TournamentOverviewTabProps) {
+    const completeSponsors = overlaySponsors
+        .map((sponsor) => ({
+            id: sponsor.id,
+            name: sponsor.name.trim(),
+            logoUrl: sponsor.logoUrl.trim(),
+        }))
+        .filter((sponsor) => sponsor.name && sponsor.logoUrl)
+
     return (
 <div className="space-y-6">
     {/* Stats grid */}
@@ -220,6 +246,99 @@ export default function TournamentOverviewTab({
             {overlayBackgroundState.message && (
                 <p className={`text-xs ${overlayBackgroundState.success ? 'text-emerald-700' : 'text-red-700'}`}>
                     {overlayBackgroundState.message}
+                </p>
+            )}
+        </form>
+
+        <form action={overlaySponsorsAction} className="mt-5 space-y-3 border-t border-slate-200 pt-4">
+            <input type="hidden" name="tournamentId" value={tournament.id} />
+            <input type="hidden" name="orgSlug" value={orgSlug} />
+            <input type="hidden" name="tournamentSlug" value={tournament.slug} />
+            <input type="hidden" name="sponsorsJson" value={JSON.stringify(completeSponsors)} />
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Sponsors overlay</h3>
+                    <p className="mt-1 text-xs text-slate-500">Les logos apparaissent automatiquement sur les overlays publics, hors tablette.</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={addOverlaySponsor}
+                    disabled={overlaySponsors.length >= 12}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                    Ajouter un sponsor
+                </button>
+            </div>
+
+            {overlaySponsors.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-slate-500">
+                    Aucun sponsor configure.
+                </div>
+            ) : (
+                <div className="grid gap-3 lg:grid-cols-2">
+                    {overlaySponsors.map((sponsor, index) => (
+                        <div key={sponsor.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <div className="flex items-start gap-3">
+                                <label className="flex h-20 w-28 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-2 text-center text-[11px] text-slate-500 hover:border-teal-500">
+                                    {sponsor.logoUrl ? (
+                                        <img src={sponsor.logoUrl} alt={sponsor.name || `Sponsor ${index + 1}`} className="max-h-16 max-w-full object-contain" />
+                                    ) : (
+                                        <span>{sponsorUploadId === sponsor.id ? 'Upload...' : 'Logo'}</span>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                        onChange={(event) => onSponsorLogoChange(sponsor.id, event)}
+                                        disabled={sponsorUploadId === sponsor.id}
+                                        className="hidden"
+                                    />
+                                </label>
+
+                                <div className="min-w-0 flex-1 space-y-2">
+                                    <input
+                                        value={sponsor.name}
+                                        onChange={(event) => updateOverlaySponsor(sponsor.id, { name: event.target.value })}
+                                        className={inputCls}
+                                        placeholder="Nom du sponsor"
+                                    />
+                                    <input
+                                        value={sponsor.logoUrl}
+                                        onChange={(event) => updateOverlaySponsor(sponsor.id, { logoUrl: event.target.value })}
+                                        className={inputCls}
+                                        placeholder="https://.../logo.png"
+                                    />
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => removeOverlaySponsor(sponsor.id)}
+                                    className="rounded-md border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+                                >
+                                    Retirer
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {sponsorUploadError && <p className="text-xs text-red-700">{sponsorUploadError}</p>}
+
+            <div className="flex flex-wrap items-center gap-3">
+                <LoadingSubmitButton
+                    className={`${btnPrimary} disabled:opacity-60`}
+                    disabled={Boolean(sponsorUploadId)}
+                    loadingLabel="Enregistrement..."
+                >
+                    Sauvegarder les sponsors
+                </LoadingSubmitButton>
+                <p className="text-xs text-slate-500">{completeSponsors.length}/{overlaySponsors.length} sponsor(s) pret(s)</p>
+            </div>
+
+            {overlaySponsorsState.message && (
+                <p className={`text-xs ${overlaySponsorsState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {overlaySponsorsState.message}
                 </p>
             )}
         </form>

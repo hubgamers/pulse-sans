@@ -120,6 +120,7 @@ model Tournament {
   description    String?
   status         TournamentStatus         @default(DRAFT)
   bannerUrl      String?                  @map("banner_url")
+  sponsorConfig  Json?                    @map("sponsor_config")
   createdAt      DateTime                 @default(now()) @map("created_at")
   endDate        DateTime?                @map("end_date")
   isPublic       Boolean                  @default(true) @map("is_public")

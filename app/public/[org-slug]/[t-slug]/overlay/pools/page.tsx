@@ -11,6 +11,7 @@ import {
     readOverlayBackgroundConfig,
     type OverlayBackgroundSearchParams,
 } from '../_lib/background'
+import { OverlaySponsorStrip, readOverlaySponsors } from '../_lib/sponsors'
 
 type OverlaySearchParams = OverlayBackgroundSearchParams & {
     rotate?: string | string[]
@@ -146,6 +147,7 @@ export default async function TournamentPoolsOverlayPage({
     const { tournament, matches } = payload
     const background = readOverlayBackgroundConfig(query, tournament.bannerUrl)
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
+    const sponsors = readOverlaySponsors(tournament.sponsorConfig)
     const latestTimerEvent = tournament.actionLogs.find((log) => {
         const launch = readLaunchSlotPayload(log.payload)
         if (!launch || typeof launch.timerMinutes !== 'number') return false
@@ -174,10 +176,15 @@ export default async function TournamentPoolsOverlayPage({
         : startedAtMs
 
     // Guard against bad future timestamps that can produce absurd values like XXXXX:XX.
-    const maxAcceptedFutureMs = Date.now() + 5 * 60 * 1000
+    const requestReferenceMs = Number.isFinite(latestLaunchCreatedAtMs)
+        ? latestLaunchCreatedAtMs
+        : (Number.isFinite(latestLaunchSlotAtMs) ? latestLaunchSlotAtMs : startedAtMs)
+    const maxAcceptedFutureMs = Number.isFinite(requestReferenceMs)
+        ? requestReferenceMs + 5 * 60 * 1000
+        : Number.MAX_SAFE_INTEGER
     const resolvedTimerStartMs = Number.isFinite(rawTimerStartMs) && rawTimerStartMs <= maxAcceptedFutureMs
         ? rawTimerStartMs
-        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : Date.now())
+        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : requestReferenceMs)
 
     const timerStartMs = Number.isFinite(resolvedTimerStartMs) ? resolvedTimerStartMs : null
     const activeSlotAtMs = timerKind === 'MATCH' && Number.isFinite(latestLaunchSlotAtMs) ? latestLaunchSlotAtMs : NaN
@@ -254,6 +261,7 @@ export default async function TournamentPoolsOverlayPage({
                             </p>
                         </section>
                     </div>
+                    <OverlaySponsorStrip sponsors={sponsors} variant="light" />
                 </main>
             ) : (
                 <PoolsOverlayCarousel
@@ -265,6 +273,7 @@ export default async function TournamentPoolsOverlayPage({
                     timerMode={timerKind}
                     backgroundImageUrl={background.backgroundUrl}
                     backgroundDim={background.dim}
+                    sponsors={sponsors}
                 />
             )}
         </>

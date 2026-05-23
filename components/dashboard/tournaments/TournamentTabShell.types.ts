@@ -37,6 +37,12 @@ export type InlineActionState = {
     message: string
 }
 
+export type OverlaySponsor = {
+    id: string
+    name: string
+    logoUrl: string
+}
+
 export type ActionLogPayload = {
     maxDurationMinutes?: unknown
     teamBreakMinutes?: unknown
@@ -123,6 +129,7 @@ export type TournamentData = {
     slug: string
     description: string | null
     bannerUrl: string | null
+    sponsorConfig: unknown
     status: string
     isPublic: boolean
     maxTeams: number | null

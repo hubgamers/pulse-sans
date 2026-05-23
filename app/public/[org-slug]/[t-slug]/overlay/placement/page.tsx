@@ -6,6 +6,7 @@ import {
     readOverlayBackgroundConfig,
     type OverlayBackgroundSearchParams,
 } from '../_lib/background'
+import { OverlaySponsorStrip, readOverlaySponsors } from '../_lib/sponsors'
 
 type LaunchSlotPayload = {
     startedAt?: string
@@ -46,6 +47,7 @@ export default async function PublicPlacementBracketOverlayPage({
     const { tournament, matches } = payload
     const background = readOverlayBackgroundConfig(query, tournament.bannerUrl)
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
+    const sponsors = readOverlaySponsors(tournament.sponsorConfig)
 
     const placementPhases = tournament.phases
         .filter((phase) => phase.type === 'PLACEMENT_BRACKET')
@@ -58,6 +60,7 @@ export default async function PublicPlacementBracketOverlayPage({
                     <h1 className="text-3xl font-black text-white mb-4">Aucune phase de placement bracket</h1>
                     <p className="text-slate-400 mb-8">Ce tournoi n&apos;a pas de phase de placement bracket configuree.</p>
                 </div>
+                <OverlaySponsorStrip sponsors={sponsors} />
             </div>
         )
     }
@@ -80,11 +83,14 @@ export default async function PublicPlacementBracketOverlayPage({
         ? Math.max(0, Math.min(7200, Math.round(latestLaunchPayload.timerMinutes * 60)))
         : 0
 
-    const maxAcceptedFutureMs = Date.now() + 5 * 60 * 1000
+    const requestReferenceMs = Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : latestLaunchStartedAtMs
+    const maxAcceptedFutureMs = Number.isFinite(requestReferenceMs)
+        ? requestReferenceMs + 5 * 60 * 1000
+        : Number.MAX_SAFE_INTEGER
     const rawTimerStartMs = Number.isFinite(latestLaunchStartedAtMs) ? latestLaunchStartedAtMs : latestLaunchCreatedAtMs
     const resolvedTimerStartMs = Number.isFinite(rawTimerStartMs) && rawTimerStartMs <= maxAcceptedFutureMs
         ? rawTimerStartMs
-        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : Date.now())
+        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : requestReferenceMs)
 
     const timerStartMs = Number.isFinite(resolvedTimerStartMs) ? resolvedTimerStartMs : null
     const timerMode = latestLaunchPayload?.timerKind === 'BREAK' ? 'BREAK' : 'MATCH'
@@ -124,6 +130,7 @@ export default async function PublicPlacementBracketOverlayPage({
                 backgroundImageUrl={background.backgroundUrl}
                 backgroundDim={background.dim}
             />
+            <OverlaySponsorStrip sponsors={sponsors} />
         </div>
     )
 }

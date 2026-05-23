@@ -8,6 +8,7 @@ import {
     readOverlayBackgroundConfig,
     type OverlayBackgroundSearchParams,
 } from './_lib/background'
+import { OverlaySponsorStrip, readOverlaySponsors } from './_lib/sponsors'
 
 function initialsFromTeamName(name: string) {
     return name
@@ -40,6 +41,7 @@ export default async function TournamentOverlayPage({
     const liveMatches = matches.filter((match) => match.status === 'LIVE').slice(0, 4)
     const background = readOverlayBackgroundConfig(query, tournament.bannerUrl)
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
+    const sponsors = readOverlaySponsors(tournament.sponsorConfig)
 
     return (
         <main className="relative min-h-screen overflow-hidden bg-slate-950 text-white" style={backgroundStyle}>
@@ -100,6 +102,7 @@ export default async function TournamentOverlayPage({
                     </div>
                 </section>
             </div>
+            <OverlaySponsorStrip sponsors={sponsors} />
         </main>
     )
 }

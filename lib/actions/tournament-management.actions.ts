@@ -46,6 +46,16 @@ const UpdateTournamentOverlayBackgroundSchema = ManageTournamentBaseSchema.exten
   bannerUrl: z.string().url().optional().or(z.literal('')),
 })
 
+const OverlaySponsorSchema = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(80),
+  logoUrl: z.string().url(),
+})
+
+const UpdateTournamentOverlaySponsorsSchema = ManageTournamentBaseSchema.extend({
+  sponsorsJson: z.string().max(12000),
+})
+
 const BulkCreatePitchSchema = ManageTournamentBaseSchema.extend({
   pitchNames: z.string().min(2),
   phaseIds: z.array(z.string().uuid()).optional(),
@@ -2106,6 +2116,68 @@ export async function updateTournamentOverlayBackground(
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Erreur mise a jour image de fond.',
+    }
+  }
+}
+
+export async function updateTournamentOverlaySponsors(
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = UpdateTournamentOverlaySponsorsSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, message: 'Sponsors invalides.' }
+
+  const { tournamentId, orgSlug, tournamentSlug, sponsorsJson } = parsed.data
+
+  let rawSponsors: unknown
+  try {
+    rawSponsors = JSON.parse(sponsorsJson)
+  } catch {
+    return { success: false, message: 'Format des sponsors invalide.' }
+  }
+
+  const normalized = z.array(OverlaySponsorSchema).max(12).safeParse(rawSponsors)
+  if (!normalized.success) return { success: false, message: 'Un sponsor contient des donnees invalides.' }
+
+  const sponsors = normalized.data
+
+  try {
+    await assertOrganizerCanManageTournament(tournamentId)
+
+    if (sponsors.length > 0) {
+      await prisma.$executeRaw`
+        UPDATE "public"."tournaments"
+        SET "sponsor_config" = ${JSON.stringify({ sponsors })}::jsonb
+        WHERE "id" = ${tournamentId}
+      `
+    } else {
+      await prisma.$executeRaw`
+        UPDATE "public"."tournaments"
+        SET "sponsor_config" = NULL
+        WHERE "id" = ${tournamentId}
+      `
+    }
+
+    await recordTournamentAction({
+      tournamentId,
+      actionType: 'TOURNAMENT_OVERLAY_SPONSORS_UPDATED',
+      message: sponsors.length > 0
+        ? `${sponsors.length} sponsor(s) overlay mis a jour.`
+        : 'Sponsors overlay supprimes.',
+      payload: { sponsorCount: sponsors.length },
+    })
+
+    revalidateTournamentPath(orgSlug, tournamentSlug)
+    revalidatePath(`/public/${orgSlug}/${tournamentSlug}`)
+    revalidatePath(`/public/${orgSlug}/${tournamentSlug}/overlay`)
+
+    return {
+      success: true,
+      message: sponsors.length > 0 ? 'Sponsors enregistres.' : 'Sponsors supprimes.',
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erreur mise a jour sponsors.',
     }
   }
 }

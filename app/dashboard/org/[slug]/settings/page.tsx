@@ -27,6 +27,16 @@ export default async function DashboardOrgSettingsPage({
     },
   }));
 
+  const invitations = org.invitations.map((invitation) => ({
+    id: invitation.id,
+    email: invitation.email,
+    role: invitation.role,
+    status: invitation.status,
+    createdAt: invitation.createdAt.toISOString(),
+    expiresAt: invitation.expiresAt.toISOString(),
+    invitedByName: invitation.invitedByName,
+  }));
+
   return (
     <OrganizationMembersSettings
       organizationId={org.id}
@@ -34,6 +44,7 @@ export default async function DashboardOrgSettingsPage({
       orgSlug={slug}
       canManageMembers={canManageMembers}
       members={members}
+      invitations={invitations}
     />
   );
 }

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { ComponentProps, Dispatch, SetStateAction } from 'react'
 import type { InlineActionState, SerializedMatch, TournamentData } from './TournamentTabShell.types'
 import { EmptyState, LoadingSubmitButton } from './TournamentTabShell.helpers'
+import { StatusAlert } from '@/components/ui'
 
 type ScheduleByTime = {
     slots: Array<{ at: number; label: string; matches: SerializedMatch[] }>
@@ -91,20 +92,14 @@ export default function TournamentPlanningTimeTab({
             </form>
         </div>
         {slotLaunchState.message && (
-            <p className={`mt-2 rounded-md border px-2 py-1 text-[11px] ${slotLaunchState.success
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-red-200 bg-red-50 text-red-700'
-                }`}>
+            <StatusAlert variant={slotLaunchState.success ? 'success' : 'danger'} className="mt-2">
                 {slotLaunchState.message}
-            </p>
+            </StatusAlert>
         )}
         {breakTimerState.message && (
-            <p className={`mt-2 rounded-md border px-2 py-1 text-[11px] ${breakTimerState.success
-                ? 'border-amber-200 bg-amber-50 text-amber-700'
-                : 'border-red-200 bg-red-50 text-red-700'
-                }`}>
+            <StatusAlert variant={breakTimerState.success ? 'warning' : 'danger'} className="mt-2">
                 {breakTimerState.message}
-            </p>
+            </StatusAlert>
         )}
     </div>
 

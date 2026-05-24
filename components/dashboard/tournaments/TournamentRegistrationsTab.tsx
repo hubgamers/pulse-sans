@@ -10,6 +10,7 @@ import {
 import type { InlineActionState, TournamentData } from './TournamentTabShell.types'
 import { va } from './TournamentTabShell.utils'
 import { LoadingSubmitButton, StepSection } from './TournamentTabShell.helpers'
+import { StatusAlert } from '@/components/ui'
 
 type PitchGroup = {
     name: string
@@ -193,9 +194,9 @@ export default function TournamentRegistrationsTab({
                     </LoadingSubmitButton>
 
                     {bulkPitchCreateState.message && (
-                        <p className={`text-[11px] ${bulkPitchCreateState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                        <StatusAlert variant={bulkPitchCreateState.success ? 'success' : 'danger'}>
                             {bulkPitchCreateState.message}
-                        </p>
+                        </StatusAlert>
                     )}
                 </form>
 
@@ -226,9 +227,9 @@ export default function TournamentRegistrationsTab({
                     </LoadingSubmitButton>
 
                     {bulkPitchDeleteState.message && (
-                        <p className={`text-[11px] ${bulkPitchDeleteState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                        <StatusAlert variant={bulkPitchDeleteState.success ? 'success' : 'danger'}>
                             {bulkPitchDeleteState.message}
-                        </p>
+                        </StatusAlert>
                     )}
                 </form>
             </div>

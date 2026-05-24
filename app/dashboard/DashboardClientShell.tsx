@@ -1,21 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { NavigationItem, type NavigationItem as PrismaNavItem } from "@prisma/client";
 import { Icon, Icons } from "@/components/dashboard/icons";
 import { Sidebar } from "@/components/dashboard/sidebar/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { getUserOrganizations } from "@/lib/actions/organization/organization.queries";
 import { UserProvider } from "@/components/Provider";
+import {
+  getDashboardNotifications,
+  globalDashboardSearch,
+  type DashboardNotification,
+  type GlobalSearchResult,
+} from "@/lib/actions/dashboard.actions";
 
-type NotificationItem = {
-  id: string;
-  type: "match" | "member" | "tournament";
-  message: string;
-  time: string;
-  read: boolean;
-};
+type NotificationItem = DashboardNotification;
 
 type UserOrganizationList = Awaited<ReturnType<typeof getUserOrganizations>>;
 
@@ -43,10 +43,13 @@ export default function DashboardClientShell({
 
   // INITS
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [notifs, setNotifs] = useState<NotificationItem[]>([])
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [organizations, setOrganizations] = useState<UserOrganizationList>([])
 
@@ -65,10 +68,77 @@ export default function DashboardClientShell({
     fetchOrgs();
   }, [pathname])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchNotifications = async () => {
+      try {
+        const data = await getDashboardNotifications()
+        if (!cancelled) setNotifs(data)
+      } catch (error) {
+        console.error("Failed to fetch dashboard notifications:", error)
+      }
+    }
+
+    fetchNotifications()
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
+
+  useEffect(() => {
+    if (!showSearch) return
+
+    const query = searchQuery.trim()
+    if (query.length < 2) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setSearchLoading(true)
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const data = await globalDashboardSearch(query)
+        if (!cancelled) setSearchResults(data)
+      } catch (error) {
+        console.error("Failed to search dashboard:", error)
+        if (!cancelled) setSearchResults([])
+      } finally {
+        if (!cancelled) setSearchLoading(false)
+      }
+    }, 180)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [searchQuery, showSearch])
+
+  useEffect(() => {
+    if (!showSearch) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowSearch(false)
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [showSearch])
+
   const W_OPEN = 240
   const W_CLOSED = 64
 
   const markAllRead = () => setNotifs(n => n.map(x => ({ ...x, read: true })))
+  const openSearchResult = (href: string) => {
+    setShowSearch(false)
+    setSearchQuery("")
+    router.push(href)
+  }
 
   if (!mounted) return null
 
@@ -485,19 +555,28 @@ export default function DashboardClientShell({
                 }}>ESC</kbd>
               </div>
               <div style={{ padding: "8px 0" }}>
-                {["Spring Cup 2026", "Thunder Esport A", "Alexandre D.", "FC Rouen — Liga Open"].map(r => (
-                  <div key={r} style={{
+                {searchLoading && <div className="empty-state">Recherche...</div>}
+                {!searchLoading && searchQuery.trim().length >= 2 && searchResults.length === 0 && <div className="empty-state">Aucun resultat.</div>}
+                {!searchLoading && searchResults.map(result => (
+                  <button key={`${result.type}-${result.id}`} type="button" style={{
                     padding: "9px 20px", fontSize: 13, color: "var(--muted)",
                     cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
                     transition: "background 0.1s",
+                    width: "100%", background: "none", border: "none", textAlign: "left",
                   }}
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--border)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                    onClick={() => openSearchResult(result.href)}
                   >
                     <Icon d={Icons.search} size={13} />
-                    {r}
-                  </div>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: "block", color: "var(--text)", fontWeight: 600 }}>{result.title}</span>
+                      <span style={{ display: "block", fontSize: 11 }}>{result.subtitle}</span>
+                    </span>
+                    <span style={{ marginLeft: "auto", fontSize: 10, textTransform: "uppercase", color: "var(--muted)" }}>{result.type}</span>
+                  </button>
                 ))}
+                {!searchLoading && searchQuery.trim().length < 2 && <div className="empty-state">Tapez au moins 2 caracteres pour chercher.</div>}
               </div>
               <div style={{
                 borderTop: "1px solid var(--border)", padding: "8px 20px",

@@ -516,10 +516,6 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         selectedMatchIds={selectedMatchIds}
                         setSelectedMatchIds={setSelectedMatchIds}
                         getMatchGroupLabel={getMatchGroupLabel}
-                        inputCls={inputCls}
-                        btnPrimary={btnPrimary}
-                        btnGhost={btnGhost}
-                        btnDanger={btnDanger}
                     />
                 )}
 

@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { bulkUpdateTournamentMatches } from "@/lib/actions/tournament-management.actions";
+import { Button, EmptyState, Field, Input, Label, Select, StatusAlert } from "@/components/ui";
 
 type MatchStatus = "SCHEDULED" | "LIVE" | "FINISHED" | "CANCELLED";
 
@@ -48,7 +49,6 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
     const [statusFilter, setStatusFilter] = useState<"ALL" | MatchStatus>("ALL");
     const [phaseFilter, setPhaseFilter] = useState<string>("ALL");
 
-    // Extract unique phases from matches
     const uniquePhases = useMemo(() => {
         const phasesSet = new Set(matches.map((m) => m.phaseName));
         return Array.from(phasesSet).sort();
@@ -94,20 +94,17 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
     }, [rows, initialMap]);
 
     const updatesJson = useMemo(() => JSON.stringify(updates), [updates]);
-
     const rowMap = useMemo(() => new Map(rows.map((row) => [row.matchId, row])), [rows]);
 
     const displayedMatches = useMemo(() => {
         const indexedMatches = matches
             .map((match, index) => ({ match, index }))
             .filter(({ match }) => {
-                // Apply status filter
                 if (statusFilter !== "ALL") {
                     const currentStatus = rowMap.get(match.id)?.status ?? match.status;
                     if (currentStatus !== statusFilter) return false;
                 }
 
-                // Apply phase filter
                 if (phaseFilter !== "ALL" && match.phaseName !== phaseFilter) {
                     return false;
                 }
@@ -135,20 +132,33 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
         setRows((prev) => prev.map((row) => (row.matchId === matchId ? { ...row, ...patch } : row)));
     };
 
+    const resetRows = () => {
+        setRows(
+            matches.map((match) => ({
+                matchId: match.id,
+                status: match.status,
+                homeScore: match.homeScore,
+                awayScore: match.awayScore,
+                notes: match.notes,
+            }))
+        );
+    };
+
     return (
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                     <h3 className="text-lg font-bold">Edition rapide des matchs</h3>
                     <p className="text-xs text-slate-500">Modifie plusieurs statuts/scores puis sauvegarde en une fois.</p>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <label className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>Phase</span>
-                        <select
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <Field className="space-y-1">
+                        <Label>Phase</Label>
+                        <Select
                             value={phaseFilter}
                             onChange={(event) => setPhaseFilter(event.target.value)}
-                            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                            className="h-9 py-1 text-xs"
                         >
                             <option value="ALL">Toutes</option>
                             {uniquePhases.map((phase) => (
@@ -156,78 +166,61 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                     {phase}
                                 </option>
                             ))}
-                        </select>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>Statut</span>
-                        <select
+                        </Select>
+                    </Field>
+                    <Field className="space-y-1">
+                        <Label>Statut</Label>
+                        <Select
                             value={statusFilter}
                             onChange={(event) => setStatusFilter(event.target.value as "ALL" | MatchStatus)}
-                            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                            className="h-9 py-1 text-xs"
                         >
                             <option value="ALL">Tous</option>
                             <option value="LIVE">En direct</option>
-                            <option value="SCHEDULED">Programmé</option>
-                            <option value="FINISHED">Terminé</option>
-                            <option value="CANCELLED">Annulé</option>
-                        </select>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>Tri</span>
-                        <select
+                            <option value="SCHEDULED">Programme</option>
+                            <option value="FINISHED">Termine</option>
+                            <option value="CANCELLED">Annule</option>
+                        </Select>
+                    </Field>
+                    <Field className="space-y-1">
+                        <Label>Tri</Label>
+                        <Select
                             value={sortBy}
                             onChange={(event) => setSortBy(event.target.value as "default" | "status")}
-                            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                            className="h-9 py-1 text-xs"
                         >
                             <option value="default">Ordre actuel</option>
                             <option value="status">Statut du match</option>
-                        </select>
-                    </label>
-                    <form action={formAction} className="flex items-center gap-2">
+                        </Select>
+                    </Field>
+                    <form action={formAction} className="flex items-end gap-2">
                         <input type="hidden" name="tournamentId" value={tournamentId} />
                         <input type="hidden" name="orgSlug" value={orgSlug} />
                         <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
                         <input type="hidden" name="updatesJson" value={updatesJson} />
-                        <button
-                            type="submit"
-                            disabled={isPending || updates.length === 0}
-                            className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold hover:bg-teal-600 disabled:opacity-60"
-                        >
+                        <Button type="submit" disabled={isPending || updates.length === 0} size="sm">
                             {isPending ? "Sauvegarde..." : `Sauvegarder (${updates.length})`}
-                        </button>
+                        </Button>
                     </form>
-                    <button
-                        onClick={() => setRows(matches.map((match) => ({
-                            matchId: match.id,
-                            status: match.status,
-                            homeScore: match.homeScore,
-                            awayScore: match.awayScore,
-                            notes: match.notes,
-                        })))}
-                        disabled={isPending}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
-                    >
+                    <Button onClick={resetRows} disabled={isPending} variant="secondary" size="sm">
                         Actualiser
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             {state.message && (
-                <div
-                    className={`rounded-lg border px-3 py-2 text-sm ${state.success
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                        : "border-red-500/30 bg-red-500/10 text-red-300"
-                        }`}
-                >
+                <StatusAlert variant={state.success ? "success" : "danger"}>
                     {state.message}
-                </div>
+                </StatusAlert>
             )}
 
             <div className="space-y-2">
                 {displayedMatches.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
-                        Aucun match ne correspond au filtre sélectionné.
-                    </div>
+                    <EmptyState
+                        title="Aucun match"
+                        description="Aucun match ne correspond au filtre selectionne."
+                        className="px-3 py-4"
+                    />
                 )}
                 {displayedMatches.map((match) => {
                     const row = rowMap.get(match.id);
@@ -237,23 +230,23 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                         <div key={`bulk-${match.id}`} className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 md:grid-cols-12">
                             <div className="md:col-span-3">
                                 <p className="text-xs font-semibold">{match.homeTeamName} vs {match.awayTeamName}</p>
-                                <p className="text-[11px] text-slate-500">{match.phaseName} • {match.pitchName}</p>
+                                <p className="text-[11px] text-slate-500">{match.phaseName} - {match.pitchName}</p>
                                 <p className="text-[11px] text-slate-500">{match.scheduledAtLabel}</p>
                             </div>
                             <div className="md:col-span-2">
-                                <select
+                                <Select
                                     value={row.status}
                                     onChange={(event) => updateRow(match.id, { status: event.target.value as MatchStatus })}
-                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                                    className="h-9 py-1 text-xs"
                                 >
-                                    <option value="SCHEDULED">Programmé</option>
+                                    <option value="SCHEDULED">Programme</option>
                                     <option value="LIVE">En direct</option>
-                                    <option value="FINISHED">Terminé</option>
-                                    <option value="CANCELLED">Annulé</option>
-                                </select>
+                                    <option value="FINISHED">Termine</option>
+                                    <option value="CANCELLED">Annule</option>
+                                </Select>
                             </div>
                             <div className="md:col-span-2">
-                                <input
+                                <Input
                                     type="number"
                                     min={0}
                                     value={row.homeScore ?? ""}
@@ -262,12 +255,12 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                         const patch: Partial<(typeof rows)[number]> = { homeScore: value === "" ? null : Number(value) };
                                         updateRow(match.id, patch);
                                     }}
-                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                                    className="h-9 py-1 text-xs"
                                     placeholder="Domicile"
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <input
+                                <Input
                                     type="number"
                                     min={0}
                                     value={row.awayScore ?? ""}
@@ -276,15 +269,15 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                                         const patch: Partial<(typeof rows)[number]> = { awayScore: value === "" ? null : Number(value) };
                                         updateRow(match.id, patch);
                                     }}
-                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
-                                    placeholder="Extérieur"
+                                    className="h-9 py-1 text-xs"
+                                    placeholder="Exterieur"
                                 />
                             </div>
                             <div className="md:col-span-3">
-                                <input
+                                <Input
                                     value={row.notes}
                                     onChange={(event) => updateRow(match.id, { notes: event.target.value })}
-                                    className="w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-xs"
+                                    className="h-9 py-1 text-xs"
                                     placeholder="Notes"
                                 />
                             </div>

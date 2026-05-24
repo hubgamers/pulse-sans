@@ -6,6 +6,7 @@ import PhaseFlowEditor from './PhaseFlowEditor'
 import type { InlineActionState, TournamentData } from './TournamentTabShell.types'
 import { formatRouteRule, readParallelGroup, readRoutes, va } from './TournamentTabShell.utils'
 import { EmptyState, LoadingSubmitButton, PhaseTypeBadge } from './TournamentTabShell.helpers'
+import { StatusAlert } from '@/components/ui'
 
 type TournamentPhasesTabProps = {
     orgSlug: string
@@ -121,9 +122,9 @@ export default function TournamentPhasesTab({
                 Reinitialiser le tournoi
             </LoadingSubmitButton>
             {resetTournamentState.message && (
-                <p className={`text-[11px] ${resetTournamentState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                <StatusAlert variant={resetTournamentState.success ? 'success' : 'danger'}>
                     {resetTournamentState.message}
-                </p>
+                </StatusAlert>
             )}
         </form>
 
@@ -157,9 +158,9 @@ export default function TournamentPhasesTab({
                 Dupliquer ce tournoi
             </LoadingSubmitButton>
             {duplicateTournamentState.message && (
-                <p className={`text-[11px] ${duplicateTournamentState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                <StatusAlert variant={duplicateTournamentState.success ? 'success' : 'danger'}>
                     {duplicateTournamentState.message}
-                </p>
+                </StatusAlert>
             )}
         </form>
     </div>
@@ -254,7 +255,7 @@ export default function TournamentPhasesTab({
                                     <div>
                                         <p className="text-[10px] uppercase tracking-wider text-amber-700">Qualifiees detectees (a placer)</p>
                                         <p className="mt-1 text-[11px] text-amber-700">
-                                            {waitingQualifierCount} place(s) d'entree encore vide(s) pour {incomingQualifiers.length} qualifiee(s) detectee(s).
+                                            {waitingQualifierCount} place(s) d&apos;entree encore vide(s) pour {incomingQualifiers.length} qualifiee(s) detectee(s).
                                         </p>
                                     </div>
                                 )}

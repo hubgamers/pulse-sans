@@ -1,9 +1,11 @@
 'use client'
 
 import type { ChangeEvent, ComponentProps } from 'react'
+import Image from 'next/image'
 import type { InlineActionState, OverlaySponsor, SerializedMatch, TabId, TournamentData } from './TournamentTabShell.types'
 import { formatRouteRule, readParallelGroup, readRoutes } from './TournamentTabShell.utils'
 import { EmptyState, LoadingSubmitButton, PhaseTypeBadge } from './TournamentTabShell.helpers'
+import { StatusAlert } from '@/components/ui'
 
 type TournamentOverviewTabProps = {
     orgSlug: string
@@ -156,17 +158,14 @@ export default function TournamentOverviewTab({
             </LoadingSubmitButton>
 
             {retryPropagationState.message && (
-                <p className={`text-xs ${retryPropagationState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                <StatusAlert variant={retryPropagationState.success ? 'success' : 'danger'}>
                     {retryPropagationState.message}
-                </p>
+                </StatusAlert>
             )}
         </form>
 
         {pendingQualifierPhases.length > 0 ? (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">
-                    Equipes en attente de qualification: {pendingQualifierPhases.reduce((sum, item) => sum + item.pending, 0)}
-                </p>
+            <StatusAlert variant="warning" title={`Equipes en attente de qualification: ${pendingQualifierPhases.reduce((sum, item) => sum + item.pending, 0)}`} className="mt-3">
                 <div className="mt-2 flex flex-wrap gap-1">
                     {pendingQualifierPhases.map((item) => (
                         <span key={item.phaseId} className="rounded-md bg-white px-2 py-0.5 text-[11px] text-amber-800 border border-amber-300">
@@ -174,9 +173,9 @@ export default function TournamentOverviewTab({
                         </span>
                     ))}
                 </div>
-            </div>
+            </StatusAlert>
         ) : (
-            <p className="mt-3 text-xs text-emerald-700">Aucune equipe en attente de qualification detectee.</p>
+            <StatusAlert variant="success" className="mt-3">Aucune equipe en attente de qualification detectee.</StatusAlert>
         )}
     </div>
 
@@ -196,7 +195,7 @@ export default function TournamentOverviewTab({
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">Image de fond overlay</label>
                 <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white p-4 text-xs text-slate-500 transition hover:border-teal-500 hover:bg-teal-50/30">
                     {overlayBgPreview ? (
-                        <img src={overlayBgPreview} alt="Apercu fond overlay" className="h-24 w-full rounded object-cover" />
+                        <Image src={overlayBgPreview} alt="Apercu fond overlay" width={480} height={96} className="h-24 w-full rounded object-cover" unoptimized />
                     ) : (
                         <span>Aucune image selectionnee</span>
                     )}
@@ -210,7 +209,7 @@ export default function TournamentOverviewTab({
                         className="hidden"
                     />
                 </label>
-                {overlayBgUploadError && <p className="mt-2 text-xs text-red-700">{overlayBgUploadError}</p>}
+                {overlayBgUploadError && <StatusAlert variant="danger" className="mt-2">{overlayBgUploadError}</StatusAlert>}
             </div>
 
             <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
@@ -244,9 +243,9 @@ export default function TournamentOverviewTab({
             </div>
 
             {overlayBackgroundState.message && (
-                <p className={`text-xs ${overlayBackgroundState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                <StatusAlert variant={overlayBackgroundState.success ? 'success' : 'danger'}>
                     {overlayBackgroundState.message}
-                </p>
+                </StatusAlert>
             )}
         </form>
 
@@ -282,7 +281,7 @@ export default function TournamentOverviewTab({
                             <div className="flex items-start gap-3">
                                 <label className="flex h-20 w-28 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-2 text-center text-[11px] text-slate-500 hover:border-teal-500">
                                     {sponsor.logoUrl ? (
-                                        <img src={sponsor.logoUrl} alt={sponsor.name || `Sponsor ${index + 1}`} className="max-h-16 max-w-full object-contain" />
+                                        <Image src={sponsor.logoUrl} alt={sponsor.name || `Sponsor ${index + 1}`} width={112} height={64} className="max-h-16 max-w-full object-contain" unoptimized />
                                     ) : (
                                         <span>{sponsorUploadId === sponsor.id ? 'Upload...' : 'Logo'}</span>
                                     )}
@@ -323,7 +322,7 @@ export default function TournamentOverviewTab({
                 </div>
             )}
 
-            {sponsorUploadError && <p className="text-xs text-red-700">{sponsorUploadError}</p>}
+            {sponsorUploadError && <StatusAlert variant="danger">{sponsorUploadError}</StatusAlert>}
 
             <div className="flex flex-wrap items-center gap-3">
                 <LoadingSubmitButton
@@ -337,9 +336,9 @@ export default function TournamentOverviewTab({
             </div>
 
             {overlaySponsorsState.message && (
-                <p className={`text-xs ${overlaySponsorsState.success ? 'text-emerald-700' : 'text-red-700'}`}>
+                <StatusAlert variant={overlaySponsorsState.success ? 'success' : 'danger'}>
                     {overlaySponsorsState.message}
-                </p>
+                </StatusAlert>
             )}
         </form>
     </div>

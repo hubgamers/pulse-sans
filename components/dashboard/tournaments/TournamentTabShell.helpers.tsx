@@ -3,6 +3,7 @@
 import { useFormStatus } from 'react-dom'
 import type { ChangeEvent, ReactNode } from 'react'
 import { formatPhaseType } from './TournamentTabShell.utils'
+import { Badge, Button, Card, EmptyState as UiEmptyState } from '@/components/ui'
 
 export type LoadingSubmitButtonProps = {
     children: ReactNode
@@ -15,9 +16,9 @@ export function LoadingSubmitButton({ children, className, disabled = false, loa
     const { pending } = useFormStatus()
 
     return (
-        <button type="submit" disabled={pending || disabled} className={className}>
+        <Button type="submit" disabled={pending || disabled} className={className}>
             {pending ? loadingLabel : children}
-        </button>
+        </Button>
     )
 }
 
@@ -34,7 +35,7 @@ export function StepSection({
     }[color]
 
     return (
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+        <Card className="space-y-3 p-4">
             <div className="flex items-start gap-3 pb-1 border-b border-slate-200">
                 <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${colorCls}`}>
                     {num}
@@ -45,16 +46,12 @@ export function StepSection({
                 </div>
             </div>
             {children}
-        </div>
+        </Card>
     )
 }
 
 export function EmptyState({ message }: { message: string }) {
-    return (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-            {message}
-        </div>
-    )
+    return <UiEmptyState title={message} />
 }
 
 export function PhaseTypeBadge({ type }: { type: string }) {
@@ -69,9 +66,9 @@ export function PhaseTypeBadge({ type }: { type: string }) {
     const cls = PHASE_STYLES[type] || 'text-slate-400 bg-slate-500/10 border-slate-500/20'
 
     return (
-        <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest antialiased ${cls}`}>
+        <Badge className={`rounded px-2 py-0.5 tracking-widest antialiased ${cls}`}>
             {formatPhaseType(type)}
-        </span>
+        </Badge>
     )
 }
 

@@ -7,6 +7,7 @@ import { OrganizationSchema } from "@/lib/validations/organization";
 import { getAuthUser } from "../utils.actions";
 import { OrgRole } from "@prisma/client";
 import { z } from "zod";
+import { randomBytes } from "crypto";
 
 export type FormState = {
   success?: boolean;
@@ -110,11 +111,19 @@ const AddOrganizationMemberSchema = z.object({
   role: z.enum(["ADMIN", "MODERATOR", "MEMBER"]).default("MEMBER"),
 });
 
+const InviteOrganizationMemberSchema = z.object({
+  organizationId: z.string().uuid("Organisation invalide."),
+  orgSlug: z.string().min(1, "Slug organisation manquant."),
+  email: z.string().trim().email("Email invalide."),
+  role: z.enum(["ADMIN", "MODERATOR", "MEMBER"]).default("MEMBER"),
+});
+
 export type AddOrganizationMemberState = {
   success?: boolean;
   message?: string;
   errors?: {
     identifier?: string[];
+    email?: string[];
     role?: string[];
     organizationId?: string[];
     orgSlug?: string[];
@@ -244,4 +253,193 @@ export async function addOrganizationMember(
       message: "Erreur lors de l'ajout du membre.",
     };
   }
+}
+
+export async function inviteOrganizationMember(
+  prevState: AddOrganizationMemberState,
+  formData: FormData,
+): Promise<AddOrganizationMemberState> {
+  void prevState;
+  const user = await getAuthUser();
+
+  const validated = InviteOrganizationMemberSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!validated.success) {
+    return {
+      success: false,
+      message: "Certains champs sont invalides.",
+      errors: validated.error.flatten().fieldErrors,
+    };
+  }
+
+  const { organizationId, orgSlug, email, role } = validated.data;
+  const normalizedEmail = email.trim().toLowerCase();
+
+  try {
+    const requesterMembership = await prisma.organizationMember.findFirst({
+      where: {
+        organizationId,
+        userId: user.id,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!requesterMembership) {
+      return {
+        success: false,
+        message: "Vous n'etes pas membre de cette organisation.",
+      };
+    }
+
+    const canManageMembers =
+      requesterMembership.role === OrgRole.OWNER || requesterMembership.role === OrgRole.ADMIN;
+    if (!canManageMembers) {
+      return {
+        success: false,
+        message: "Permissions insuffisantes pour inviter des membres.",
+      };
+    }
+
+    const guessedUsername = normalizedEmail.split("@")[0]?.trim() || normalizedEmail;
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        username: {
+          equals: guessedUsername,
+          mode: "insensitive",
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      const existingMember = await prisma.organizationMember.findFirst({
+        where: {
+          organizationId,
+          userId: existingUser.id,
+        },
+        select: { id: true },
+      });
+
+      if (existingMember) {
+        return {
+          success: false,
+          message: "Cet utilisateur a deja acces a l'organisation.",
+          errors: { identifier: ["Ce membre est deja dans l'organisation."] },
+        };
+      }
+    }
+
+    const existingInvitation = await prisma.organizationInvitation.findFirst({
+      where: {
+        organizationId,
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
+        status: "PENDING",
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true },
+    });
+
+    if (existingInvitation) {
+      return {
+        success: false,
+        message: "Une invitation active existe deja pour cet email.",
+        errors: { identifier: ["Invitation deja envoyee."] },
+      };
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 14);
+
+    await prisma.organizationInvitation.create({
+      data: {
+        organizationId,
+        email: normalizedEmail,
+        role: role as OrgRole,
+        token: randomBytes(32).toString("hex"),
+        expiresAt,
+        invitedById: user.id,
+        invitedByName: user.user_metadata?.full_name || user.email || null,
+      },
+    });
+
+    revalidatePath(`/dashboard/org/${orgSlug}/members`);
+    revalidatePath(`/dashboard/org/${orgSlug}/settings`);
+
+    return {
+      success: true,
+      message: `Invitation creee pour ${normalizedEmail}. Elle expire dans 14 jours.`,
+    };
+  } catch {
+    return {
+      success: false,
+      message: "Erreur lors de la creation de l'invitation.",
+    };
+  }
+}
+
+export async function acceptOrganizationInvitation(formData: FormData) {
+  const user = await getAuthUser();
+  const token = String(formData.get("token") || "");
+
+  if (!token || !user.email) {
+    return;
+  }
+
+  const invitation = await prisma.organizationInvitation.findFirst({
+    where: {
+      token,
+      status: "PENDING",
+      email: {
+        equals: user.email,
+        mode: "insensitive",
+      },
+      expiresAt: { gt: new Date() },
+    },
+    select: {
+      id: true,
+      role: true,
+      organizationId: true,
+      organization: { select: { slug: true } },
+    },
+  });
+
+  if (!invitation) {
+    revalidatePath("/dashboard/invitations");
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.organizationMember.upsert({
+      where: {
+        organizationId_userId: {
+          organizationId: invitation.organizationId,
+          userId: user.id,
+        },
+      },
+      create: {
+        organizationId: invitation.organizationId,
+        userId: user.id,
+        role: invitation.role,
+      },
+      update: {
+        role: invitation.role,
+      },
+    });
+
+    await tx.organizationInvitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: "ACCEPTED",
+        acceptedAt: new Date(),
+      },
+    });
+  });
+
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/invitations");
+  redirect(`/dashboard/org/${invitation.organization.slug}`);
 }

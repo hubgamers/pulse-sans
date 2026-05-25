@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { Prisma } from '@prisma/client'
 import { getOrganizationBySlug } from '@/lib/actions/organization/organization.queries'
 import { prisma } from '@/lib/prisma'
 import TournamentTabShell from '@/components/dashboard/tournaments/TournamentTabShell'
@@ -89,6 +90,14 @@ export default async function DashboardOrgTournamentDetails({
         notFound()
     }
 
+    const sponsorRows = await prisma.$queryRaw<Array<{ sponsor_config: Prisma.JsonValue | null }>>`
+        SELECT "sponsor_config"
+        FROM "public"."tournaments"
+        WHERE "id" = ${tournament.id}
+        LIMIT 1
+    `
+    const sponsorConfig = sponsorRows[0]?.sponsor_config ?? null
+
     const sortedPitches = [...tournament.pitches].sort((a, b) => comparePitchNames(a.name, b.name))
 
     const registeredTeamIds = new Set(tournament.registrations.map((r) => r.teamId))
@@ -104,6 +113,7 @@ export default async function DashboardOrgTournamentDetails({
                     slug: tournament.slug,
                     description: tournament.description,
                     bannerUrl: tournament.bannerUrl,
+                    sponsorConfig,
                     status: tournament.status,
                     isPublic: tournament.isPublic,
                     maxTeams: tournament.maxTeams,

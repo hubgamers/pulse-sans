@@ -10,6 +10,7 @@ import {
   type QualificationRule,
 } from '@/lib/tournament/phase-flow'
 import { CalendarDays, CheckCircle2, Eye, GitBranch, Link as LinkIcon, Plus, Trash2, Trophy, Users } from 'lucide-react'
+import { Button, Card, Field, Input, Label, Select, Textarea } from '@/components/ui'
 
 const slugify = (value: string) =>
   value
@@ -255,7 +256,7 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
         </p>
       </div>
 
-      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-4">
+      <Card className="grid gap-2 p-3 md:grid-cols-4">
         {[
           { step: 1, label: 'Identite' },
           { step: 2, label: 'Reglages' },
@@ -281,70 +282,67 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
             </button>
           )
         })}
-      </div>
+      </Card>
 
-      <form action={formAction} onSubmit={handleFormSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 md:p-7">
+      <Card className="p-5 md:p-7">
+      <form action={formAction} onSubmit={handleFormSubmit} className="space-y-6">
         <input type="hidden" name="organizationId" value={organizationId} />
         <input type="hidden" name="phasesJson" value={phaseJson} />
 
         <section className={currentStep === 1 ? 'space-y-6' : 'hidden'}>
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 <Trophy size={14} /> Nom du tournoi
-              </label>
-              <input
+              </Label>
+              <Input
                 name="name"
                 value={name}
                 onChange={onNameChange}
                 placeholder="Spring Clash 2026"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
                 required
               />
               <FieldError error={state.errors?.name} />
-            </div>
+            </Field>
 
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 <LinkIcon size={14} /> Slug
-              </label>
-              <input
+              </Label>
+              <Input
                 name="slug"
                 value={slug}
                 onChange={onSlugChange}
                 placeholder="spring-clash-2026"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
                 required
               />
               <p className="mt-1 text-xs text-slate-500">URL: /dashboard/org/{orgSlug}/tournaments/{slug || '...'}</p>
               <FieldError error={state.errors?.slug || (slugExists ? ['Ce slug est déjà utilisé.'] : undefined)} />
-            </div>
+            </Field>
           </div>
 
-          <div>
-            <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+          <Field>
+            <Label className="inline-flex items-center gap-2">
               Description (optionnelle)
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               name="description"
               rows={3}
               placeholder="Theme, regles, format BO3/BO5..."
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
             />
             <FieldError error={state.errors?.description} />
-          </div>
+          </Field>
         </section>
 
         <section className={currentStep === 2 ? 'space-y-6' : 'hidden'}>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 Jeu
-              </label>
-              <select
+              </Label>
+              <Select
                 name="gameId"
                 defaultValue={games[0]?.id ?? ''}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
                 required
               >
                 {games.map((game) => (
@@ -352,79 +350,75 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
                     {game.name}
                   </option>
                 ))}
-              </select>
+              </Select>
               <FieldError error={state.errors?.gameId} />
-            </div>
+            </Field>
 
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 Statut initial
-              </label>
-              <select
+              </Label>
+              <Select
                 name="status"
                 defaultValue="DRAFT"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
               >
                 {statusOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <FieldError error={state.errors?.status} />
-            </div>
+            </Field>
 
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 <Users size={14} /> Capacite max
-              </label>
-              <input
+              </Label>
+              <Input
                 name="maxTeams"
                 type="number"
                 min={2}
                 max={512}
                 placeholder="16"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
               />
               <FieldError error={state.errors?.maxTeams} />
-            </div>
+            </Field>
 
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 <Eye size={14} /> Visibilite
-              </label>
+              </Label>
               <label className="flex h-[46px] items-center gap-3 rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm">
                 <input name="isPublic" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
                 Public
               </label>
               <FieldError error={state.errors?.isPublic} />
-            </div>
+            </Field>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 <CalendarDays size={14} /> Debut
-              </label>
-              <input
+              </Label>
+              <Input
                 name="startDate"
                 type="date"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
               />
               <FieldError error={state.errors?.startDate} />
-            </div>
+            </Field>
 
-            <div>
-              <label className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
+            <Field>
+              <Label className="inline-flex items-center gap-2">
                 <CalendarDays size={14} /> Fin
-              </label>
-              <input
+              </Label>
+              <Input
                 name="endDate"
                 type="date"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm focus:border-teal-600 focus:outline-none"
               />
               <FieldError error={state.errors?.endDate} />
-            </div>
+            </Field>
           </div>
         </section>
 
@@ -659,11 +653,11 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
               <li>Nom: {name || 'Non renseigne'}</li>
               <li>Slug: {slug || 'Non renseigne'}</li>
               <li>Phases configurees: {phases.length}</li>
-              <li>Jeu, dates et visibilite: configures a l'etape 2</li>
+              <li>Jeu, dates et visibilite: configures a l&apos;etape 2</li>
             </ul>
           </div>
           <p className="text-xs text-slate-500">
-            Vous pourrez modifier ces parametres ensuite depuis l'ecran de gestion du tournoi.
+            Vous pourrez modifier ces parametres ensuite depuis l&apos;ecran de gestion du tournoi.
           </p>
         </section>
 
@@ -677,39 +671,38 @@ export default function TournamentCreateForm({ organizationId, orgSlug, games }:
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => setCurrentStep((s) => Math.max(1, s - 1) as 1 | 2 | 3 | 4)}
             disabled={currentStep === 1}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Etape precedente
-          </button>
+          </Button>
 
           {currentStep < 4 ? (
-            <button
+            <Button
               key="next-step"
               type="button"
               onClick={() => setCurrentStep((s) => Math.min(4, s + 1) as 1 | 2 | 3 | 4)}
               disabled={(currentStep === 1 && !canContinueStep1) || (currentStep === 2 && !canContinueStep2)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-600 transition disabled:cursor-not-allowed disabled:opacity-60"
             >
               Etape suivante
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               key="submit-tournament"
               type="submit"
               name="submitIntent"
               value="create_tournament"
               disabled={isPending || games.length === 0}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-600 transition disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? 'Creation en cours...' : 'Creer le tournoi'}
-            </button>
+            </Button>
           )}
         </div>
       </form>
+      </Card>
     </div>
   )
 }

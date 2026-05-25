@@ -2,6 +2,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Icons, Icon } from "./icons"
 import { Avatar } from "./ui-components"
 
@@ -11,6 +12,7 @@ interface Notification {
     message: string;
     time: string;
     read: boolean;
+    href?: string;
 }
 
 interface TopbarProps {
@@ -24,6 +26,7 @@ interface TopbarProps {
 
 export function Topbar({ user, notifications, onMarkAllRead, onSearchClick, collapsed, onToggleSidebar }: TopbarProps) {
     const [showNotifs, setShowNotifs] = useState(false)
+    const router = useRouter()
     const unreadCount = notifications.filter(n => !n.read).length
 
     // Utilitaire pour le style des icônes de notifications
@@ -55,6 +58,15 @@ export function Topbar({ user, notifications, onMarkAllRead, onSearchClick, coll
             </button>
 
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+                <button
+                    type="button"
+                    onClick={() => router.push("/dashboard/help")}
+                    className="notif-btn"
+                    aria-label="Ouvrir l'aide"
+                    title="Aide"
+                >
+                    <Icon d={Icons.help} size={17} />
+                </button>
 
                 {/* 2. NOTIFICATIONS */}
                 <div style={{ position: "relative" }}>
@@ -82,7 +94,17 @@ export function Topbar({ user, notifications, onMarkAllRead, onSearchClick, coll
                                 {notifications.map(n => {
                                     const style = getNotifStyle(n.type);
                                     return (
-                                        <div key={n.id} className={`notif-item ${n.read ? "read" : "unread"}`}>
+                                        <button
+                                            key={n.id}
+                                            type="button"
+                                            className={`notif-item ${n.read ? "read" : "unread"}`}
+                                            onClick={() => {
+                                                if (!n.href) return;
+                                                setShowNotifs(false);
+                                                router.push(n.href);
+                                            }}
+                                            style={{ width: "100%", border: "none", textAlign: "left", cursor: n.href ? "pointer" : "default" }}
+                                        >
                                             <div className="notif-icon" style={{ background: style.bg, color: style.color }}>
                                                 <Icon d={style.icon} size={14} />
                                             </div>
@@ -91,7 +113,7 @@ export function Topbar({ user, notifications, onMarkAllRead, onSearchClick, coll
                                                 <div className="notif-time">{n.time}</div>
                                             </div>
                                             {!n.read && <div className="unread-indicator" />}
-                                        </div>
+                                        </button>
                                     );
                                 })}
 

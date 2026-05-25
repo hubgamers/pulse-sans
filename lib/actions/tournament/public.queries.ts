@@ -1,5 +1,5 @@
 import { cache } from 'react'
-import { MatchStatus } from '@prisma/client'
+import { MatchStatus, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
 function comparePitchNames(a: string, b: string) {
@@ -180,8 +180,16 @@ export const getPublicTournamentBySlugs = cache(async (orgSlug: string, tourname
 
     if (!tournament) return null
 
+    const sponsorRows = await prisma.$queryRaw<Array<{ sponsor_config: Prisma.JsonValue | null }>>`
+        SELECT "sponsor_config"
+        FROM "public"."tournaments"
+        WHERE "id" = ${tournament.id}
+        LIMIT 1
+    `
+
     const sortedTournament = {
         ...tournament,
+        sponsorConfig: sponsorRows[0]?.sponsor_config ?? null,
         pitches: [...tournament.pitches].sort((a, b) => comparePitchNames(a.name, b.name)),
     }
 

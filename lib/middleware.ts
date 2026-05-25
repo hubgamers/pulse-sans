@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   // Routes publiques — accessibles sans être connecté
   const publicRoutes = ['/', '/auth', '/login', '/register', '/auth/callback', '/api/auth/callback']
   const isPublicRoute = publicRoutes.some((route) =>
-    pathname.startsWith(route)
+    route === '/' ? pathname === '/' : pathname.startsWith(route)
   )
 
   // Redirige vers /auth si non connecté et route protégée

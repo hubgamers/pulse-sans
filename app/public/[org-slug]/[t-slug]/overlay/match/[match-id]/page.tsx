@@ -8,6 +8,7 @@ import {
     readOverlayBackgroundConfig,
     type OverlayBackgroundSearchParams,
 } from '../../_lib/background'
+import { OverlaySponsorStrip, readOverlaySponsors } from '../../_lib/sponsors'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export default async function TournamentMatchOverlayPage({
     if (!match) notFound()
     const background = readOverlayBackgroundConfig(query, tournament.bannerUrl)
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
+    const sponsors = readOverlaySponsors(tournament.sponsorConfig)
 
     return (
         <main className="min-h-screen bg-transparent text-slate-900" style={backgroundStyle}>
@@ -58,6 +60,7 @@ export default async function TournamentMatchOverlayPage({
                     </div>
                 </section>
             </div>
+            <OverlaySponsorStrip sponsors={sponsors} variant="light" />
         </main>
     )
 }

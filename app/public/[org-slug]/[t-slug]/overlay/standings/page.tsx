@@ -9,6 +9,7 @@ import {
     readOverlayBackgroundConfig,
     type OverlayBackgroundSearchParams,
 } from '../_lib/background'
+import { OverlaySponsorStrip, readOverlaySponsors } from '../_lib/sponsors'
 
 type OverlaySearchParams = OverlayBackgroundSearchParams & {
     phaseId?: string | string[]
@@ -60,6 +61,17 @@ function computeGlobalStandings(groups: GroupWithStandings[]) {
     })
 }
 
+function initialsFromTeamName(name: string) {
+    return name
+        .trim()
+        .split(/[^A-Za-zÀ-ÖØ-öø-ÿ]+/)
+        .filter(Boolean)
+        .map((word) => word[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+}
+
 export const dynamic = 'force-dynamic'
 
 export default async function TournamentStandingsOverlayPage({
@@ -79,6 +91,7 @@ export default async function TournamentStandingsOverlayPage({
     const groupOverviews = computeGroupOverviews(tournament.registrations, tournament.phases, matches)
     const background = readOverlayBackgroundConfig(query, tournament.bannerUrl)
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
+    const sponsors = readOverlaySponsors(tournament.sponsorConfig)
 
     if (groupOverviews.length === 0) {
         return (
@@ -101,6 +114,7 @@ export default async function TournamentStandingsOverlayPage({
                         </p>
                     </section>
                 </div>
+                <OverlaySponsorStrip sponsors={sponsors} variant="light" />
             </main>
         )
     }
@@ -115,26 +129,28 @@ export default async function TournamentStandingsOverlayPage({
     const bgDim = firstParam(query.bgDim)
 
     return (
-        <main className="min-h-screen bg-transparent text-slate-900" style={backgroundStyle}>
-            <div className="mx-auto min-h-screen w-full max-w-450 space-y-4 px-4 py-4">
-                <section className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur">
-                    <p className="text-xs uppercase tracking-[0.24em] text-teal-700">Overlay classements en direct</p>
-                    <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+        <main className="relative min-h-screen overflow-hidden bg-slate-950 text-white" style={backgroundStyle}>
+            <div className="mx-auto min-h-screen w-full max-w-7xl space-y-6 px-4 py-6">
+                <section className="rounded-3xl border border-white/10 bg-slate-950/80 p-6 shadow-2xl backdrop-blur-xl">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div>
-                            <h1 className="text-2xl font-black md:text-4xl">{tournament.name}</h1>
-                            <p className="mt-1 text-xs text-slate-500 md:text-sm">
-                                {selectedOverview.phaseName} · {tournament.organization.name}
-                            </p>
+                            <p className="text-xs uppercase tracking-[0.24em] text-[#ccff00]">Overlay classements en direct</p>
+                            <div className="mt-2">
+                                <h1 className="text-3xl font-black md:text-5xl text-white">{tournament.name}</h1>
+                                <p className="mt-1 text-sm text-slate-300 md:text-base">
+                                    {selectedOverview.phaseName} · {tournament.organization.name}
+                                </p>
+                            </div>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-right">
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Mode</p>
-                            <p className="mt-1 text-xl font-black text-teal-700">
-                                {mode === 'groups' ? 'Par poule' : 'Global phase'}
+                        <div className="rounded-3xl border border-white/10 bg-white/5 px-5 py-4 text-right">
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Mode</p>
+                            <p className="mt-1 text-2xl font-black text-[#ccff00]">
+                                {mode === 'groups' ? 'Par poule' : 'Classement global'}
                             </p>
                         </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-5 flex flex-wrap gap-2">
                         {groupOverviews.map((overview) => (
                             <a
                                 key={`phase-link-${overview.phaseId}`}
@@ -144,9 +160,9 @@ export default async function TournamentStandingsOverlayPage({
                                     bg,
                                     bgDim,
                                 })}
-                                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${overview.phaseId === selectedOverview.phaseId
-                                    ? 'border-teal-500 bg-teal-50 text-teal-700'
-                                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                                className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${overview.phaseId === selectedOverview.phaseId
+                                    ? 'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]'
+                                    : 'border-white/10 bg-white/5 text-slate-200 hover:border-[#ccff00]/40 hover:bg-[#ccff00]/10 hover:text-[#ccff00]'
                                     }`}
                             >
                                 {overview.phaseName}
@@ -154,7 +170,7 @@ export default async function TournamentStandingsOverlayPage({
                         ))}
                     </div>
 
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                         <a
                             href={buildSelfHref(orgSlug, tournamentSlug, {
                                 phaseId: selectedOverview.phaseId,
@@ -162,9 +178,9 @@ export default async function TournamentStandingsOverlayPage({
                                 bg,
                                 bgDim,
                             })}
-                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${mode === 'groups'
-                                ? 'border-amber-300 bg-amber-50 text-amber-700'
-                                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${mode === 'groups'
+                                ? 'border-amber-300 bg-amber-300/10 text-amber-300'
+                                : 'border-white/10 bg-white/5 text-slate-200 hover:border-amber-300 hover:bg-amber-300/10 hover:text-amber-300'
                                 }`}
                         >
                             Classement par poule
@@ -176,9 +192,9 @@ export default async function TournamentStandingsOverlayPage({
                                 bg,
                                 bgDim,
                             })}
-                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${mode === 'global'
-                                ? 'border-teal-300 bg-teal-50 text-teal-700'
-                                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${mode === 'global'
+                                ? 'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]'
+                                : 'border-white/10 bg-white/5 text-slate-200 hover:border-[#ccff00]/40 hover:bg-[#ccff00]/10 hover:text-[#ccff00]'
                                 }`}
                         >
                             Classement global phase
@@ -187,89 +203,73 @@ export default async function TournamentStandingsOverlayPage({
                 </section>
 
                 {mode === 'groups' ? (
-                    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <section className="grid gap-4 xl:grid-cols-2">
                         {selectedOverview.groups.map((group) => (
-                            <article key={`group-${selectedOverview.phaseId}-${group.groupIndex}`} className="rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700">Poule {group.groupIndex}</p>
+                            <article key={`group-${selectedOverview.phaseId}-${group.groupIndex}`} className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl">
+                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-300">Poule {group.groupIndex}</p>
 
                                 {group.standings.length === 0 ? (
-                                    <p className="text-xs text-slate-500">Aucune equipe.</p>
+                                    <p className="text-sm text-slate-300">Aucune équipe.</p>
                                 ) : (
-                                    <table className="w-full text-[11px]">
-                                        <thead>
-                                            <tr className="text-slate-500">
-                                                <th className="px-1 py-0.5 text-left">#</th>
-                                                <th className="px-1 py-0.5 text-left">Equipe</th>
-                                                <th className="px-1 py-0.5 text-right">Pts</th>
-                                                <th className="px-1 py-0.5 text-right">J</th>
-                                                <th className="px-1 py-0.5 text-right">GD</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {group.standings.map((row, rank) => (
-                                                <tr key={row.teamId} className={`border-t border-slate-200 ${rank === 0 ? 'text-amber-800' : 'text-slate-800'}`}>
-                                                    <td className="px-1 py-0.5 font-semibold">{rank + 1}</td>
-                                                    <td className="max-w-40 truncate px-1 py-0.5">{row.teamName}</td>
-                                                    <td className="px-1 py-0.5 text-right font-bold">{row.points}</td>
-                                                    <td className="px-1 py-0.5 text-right">{row.played}</td>
-                                                    <td className={`px-1 py-0.5 text-right ${row.goalDiff > 0 ? 'text-emerald-700' : row.goalDiff < 0 ? 'text-rose-700' : ''}`}>
-                                                        {row.goalDiff > 0 ? '+' : ''}
-                                                        {row.goalDiff}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                    <div className="space-y-2">
+                                        {group.standings.map((row, rank) => (
+                                            <div key={row.teamId} className="grid grid-cols-[32px_1fr_70px_50px] items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/70 px-3 py-2">
+                                                <span className="text-sm font-black text-[#ccff00]">{rank + 1}</span>
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {row.teamLogoUrl ? (
+                                                        <img src={row.teamLogoUrl} alt={row.teamName} className="h-9 w-9 rounded-full object-cover" />
+                                                    ) : (
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-xs font-black uppercase text-slate-300">
+                                                            {initialsFromTeamName(row.teamName)}
+                                                        </div>
+                                                    )}
+                                                    <span className="truncate text-sm font-semibold text-white">{row.teamName}</span>
+                                                </div>
+                                                <span className="text-right text-sm font-bold text-slate-200">{row.points}</span>
+                                                <span className={`text-right text-sm font-bold ${row.goalDiff > 0 ? 'text-emerald-300' : row.goalDiff < 0 ? 'text-rose-300' : 'text-slate-300'}`}>
+                                                    {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 )}
                             </article>
                         ))}
                     </section>
                 ) : (
-                    <section className="rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+                    <section className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl">
                         {globalStandings.length === 0 ? (
-                            <p className="text-xs text-slate-500">Aucune equipe classee pour cette phase.</p>
+                            <p className="text-sm text-slate-300">Aucune équipe classée pour cette phase.</p>
                         ) : (
-                            <table className="w-full text-[11px] md:text-sm">
-                                <thead>
-                                    <tr className="text-slate-500">
-                                        <th className="px-2 py-1 text-left">#</th>
-                                        <th className="px-2 py-1 text-left">Equipe</th>
-                                        <th className="px-2 py-1 text-left">Poule</th>
-                                        <th className="px-2 py-1 text-right">Pts</th>
-                                        <th className="px-2 py-1 text-right">J</th>
-                                        <th className="px-2 py-1 text-right">V</th>
-                                        <th className="px-2 py-1 text-right">N</th>
-                                        <th className="px-2 py-1 text-right">D</th>
-                                        <th className="px-2 py-1 text-right">BP</th>
-                                        <th className="px-2 py-1 text-right">BC</th>
-                                        <th className="px-2 py-1 text-right">GD</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {globalStandings.map((row, idx) => (
-                                        <tr key={`global-${row.teamId}`} className={`border-t border-slate-200 ${idx < 3 ? 'bg-amber-50/70' : ''}`}>
-                                            <td className="px-2 py-1 font-semibold">{idx + 1}</td>
-                                            <td className="px-2 py-1 font-semibold text-slate-900">{row.teamName}</td>
-                                            <td className="px-2 py-1 text-slate-600">{row.groupIndex}</td>
-                                            <td className="px-2 py-1 text-right font-black text-teal-700">{row.points}</td>
-                                            <td className="px-2 py-1 text-right">{row.played}</td>
-                                            <td className="px-2 py-1 text-right">{row.wins}</td>
-                                            <td className="px-2 py-1 text-right">{row.draws}</td>
-                                            <td className="px-2 py-1 text-right">{row.losses}</td>
-                                            <td className="px-2 py-1 text-right">{row.goalsFor}</td>
-                                            <td className="px-2 py-1 text-right">{row.goalsAgainst}</td>
-                                            <td className={`px-2 py-1 text-right font-semibold ${row.goalDiff > 0 ? 'text-emerald-700' : row.goalDiff < 0 ? 'text-rose-700' : ''}`}>
-                                                {row.goalDiff > 0 ? '+' : ''}
-                                                {row.goalDiff}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <div className="space-y-3">
+                                {globalStandings.map((row, idx) => (
+                                    <div key={`global-${row.teamId}`} className={`grid grid-cols-[40px_minmax(0,1fr)_60px_40px] items-center gap-3 rounded-3xl border border-white/10 px-4 py-3 ${idx < 3 ? 'bg-amber-300/10' : 'bg-slate-950/70'}`}>
+                                        <span className="text-base font-black text-[#ccff00]">{idx + 1}</span>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            {row.teamLogoUrl ? (
+                                                <img src={row.teamLogoUrl} alt={row.teamName} className="h-10 w-10 rounded-full object-cover" />
+                                            ) : (
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-xs font-black uppercase text-slate-300">
+                                                    {initialsFromTeamName(row.teamName)}
+                                                </div>
+                                            )}
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-white">{row.teamName}</p>
+                                                <p className="text-[11px] text-slate-400">Poule {row.groupIndex}</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-right text-sm font-black text-[#ccff00]">{row.points}</span>
+                                        <span className={`text-right text-sm font-semibold ${row.goalDiff > 0 ? 'text-emerald-300' : row.goalDiff < 0 ? 'text-rose-300' : 'text-slate-300'}`}>
+                                            {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </section>
                 )}
             </div>
+            <OverlaySponsorStrip sponsors={sponsors} />
         </main>
     )
 }

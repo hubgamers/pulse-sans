@@ -50,6 +50,19 @@ export const getOrganizationBySlug = cache(async (slug: string) => {
                 },
                 orderBy: { joinedAt: "asc" },
             },
+            invitations: {
+                where: { status: "PENDING" },
+                orderBy: { createdAt: "desc" },
+                select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    status: true,
+                    createdAt: true,
+                    expiresAt: true,
+                    invitedByName: true,
+                },
+            },
             teams: { orderBy: { updatedAt: "desc" } },
             _count: { select: { members: true, teams: true, tournaments: true } }
         },

@@ -8,6 +8,7 @@ import {
     readOverlayBackgroundConfig,
     type OverlayBackgroundSearchParams,
 } from '../../_lib/background'
+import { OverlaySponsorStrip, readOverlaySponsors } from '../../_lib/sponsors'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,6 +65,7 @@ export default async function TournamentBracketOverlayPage({
     const { tournament, matches } = payload
     const background = readOverlayBackgroundConfig(query, tournament.bannerUrl)
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
+    const sponsors = readOverlaySponsors(tournament.sponsorConfig)
     const phase = tournament.phases.find((item) => item.id === phaseId)
     if (!phase || phase.type !== 'PLACEMENT_BRACKET') notFound()
 
@@ -79,6 +81,7 @@ export default async function TournamentBracketOverlayPage({
                         <p className="mt-2 text-sm text-slate-500">Aucun sous-bracket de placement detecte pour cette phase.</p>
                     </section>
                 </div>
+                <OverlaySponsorStrip sponsors={sponsors} variant="light" />
             </main>
         )
     }
@@ -148,6 +151,7 @@ export default async function TournamentBracketOverlayPage({
                     )}
                 </section>
             </div>
+            <OverlaySponsorStrip sponsors={sponsors} variant="light" />
         </main>
     )
 }

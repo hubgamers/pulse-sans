@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { OverlaySponsor } from '../_lib/sponsors'
 
 type StandingRow = {
     teamId: string
@@ -55,6 +56,7 @@ type Props = {
     timerMode?: 'MATCH' | 'BREAK'
     backgroundImageUrl?: string | null
     backgroundDim?: number
+    sponsors?: OverlaySponsor[]
 }
 
 const CARDS_PER_SLIDE = 4
@@ -85,7 +87,7 @@ function initialsFromTeamName(name: string): string {
     return name.trim().split(/[\s-]+/).map(word => word[0]).filter(Boolean).slice(0, 6).join('').toUpperCase();
 }
 
-export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refreshMs = 10000, timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55 }: Props) {
+export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refreshMs = 10000, timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55, sponsors = [] }: Props) {
     const [activeSlide, setActiveSlide] = useState(0)
     const [refreshCycle, setRefreshCycle] = useState(0)
     const [lastSyncAt, setLastSyncAt] = useState(() => Date.now())
@@ -174,6 +176,16 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
                     </div>
                 </div>
             </header>
+
+            {sponsors.length > 0 && (
+                <div className="absolute left-6 right-6 top-4 flex items-center justify-center gap-2">
+                    {sponsors.slice(0, 6).map((sponsor) => (
+                        <div key={sponsor.id} className="flex h-full w-full items-center justify-center rounded-lg px-2">
+                            <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-20 max-w-full object-contain" />
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* MAIN CONTENT GRID (2x2) */}
             <main className="grid h-[90%] grid-cols-2 grid-rows-2 gap-4">

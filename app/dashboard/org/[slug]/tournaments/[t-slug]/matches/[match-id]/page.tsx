@@ -19,6 +19,8 @@ export default async function TournamentMatchDetailsPage({
         return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
+    const orgSlug = org.slug
+
     const tournament = await prisma.tournament.findFirst({
         where: {
             organizationId: org.id,
@@ -111,7 +113,7 @@ export default async function TournamentMatchDetailsPage({
                     </p>
                 </div>
                 <Link
-                    href={`/dashboard/org/${slug}/tournaments/${tournament.slug}`}
+                    href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}`}
                     className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-white transition"
                 >
                     Retour au tournoi
@@ -181,7 +183,7 @@ export default async function TournamentMatchDetailsPage({
                 <form action={updateStatusAction} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Mettre a jour le statut</h3>
                     <input type="hidden" name="tournamentId" value={tournament.id} />
-                    <input type="hidden" name="orgSlug" value={slug} />
+                    <input type="hidden" name="orgSlug" value={orgSlug} />
                     <input type="hidden" name="tournamentSlug" value={tournament.slug} />
                     <input type="hidden" name="matchId" value={match.id} />
 
@@ -200,7 +202,7 @@ export default async function TournamentMatchDetailsPage({
                 <form action={saveResultAction} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Enregistrer resultat</h3>
                     <input type="hidden" name="tournamentId" value={tournament.id} />
-                    <input type="hidden" name="orgSlug" value={slug} />
+                    <input type="hidden" name="orgSlug" value={orgSlug} />
                     <input type="hidden" name="tournamentSlug" value={tournament.slug} />
                     <input type="hidden" name="matchId" value={match.id} />
 

@@ -11,6 +11,13 @@ export async function createTournament(formData: FormData) {
 
     const { name, slug, organizationId, gameId, status, description } = validated.data
 
+    const organization = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { slug: true },
+    })
+
+    if (!organization) return { errors: { organizationId: ['Organisation introuvable.'] } }
+
     const tournament = await prisma.tournament.create({
         data: {
             name,
@@ -22,6 +29,6 @@ export async function createTournament(formData: FormData) {
         }
     })
 
-    revalidatePath(`/dashboard/org/${organizationId}/tournaments`)
-    redirect(`/dashboard/org/${organizationId}/tournaments/${tournament.slug}`)
+    revalidatePath(`/dashboard/org/${organization.slug}/tournaments`)
+    redirect(`/dashboard/org/${organization.slug}/tournaments/${tournament.slug}`)
 }

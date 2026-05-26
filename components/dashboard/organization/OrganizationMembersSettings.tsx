@@ -43,6 +43,7 @@ const initialState: AddOrganizationMemberState = {
 
 const roleOptions = [
   { value: "MEMBER", label: "Membre" },
+  { value: "REFEREE", label: "Arbitre" },
   { value: "MODERATOR", label: "Moderateur" },
   { value: "ADMIN", label: "Admin" },
 ] as const;

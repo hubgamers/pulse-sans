@@ -56,6 +56,10 @@ const UpdateTournamentOverlaySponsorsSchema = ManageTournamentBaseSchema.extend(
   sponsorsJson: z.string().max(12000),
 })
 
+const UpdateTournamentTabletAccessSchema = ManageTournamentBaseSchema.extend({
+  tabletRequiresReferee: z.preprocess((value) => value === 'on' || value === true, z.boolean()),
+})
+
 const BulkCreatePitchSchema = ManageTournamentBaseSchema.extend({
   pitchNames: z.string().min(2),
   phaseIds: z.array(z.string().uuid()).optional(),
@@ -235,6 +239,7 @@ const GenerateGroupMatchesFromPlacementsSchema = ManageTournamentBaseSchema.exte
 
 const BulkMatchUpdateSchema = ManageTournamentBaseSchema.extend({
   updatesJson: z.string().min(2),
+  rerunPropagation: z.preprocess((value) => value === 'on' || value === true, z.boolean()).optional(),
 })
 
 const BulkCreateMatchesSchema = ManageTournamentBaseSchema.extend({
@@ -1373,7 +1378,7 @@ async function assignTeamToBracketSlot(
   })
 }
 
-async function propagateWinnerToNextBracketMatch(
+export async function propagateWinnerToNextBracketMatch(
   tx: Prisma.TransactionClient,
   source: {
     phaseId: string
@@ -2182,6 +2187,48 @@ export async function updateTournamentOverlaySponsors(
   }
 }
 
+export async function updateTournamentTabletAccess(
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = UpdateTournamentTabletAccessSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, message: 'Configuration tablette invalide.' }
+
+  const { tournamentId, orgSlug, tournamentSlug, tabletRequiresReferee } = parsed.data
+
+  try {
+    await assertOrganizerCanManageTournament(tournamentId)
+
+    await prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { tabletRequiresReferee },
+    })
+
+    await recordTournamentAction({
+      tournamentId,
+      actionType: 'TOURNAMENT_TABLET_ACCESS_UPDATED',
+      message: tabletRequiresReferee
+        ? 'Tablette reservee aux arbitres de l organisation.'
+        : 'Tablette ouverte a toute personne avec le lien.',
+      payload: { tabletRequiresReferee },
+    })
+
+    revalidateTournamentPath(orgSlug, tournamentSlug)
+    revalidatePath(`/public/${orgSlug}/${tournamentSlug}/tablet`)
+
+    return {
+      success: true,
+      message: tabletRequiresReferee
+        ? 'Tablette reservee aux arbitres.'
+        : 'Tablette accessible avec le lien public.',
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Erreur configuration tablette.',
+    }
+  }
+}
+
 export async function deleteTournamentPitch(formData: FormData) {
   const parsed = DeletePitchSchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) return
@@ -2511,6 +2558,7 @@ export async function duplicateTournamentForOrganization(
           slug: targetSlug,
           description: sourceTournament.description,
           isPublic: sourceTournament.isPublic,
+          tabletRequiresReferee: sourceTournament.tabletRequiresReferee,
           maxTeams: sourceTournament.maxTeams,
           status: 'DRAFT',
           startDate: null,
@@ -4239,7 +4287,7 @@ export async function bulkUpdateTournamentMatches(
   const parsed = BulkMatchUpdateSchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) return { success: false, message: 'Donnees invalides pour la mise a jour globale.' }
 
-  const { tournamentId, orgSlug, tournamentSlug, updatesJson } = parsed.data
+  const { tournamentId, orgSlug, tournamentSlug, updatesJson, rerunPropagation = false } = parsed.data
 
   try {
     await assertOrganizerCanManageTournament(tournamentId)
@@ -4400,13 +4448,16 @@ export async function bulkUpdateTournamentMatches(
       })
     }
 
-    let propagationMessage = ''
-    if (finishedWithScores.length > 0) {
+    let propagationMessage = finishedWithScores.length > 0
+      ? ` Propagation directe appliquee sur ${finishedWithScores.length} score(s).`
+      : ''
+
+    if (rerunPropagation) {
       try {
         const propagation = await rerunTournamentPropagationForTournament(tournamentId, true)
-        propagationMessage = ` Propagation relancee (${propagation.finishedBracketMatches} match(s), ${propagation.completedPhases} phase(s)).`
+        propagationMessage = ` Propagation complete relancee (${propagation.finishedBracketMatches} match(s), ${propagation.completedPhases} phase(s)).`
       } catch (error) {
-        propagationMessage = ` Propagation non relancee: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+        propagationMessage = ` Propagation complete non relancee: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
       }
     }
 
@@ -4414,7 +4465,7 @@ export async function bulkUpdateTournamentMatches(
       tournamentId,
       actionType: 'MATCH_BULK_UPDATE',
       message: `${updates.length} match(s) mis a jour en masse.${propagationMessage}`,
-      payload: { updatedCount: updates.length },
+      payload: { updatedCount: updates.length, rerunPropagation },
     })
 
     revalidateTournamentPath(orgSlug, tournamentSlug)
@@ -4601,20 +4652,22 @@ export async function rerunTournamentPropagationForTournament(
       })
   )
 
-  await prisma.$transaction(async (tx) => {
-    for (const phase of completedPhases) {
+  for (const phase of completedPhases) {
+    await prisma.$transaction(async (tx) => {
       await propagateQualifiersToNextPhase(tx, {
         id: phase.id,
         type: phase.type,
         config: phase.config,
       })
-    }
+    })
+  }
 
-    // Recovery step: reconcile round-1 bracket seeding from routing qualifiers.
-    // This intentionally overwrites non-finished round-1 slots to fix stale assignments.
-    for (const target of routedBracketTargets) {
-      if (!target.hasRouting) continue
+  // Recovery step: reconcile round-1 bracket seeding from routing qualifiers.
+  // This intentionally overwrites non-finished round-1 slots to fix stale assignments.
+  for (const target of routedBracketTargets) {
+    if (!target.hasRouting) continue
 
+    await prisma.$transaction(async (tx) => {
       if (force) {
         await tx.match.updateMany({
           where: {
@@ -4644,7 +4697,7 @@ export async function rerunTournamentPropagationForTournament(
       })
       roundOneMatches.sort((a, b) => compareRoundOneBracketPos(a.bracketPos, b.bracketPos))
 
-      if (roundOneMatches.length === 0) continue
+      if (roundOneMatches.length === 0) return
 
       const lockedTeamIds = new Set<string>()
       for (const match of roundOneMatches) {
@@ -4671,21 +4724,23 @@ export async function rerunTournamentPropagationForTournament(
           },
         })
       }
-    }
+    })
+  }
 
-    for (const match of finishedBracketMatches) {
-      if (!match.result) continue
-      const winnerId =
-        match.result.homeScore >= match.result.awayScore
-          ? match.homeTeamId
-          : match.awayTeamId
-      const loserId =
-        winnerId === null
-          ? null
-          : winnerId === match.homeTeamId
-            ? match.awayTeamId
-            : match.homeTeamId
+  for (const match of finishedBracketMatches) {
+    if (!match.result) continue
+    const winnerId =
+      match.result.homeScore >= match.result.awayScore
+        ? match.homeTeamId
+        : match.awayTeamId
+    const loserId =
+      winnerId === null
+        ? null
+        : winnerId === match.homeTeamId
+          ? match.awayTeamId
+          : match.homeTeamId
 
+    await prisma.$transaction(async (tx) => {
       await propagateWinnerToNextBracketMatch(tx, {
         phaseId: match.phaseId,
         phaseType: match.phase.type,
@@ -4695,8 +4750,8 @@ export async function rerunTournamentPropagationForTournament(
         winnerId,
         loserId,
       })
-    }
-  })
+    })
+  }
 
   return {
     finishedBracketMatches: finishedBracketMatches.length,

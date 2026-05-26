@@ -2,7 +2,7 @@
 
 import { Clock, MapPin, Radio, Search, Users, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { submitScoreFromTablet } from '../../lib/actions/tablet-score.actions'
 
 type TeamLite = {
@@ -32,9 +32,11 @@ type TabletMatch = {
 type SubmitResponse = {
   success: boolean
   error?: string
+  message?: string
 }
 
 type SortMode = 'time' | 'pitch' | 'team' | 'status'
+type MatchListTab = 'active' | 'finished'
 
 const SORT_OPTIONS: Array<{ value: SortMode; label: string; icon: typeof Clock }> = [
   { value: 'time', label: 'Heure', icon: Clock },
@@ -88,7 +90,13 @@ function getSearchText(match: TabletMatch) {
   )
 }
 
-export default function TabletScoreForm({ initialMatches }: { initialMatches: TabletMatch[] }) {
+export default function TabletScoreForm({
+  initialMatches,
+  refreshIntervalSeconds = 10,
+}: {
+  initialMatches: TabletMatch[]
+  refreshIntervalSeconds?: number
+}) {
   const router = useRouter()
   const [selectedMatch, setSelectedMatch] = useState<TabletMatch | null>(null)
   const [homeScore, setHomeScore] = useState<number>(0)
@@ -97,11 +105,26 @@ export default function TabletScoreForm({ initialMatches }: { initialMatches: Ta
   const [message, setMessage] = useState('')
   const [query, setQuery] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('time')
+  const [listTab, setListTab] = useState<MatchListTab>('active')
+  const refreshIntervalMs = Math.max(5, refreshIntervalSeconds) * 1000
+
+  useEffect(() => {
+    if (selectedMatch || isSubmitting) return
+
+    const intervalId = window.setInterval(() => {
+      router.refresh()
+    }, refreshIntervalMs)
+
+    return () => window.clearInterval(intervalId)
+  }, [isSubmitting, refreshIntervalMs, router, selectedMatch])
 
   const visibleMatches = useMemo(() => {
     const normalizedQuery = normalize(query)
+    const tabMatches = initialMatches.filter((match) =>
+      listTab === 'finished' ? match.status === 'FINISHED' : match.status === 'SCHEDULED' || match.status === 'LIVE'
+    )
 
-    return initialMatches
+    return tabMatches
       .filter((match) => !normalizedQuery || getSearchText(match).includes(normalizedQuery))
       .sort((left, right) => {
         if (sortMode === 'pitch') {
@@ -123,7 +146,10 @@ export default function TabletScoreForm({ initialMatches }: { initialMatches: Ta
 
         return getMatchTime(left) - getMatchTime(right)
       })
-  }, [initialMatches, query, sortMode])
+  }, [initialMatches, listTab, query, sortMode])
+
+  const activeMatchesCount = initialMatches.filter((match) => match.status === 'SCHEDULED' || match.status === 'LIVE').length
+  const finishedMatchesCount = initialMatches.filter((match) => match.status === 'FINISHED').length
 
   const handleSelectMatch = (match: TabletMatch) => {
     setSelectedMatch(match)
@@ -142,7 +168,7 @@ export default function TabletScoreForm({ initialMatches }: { initialMatches: Ta
       const res = (await submitScoreFromTablet(selectedMatch.id, homeScore, awayScore)) as SubmitResponse
 
       if (res.success) {
-        setMessage('Score mis a jour')
+        setMessage(res.message || 'Score mis a jour')
         setTimeout(() => {
           setSelectedMatch(null)
           router.refresh()
@@ -239,11 +265,37 @@ export default function TabletScoreForm({ initialMatches }: { initialMatches: Ta
       <div className="sticky top-0 z-20 -mx-3 sm:mx-0 bg-gray-950/95 px-3 pb-4 pt-1 backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-200">
-            Matchs
+            {listTab === 'finished' ? 'Matchs termines' : 'Matchs a jouer'}
             <span className="ml-3 align-middle text-sm font-semibold text-gray-500">
-              {visibleMatches.length}/{initialMatches.length}
+              {visibleMatches.length}/{listTab === 'finished' ? finishedMatchesCount : activeMatchesCount}
             </span>
           </h2>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-gray-900 p-1.5">
+          {[
+            { value: 'active' as const, label: 'A jouer', count: activeMatchesCount },
+            { value: 'finished' as const, label: 'Termines', count: finishedMatchesCount },
+          ].map((tab) => {
+            const isActive = listTab === tab.value
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setListTab(tab.value)}
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition active:scale-95 ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/40'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-500'}`}>
+                  {tab.count}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -297,6 +349,12 @@ export default function TabletScoreForm({ initialMatches }: { initialMatches: Ta
         {initialMatches.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-gray-900/50 rounded-3xl border border-dashed border-gray-800">
             <p className="text-gray-500 text-xl">Aucun match disponible pour le moment.</p>
+          </div>
+        ) : (listTab === 'finished' ? finishedMatchesCount : activeMatchesCount) === 0 ? (
+          <div className="col-span-full py-20 text-center bg-gray-900/50 rounded-3xl border border-dashed border-gray-800">
+            <p className="text-gray-500 text-xl">
+              {listTab === 'finished' ? 'Aucun match termine pour le moment.' : 'Aucun match a jouer pour le moment.'}
+            </p>
           </div>
         ) : visibleMatches.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-gray-900/50 rounded-3xl border border-dashed border-gray-800">

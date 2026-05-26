@@ -32,6 +32,8 @@ export default async function PlacementBracketEditPage({
         return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
+    const orgSlug = org.slug
+
     const tournament = await prisma.tournament.findFirst({
         where: {
             organizationId: org.id,
@@ -70,7 +72,7 @@ export default async function PlacementBracketEditPage({
                         <p className="mt-2 text-sm text-slate-500">{tournament.name}</p>
                     </div>
                     <Link
-                        href={`/dashboard/org/${slug}/tournaments/${tournament.slug}`}
+                        href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}`}
                         className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-white transition"
                     >
                         Retour tournoi
@@ -101,11 +103,12 @@ export default async function PlacementBracketEditPage({
         ? Math.max(0, Math.min(7200, Math.round(latestLaunchPayload.timerMinutes * 60)))
         : 0
 
-    const maxAcceptedFutureMs = Date.now() + 5 * 60 * 1000
+    const requestTimeMs = new Date().getTime()
+    const maxAcceptedFutureMs = requestTimeMs + 5 * 60 * 1000
     const rawTimerStartMs = Number.isFinite(latestLaunchStartedAtMs) ? latestLaunchStartedAtMs : latestLaunchCreatedAtMs
     const resolvedTimerStartMs = Number.isFinite(rawTimerStartMs) && rawTimerStartMs <= maxAcceptedFutureMs
         ? rawTimerStartMs
-        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : Date.now())
+        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : requestTimeMs)
 
     const timerStartMs = Number.isFinite(resolvedTimerStartMs) ? resolvedTimerStartMs : null
     const timerMode = latestLaunchPayload?.timerKind === 'BREAK' ? 'BREAK' : 'MATCH'
@@ -129,7 +132,7 @@ export default async function PlacementBracketEditPage({
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
             <PlacementBracketEditor
-                orgSlug={slug}
+                orgSlug={orgSlug}
                 tournamentSlug={tournament.slug}
                 tournamentId={tournament.id}
                 initialPhaseId={requestedPhaseId}

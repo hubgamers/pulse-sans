@@ -27,7 +27,7 @@ export default async function DashboardOrgEditTeamPage({
             initialLogoUrl={team.logoUrl}
             organizationId={org.id}
             organizationName={org.name}
-            orgSlug={slug}
+            orgSlug={org.slug}
         />
     );
 }

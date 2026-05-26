@@ -24,6 +24,8 @@ export default async function DashboardOrgTournaments({
     return <div className="text-slate-700">Organisation introuvable.</div>;
   }
 
+  const orgSlug = org.slug;
+
   const tournaments = await prisma.tournament.findMany({
     where: { organizationId: org.id },
     orderBy: { updatedAt: "desc" },
@@ -43,7 +45,7 @@ export default async function DashboardOrgTournaments({
           <p className="text-xs uppercase tracking-widest text-slate-500">{org.name}</p>
           <h1 className="text-2xl font-black md:text-3xl">Tournois de l&apos;organisation</h1>
         </div>
-        <Link href={`/dashboard/org/${slug}/tournaments/create`} className={buttonClassName()}>
+        <Link href={`/dashboard/org/${orgSlug}/tournaments/create`} className={buttonClassName()}>
           <Plus size={16} /> Creer un tournoi
         </Link>
       </div>
@@ -53,7 +55,7 @@ export default async function DashboardOrgTournaments({
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {tournaments.map((tournament) => (
-            <Link key={tournament.id} href={`/dashboard/org/${slug}/tournaments/${tournament.slug}`}>
+            <Link key={tournament.id} href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}`}>
               <Card className="h-full p-4 transition-colors hover:bg-slate-50">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-teal-700">

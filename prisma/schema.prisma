@@ -142,6 +142,7 @@ model Tournament {
   status         TournamentStatus         @default(DRAFT)
   bannerUrl      String?                  @map("banner_url")
   sponsorConfig  Json?                    @map("sponsor_config")
+  tabletRequiresReferee Boolean           @default(false) @map("tablet_requires_referee")
   createdAt      DateTime                 @default(now()) @map("created_at")
   endDate        DateTime?                @map("end_date")
   isPublic       Boolean                  @default(true) @map("is_public")
@@ -275,6 +276,7 @@ enum OrgRole {
   OWNER
   ADMIN
   MODERATOR
+  REFEREE
   MEMBER
 
   @@schema("public")

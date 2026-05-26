@@ -3,7 +3,7 @@
 import { useFormStatus } from 'react-dom'
 import type { ChangeEvent, ReactNode } from 'react'
 import { formatPhaseType } from './TournamentTabShell.utils'
-import { Badge, Button, Card, EmptyState as UiEmptyState } from '@/components/ui'
+import { Badge, Card, EmptyState as UiEmptyState } from '@/components/ui'
 
 export type LoadingSubmitButtonProps = {
     children: ReactNode
@@ -16,9 +16,9 @@ export function LoadingSubmitButton({ children, className, disabled = false, loa
     const { pending } = useFormStatus()
 
     return (
-        <Button type="submit" disabled={pending || disabled} className={className}>
+        <button type="submit" disabled={pending || disabled} className={className}>
             {pending ? loadingLabel : children}
-        </Button>
+        </button>
     )
 }
 

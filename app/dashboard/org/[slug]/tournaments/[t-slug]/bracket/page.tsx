@@ -16,6 +16,8 @@ export default async function TournamentBracketPage({
         return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
+    const orgSlug = org.slug
+
     const tournament = await prisma.tournament.findFirst({
         where: {
             organizationId: org.id,
@@ -59,7 +61,7 @@ export default async function TournamentBracketPage({
                     <p className="mt-2 text-sm text-slate-500">{tournament.name}</p>
                 </div>
                 <Link
-                    href={`/dashboard/org/${slug}/tournaments/${tournament.slug}`}
+                    href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}`}
                     className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold hover:border-slate-500 hover:bg-white transition"
                 >
                     Retour tournoi
@@ -76,7 +78,7 @@ export default async function TournamentBracketPage({
                         <BracketPhaseView
                             key={`bracket-page-${phase.id}`}
                             tournamentId={tournament.id}
-                            orgSlug={slug}
+                            orgSlug={orgSlug}
                             tournamentSlug={tournament.slug}
                             phase={{
                                 id: phase.id,

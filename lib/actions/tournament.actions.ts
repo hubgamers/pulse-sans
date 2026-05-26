@@ -105,6 +105,7 @@ export async function createTournament(
   } = parsed.data
 
   let createdTournamentSlug: string
+  let organizationSlug = ''
 
   try {
     const membership = await prisma.organizationMember.findFirst({
@@ -112,7 +113,7 @@ export async function createTournament(
         organizationId,
         userId: user.id,
       },
-      select: { role: true },
+      select: { role: true, organization: { select: { slug: true } } },
     })
 
     if (!membership) {
@@ -224,13 +225,14 @@ export async function createTournament(
     })
 
     createdTournamentSlug = tournament.slug
-    revalidatePath(`/dashboard/org/${organizationId}/tournaments`)
+    organizationSlug = membership.organization.slug
+    revalidatePath(`/dashboard/org/${organizationSlug}/tournaments`)
   } catch (error) {
     console.error(error)
     return { message: "Erreur lors de la création du tournoi." }
   }
 
-  redirect(`/dashboard/org/${organizationId}/tournaments/${createdTournamentSlug}`)
+  redirect(`/dashboard/org/${organizationSlug}/tournaments/${createdTournamentSlug}`)
 }
 
 export async function getUserTournaments() {

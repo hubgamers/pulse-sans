@@ -26,7 +26,7 @@ export default async function DashboardOrgCreateTournament({
                 <h1 className="text-xl font-black">Impossible de creer un tournoi</h1>
                 <p className="text-sm text-slate-500">Aucun jeu n'est configure. Ajoutez d'abord un jeu depuis l'administration.</p>
                 <Link
-                    href={`/dashboard/org/${slug}/tournaments`}
+                    href={`/dashboard/org/${org.slug}/tournaments`}
                     className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-white"
                 >
                     Retour aux tournois
@@ -35,5 +35,5 @@ export default async function DashboardOrgCreateTournament({
         )
     }
 
-    return <TournamentCreateForm organizationId={org.id} orgSlug={slug} games={games} />
+    return <TournamentCreateForm organizationId={org.id} orgSlug={org.slug} games={games} />
 }

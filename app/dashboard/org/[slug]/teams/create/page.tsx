@@ -13,5 +13,5 @@ export default async function DashboardOrgCreateTeam({
         return <div className="text-slate-700">Organisation introuvable.</div>;
     }
 
-    return <TeamCreateForm organizationId={org.id} organizationName={org.name} orgSlug={slug} />;
+    return <TeamCreateForm organizationId={org.id} organizationName={org.name} orgSlug={org.slug} />;
 }

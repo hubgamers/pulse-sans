@@ -15,6 +15,7 @@ import {
     startTournamentMatchesByScheduleSlot,
     updateTournamentOverlayBackground,
     updateTournamentOverlaySponsors,
+    updateTournamentTabletAccess,
 } from '@/lib/actions/tournament-management.actions'
 import { createClient } from '@/lib/supabase/client'
 import type {
@@ -159,6 +160,10 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
     )
     const [overlaySponsorsState, overlaySponsorsAction] = useActionState(
         async (_: InlineActionState, formData: FormData) => updateTournamentOverlaySponsors(formData),
+        INITIAL_INLINE_ACTION_STATE
+    )
+    const [tabletAccessState, tabletAccessAction] = useActionState(
+        async (_: InlineActionState, formData: FormData) => updateTournamentTabletAccess(formData),
         INITIAL_INLINE_ACTION_STATE
     )
     const [retryPropagationState, retryPropagationAction] = useActionState(
@@ -388,6 +393,8 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         overlaySponsors={overlaySponsors}
                         overlaySponsorsAction={overlaySponsorsAction}
                         overlaySponsorsState={overlaySponsorsState}
+                        tabletAccessAction={tabletAccessAction}
+                        tabletAccessState={tabletAccessState}
                         sponsorUploadId={sponsorUploadId}
                         sponsorUploadError={sponsorUploadError}
                         onOverlayBackgroundChange={onOverlayBackgroundChange}

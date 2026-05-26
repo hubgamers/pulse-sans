@@ -40,6 +40,8 @@ export default async function ExternalPlacementBracketEditPage({
         notFound()
     }
 
+    const canonicalOrgSlug = org.slug
+
     const tournament = await prisma.tournament.findFirst({
         where: {
             organizationId: org.id,
@@ -75,7 +77,7 @@ export default async function ExternalPlacementBracketEditPage({
                     <h1 className="text-3xl font-black text-white mb-4">Aucune phase de placement bracket</h1>
                     <p className="text-slate-400 mb-8">Ce tournoi n'a pas de phase de placement bracket configurée.</p>
                     <a
-                        href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}`}
+                        href={`/dashboard/org/${canonicalOrgSlug}/tournaments/${tournament.slug}`}
                         className="inline-flex items-center rounded-xl border border-slate-600 px-6 py-3 text-sm font-semibold text-slate-300 hover:border-slate-400 hover:bg-slate-800 transition"
                     >
                         Retour au tableau de bord
@@ -107,11 +109,12 @@ export default async function ExternalPlacementBracketEditPage({
         ? Math.max(0, Math.min(7200, Math.round(latestLaunchPayload.timerMinutes * 60)))
         : 0
 
-    const maxAcceptedFutureMs = Date.now() + 5 * 60 * 1000
+    const requestTimeMs = new Date().getTime()
+    const maxAcceptedFutureMs = requestTimeMs + 5 * 60 * 1000
     const rawTimerStartMs = Number.isFinite(latestLaunchStartedAtMs) ? latestLaunchStartedAtMs : latestLaunchCreatedAtMs
     const resolvedTimerStartMs = Number.isFinite(rawTimerStartMs) && rawTimerStartMs <= maxAcceptedFutureMs
         ? rawTimerStartMs
-        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : Date.now())
+        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : requestTimeMs)
 
     const timerStartMs = Number.isFinite(resolvedTimerStartMs) ? resolvedTimerStartMs : null
     const timerMode = latestLaunchPayload?.timerKind === 'BREAK' ? 'BREAK' : 'MATCH'
@@ -143,7 +146,7 @@ export default async function ExternalPlacementBracketEditPage({
                         <p className="mt-1 text-sm text-slate-400">Vue sans sidebar avec édition des matchs et gestion des rotations.</p>
                     </div>
                     <Link
-                        href={`/dashboard/org/${orgSlug}/tournaments/${tournament.slug}`}
+                        href={`/dashboard/org/${canonicalOrgSlug}/tournaments/${tournament.slug}`}
                         className="inline-flex items-center rounded-xl border border-slate-500 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-300 hover:bg-white/5"
                     >
                         Retour tournoi
@@ -155,7 +158,7 @@ export default async function ExternalPlacementBracketEditPage({
                         {phases.map((phase) => (
                             <Link
                                 key={phase.id}
-                                href={`/tournaments/${orgSlug}/${tournament.slug}/bracket/placement?phaseId=${phase.id}`}
+                                href={`/tournaments/${canonicalOrgSlug}/${tournament.slug}/bracket/placement?phaseId=${phase.id}`}
                                 className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${phase.id === currentPhase.id
                                     ? 'border-teal-400 bg-teal-500/15 text-teal-100'
                                     : 'border-slate-600 bg-slate-900/40 text-slate-300 hover:border-slate-400'
@@ -169,7 +172,7 @@ export default async function ExternalPlacementBracketEditPage({
 
                 <PlacementBracketPhaseView
                     tournamentId={tournament.id}
-                    orgSlug={orgSlug}
+                    orgSlug={canonicalOrgSlug}
                     tournamentSlug={tournament.slug}
                     phase={{
                         id: currentPhase.id,
@@ -192,7 +195,7 @@ export default async function ExternalPlacementBracketEditPage({
                     }))}
                     timer={{
                         timerSeconds: latestLaunchTimerSeconds,
-                        timerStartMs: timerStartMs ?? Date.now(),
+                        timerStartMs: timerStartMs ?? requestTimeMs,
                         timerMode,
                     }}
                     fullscreen

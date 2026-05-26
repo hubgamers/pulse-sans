@@ -108,14 +108,14 @@ const AddOrganizationMemberSchema = z.object({
   organizationId: z.string().uuid("Organisation invalide."),
   orgSlug: z.string().min(1, "Slug organisation manquant."),
   identifier: z.string().trim().min(3, "L'email ou le pseudo est requis."),
-  role: z.enum(["ADMIN", "MODERATOR", "MEMBER"]).default("MEMBER"),
+  role: z.enum(["ADMIN", "MODERATOR", "REFEREE", "MEMBER"]).default("MEMBER"),
 });
 
 const InviteOrganizationMemberSchema = z.object({
   organizationId: z.string().uuid("Organisation invalide."),
   orgSlug: z.string().min(1, "Slug organisation manquant."),
   email: z.string().trim().email("Email invalide."),
-  role: z.enum(["ADMIN", "MODERATOR", "MEMBER"]).default("MEMBER"),
+  role: z.enum(["ADMIN", "MODERATOR", "REFEREE", "MEMBER"]).default("MEMBER"),
 });
 
 export type AddOrganizationMemberState = {

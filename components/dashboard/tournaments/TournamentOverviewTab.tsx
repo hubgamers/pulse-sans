@@ -27,6 +27,8 @@ type TournamentOverviewTabProps = {
     overlaySponsors: OverlaySponsor[]
     overlaySponsorsAction: ComponentProps<'form'>['action']
     overlaySponsorsState: InlineActionState
+    tabletAccessAction: ComponentProps<'form'>['action']
+    tabletAccessState: InlineActionState
     sponsorUploadId: string | null
     sponsorUploadError: string
     onOverlayBackgroundChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
@@ -62,6 +64,8 @@ export default function TournamentOverviewTab({
     overlaySponsors,
     overlaySponsorsAction,
     overlaySponsorsState,
+    tabletAccessAction,
+    tabletAccessState,
     sponsorUploadId,
     sponsorUploadError,
     onOverlayBackgroundChange,
@@ -338,6 +342,49 @@ export default function TournamentOverviewTab({
             {overlaySponsorsState.message && (
                 <StatusAlert variant={overlaySponsorsState.success ? 'success' : 'danger'}>
                     {overlaySponsorsState.message}
+                </StatusAlert>
+            )}
+        </form>
+    </div>
+
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Acces tablette de score</h2>
+            <p className="mt-1 text-xs text-slate-500">
+                Choisissez si la tablette est utilisable par toute personne avec le lien ou uniquement par les arbitres connectes de l&apos;organisation.
+            </p>
+        </div>
+
+        <form action={tabletAccessAction} className="space-y-3">
+            <input type="hidden" name="tournamentId" value={tournament.id} />
+            <input type="hidden" name="orgSlug" value={orgSlug} />
+            <input type="hidden" name="tournamentSlug" value={tournament.slug} />
+
+            <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <input
+                    name="tabletRequiresReferee"
+                    type="checkbox"
+                    defaultChecked={tournament.tabletRequiresReferee}
+                    className="mt-1 h-4 w-4 accent-teal-600"
+                />
+                <span>
+                    <span className="block font-semibold text-slate-900">Reserver aux arbitres</span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                        Si active, l&apos;utilisateur doit etre connecte et avoir le role REFEREE, MODERATOR, ADMIN ou OWNER dans l&apos;organisation.
+                    </span>
+                </span>
+            </label>
+
+            <LoadingSubmitButton
+                className={`${btnPrimary} disabled:opacity-60`}
+                loadingLabel="Enregistrement..."
+            >
+                Sauvegarder l&apos;acces tablette
+            </LoadingSubmitButton>
+
+            {tabletAccessState.message && (
+                <StatusAlert variant={tabletAccessState.success ? 'success' : 'danger'}>
+                    {tabletAccessState.message}
                 </StatusAlert>
             )}
         </form>

@@ -20,6 +20,8 @@ export default async function DashboardOrgTournamentDetails({
         return <div className="text-slate-700">Organisation introuvable.</div>
     }
 
+    const orgSlug = org.slug
+
     const [tournament, matches] = await Promise.all([
         prisma.tournament.findFirst({
             where: {
@@ -106,7 +108,7 @@ export default async function DashboardOrgTournamentDetails({
     return (
         <div className="text-slate-900">
             <TournamentTabShell
-                orgSlug={slug}
+                orgSlug={orgSlug}
                 tournament={{
                     id: tournament.id,
                     name: tournament.name,
@@ -116,6 +118,7 @@ export default async function DashboardOrgTournamentDetails({
                     sponsorConfig,
                     status: tournament.status,
                     isPublic: tournament.isPublic,
+                    tabletRequiresReferee: tournament.tabletRequiresReferee,
                     maxTeams: tournament.maxTeams,
                     game: { name: tournament.game.name },
                     phases: tournament.phases.map((p) => ({

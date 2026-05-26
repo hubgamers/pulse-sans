@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { bulkUpdateTournamentMatches } from "@/lib/actions/tournament-management.actions";
 import { Button, EmptyState, Field, Input, Label, Select, StatusAlert } from "@/components/ui";
 
@@ -43,7 +44,18 @@ const matchStatusOrder: Record<MatchStatus, number> = {
     CANCELLED: 3,
 };
 
+function mapMatchesToRows(matches: MatchRow[]) {
+    return matches.map((match) => ({
+        matchId: match.id,
+        status: match.status,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        notes: match.notes,
+    }));
+}
+
 export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug, matches }: Props) {
+    const router = useRouter();
     const [state, formAction, isPending] = useActionState(bulkUpdateTournamentMatches, initialState);
     const [sortBy, setSortBy] = useState<"default" | "status">("default");
     const [statusFilter, setStatusFilter] = useState<"ALL" | MatchStatus>("ALL");
@@ -54,15 +66,21 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
         return Array.from(phasesSet).sort();
     }, [matches]);
 
-    const [rows, setRows] = useState(
-        matches.map((match) => ({
-            matchId: match.id,
-            status: match.status,
-            homeScore: match.homeScore,
-            awayScore: match.awayScore,
-            notes: match.notes,
-        }))
+    const [rows, setRows] = useState(() => mapMatchesToRows(matches));
+
+    const serverRowsSignature = useMemo(
+        () => JSON.stringify(mapMatchesToRows(matches)),
+        [matches]
     );
+
+    const nextRows = useMemo(
+        () => JSON.parse(serverRowsSignature) as ReturnType<typeof mapMatchesToRows>,
+        [serverRowsSignature]
+    );
+
+    useEffect(() => {
+        setRows(nextRows);
+    }, [nextRows]);
 
     const initialMap = useMemo(
         () =>
@@ -133,15 +151,8 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
     };
 
     const resetRows = () => {
-        setRows(
-            matches.map((match) => ({
-                matchId: match.id,
-                status: match.status,
-                homeScore: match.homeScore,
-                awayScore: match.awayScore,
-                notes: match.notes,
-            }))
-        );
+        setRows(nextRows);
+        router.refresh();
     };
 
     return (
@@ -198,6 +209,10 @@ export default function MatchBulkEditor({ tournamentId, orgSlug, tournamentSlug,
                         <input type="hidden" name="orgSlug" value={orgSlug} />
                         <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
                         <input type="hidden" name="updatesJson" value={updatesJson} />
+                        <label className="flex min-h-8 items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 text-xs text-slate-700">
+                            <input name="rerunPropagation" type="checkbox" className="h-4 w-4 accent-teal-600" />
+                            Propagation complete
+                        </label>
                         <Button type="submit" disabled={isPending || updates.length === 0} size="sm">
                             {isPending ? "Sauvegarde..." : `Sauvegarder (${updates.length})`}
                         </Button>

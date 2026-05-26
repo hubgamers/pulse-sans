@@ -41,7 +41,7 @@ export default async function DashboardOrgSettingsPage({
     <OrganizationMembersSettings
       organizationId={org.id}
       organizationName={org.name}
-      orgSlug={slug}
+      orgSlug={org.slug}
       canManageMembers={canManageMembers}
       members={members}
       invitations={invitations}

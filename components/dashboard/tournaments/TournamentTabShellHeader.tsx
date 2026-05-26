@@ -45,7 +45,7 @@ export default function TournamentTabShellHeader({
                             target="_blank"
                             className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'border-teal-300 text-teal-700 hover:bg-teal-50' })}
                         >
-                            Lien public
+                            Overlays
                         </Link>
                     )}
                     <Link href={`/dashboard/org/${orgSlug}/tournaments`} className={buttonClassName({ variant: 'secondary' })}>

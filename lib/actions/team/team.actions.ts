@@ -36,7 +36,20 @@ export async function createTeam(
     }
 
     const { name, slug, organizationId, logoUrl } = validated.data
-    const redirectPath = `/dashboard/org/${organizationId}/teams`
+    const organization = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { slug: true },
+    })
+
+    if (!organization) {
+        return {
+            success: false,
+            message: "Organisation introuvable.",
+            errors: { organizationId: ["Organisation introuvable."] },
+        }
+    }
+
+    const redirectPath = `/dashboard/org/${organization.slug}/teams`
 
     try {
         await prisma.team.create({

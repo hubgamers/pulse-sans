@@ -132,6 +132,7 @@ export type TournamentData = {
     sponsorConfig: unknown
     status: string
     isPublic: boolean
+    tabletRequiresReferee: boolean
     maxTeams: number | null
     game: { name: string }
     phases: PhaseData[]

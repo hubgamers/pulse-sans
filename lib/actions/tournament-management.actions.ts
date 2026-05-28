@@ -535,6 +535,41 @@ function resetPhaseRuntimeConfig(config: unknown): Prisma.InputJsonValue {
   return base as Prisma.InputJsonValue
 }
 
+function remapInterleavedTimeSlotsInConfig(
+  config: unknown,
+  matchIdByOldId: Map<string, string>
+): Prisma.InputJsonValue {
+  const base: Record<string, unknown> =
+    config && typeof config === 'object'
+      ? { ...(config as Record<string, unknown>) }
+      : {}
+
+  const rawSlots = base.interleavedTimeSlots
+  if (!Array.isArray(rawSlots)) {
+    return base as Prisma.InputJsonValue
+  }
+
+  base.interleavedTimeSlots = rawSlots
+    .map((slot) => {
+      if (!slot || typeof slot !== 'object') return null
+      const entry = slot as Record<string, unknown>
+      const selectedMatchIds = Array.isArray(entry.selectedMatchIds)
+        ? entry.selectedMatchIds
+            .filter((item): item is string => typeof item === 'string')
+            .map((matchId) => matchIdByOldId.get(matchId))
+            .filter((matchId): matchId is string => typeof matchId === 'string')
+        : []
+
+      return {
+        ...entry,
+        selectedMatchIds,
+      }
+    })
+    .filter((slot): slot is Record<string, unknown> => Boolean(slot))
+
+  return base as Prisma.InputJsonValue
+}
+
 async function assertGroupPhaseBelongsTournament(phaseId: string, tournamentId: string) {
   const phase = await prisma.phase.findUnique({
     where: { id: phaseId },
@@ -745,41 +780,86 @@ function collectGroupQualifierIdsByRoute(
   )
 
   // =========================================================
-  // DIRECT CROSS PAIRING
+  // SPLIT-HALF CROSS PAIRING
   //
-  // 1A vs 2B
-  // 1B vs 2A
-  // 1C vs 2D
-  // 1D vs 2C
+  // For 8 groups:
+  // 1A vs 2E
+  // 2A vs 1E
+  // 1B vs 2F
+  // 2B vs 1F
   // =========================================================
 
-  for (
-    let index = 0;
-    index < pairCount;
-    index += 2
-  ) {
-    const higherA = higherRank[index]
-    const higherB = higherRank[index + 1]
+  const pairedIndexes = new Set<number>()
 
-    const lowerA = lowerRank[index]
-    const lowerB = lowerRank[index + 1]
+  if (pairCount > 1 && pairCount % 2 === 0) {
+    const splitOffset = pairCount / 2
 
-    // Match 1
-    if (higherA) {
-      ordered.push(higherA)
+    for (
+      let index = 0;
+      index < splitOffset;
+      index += 1
+    ) {
+      const oppositeIndex = index + splitOffset
+
+      const higherA = higherRank[index]
+      const higherB = higherRank[oppositeIndex]
+
+      const lowerA = lowerRank[index]
+      const lowerB = lowerRank[oppositeIndex]
+
+      pairedIndexes.add(index)
+      pairedIndexes.add(oppositeIndex)
+
+      // Match 1
+      if (higherA) {
+        ordered.push(higherA)
+      }
+
+      if (lowerB) {
+        ordered.push(lowerB)
+      }
+
+      if (lowerA) {
+        ordered.push(lowerA)
+      }
+
+      // Match 2
+      if (higherB) {
+        ordered.push(higherB)
+      }
     }
+  } else {
+    for (
+      let index = 0;
+      index < pairCount;
+      index += 2
+    ) {
+      const higherA = higherRank[index]
+      const higherB = higherRank[index + 1]
 
-    if (lowerB) {
-      ordered.push(lowerB)
-    }
+      const lowerA = lowerRank[index]
+      const lowerB = lowerRank[index + 1]
 
-    // Match 2
-    if (higherB) {
-      ordered.push(higherB)
-    }
+      pairedIndexes.add(index)
+      pairedIndexes.add(index + 1)
 
-    if (lowerA) {
-      ordered.push(lowerA)
+      // Match 1
+      if (higherA) {
+        ordered.push(higherA)
+      }
+
+      if (lowerB) {
+        ordered.push(lowerB)
+      }
+
+      // Match 2
+      if (higherB) {
+        ordered.push(higherB)
+      }
+
+      if (lowerA) {
+        ordered.push(lowerA)
+      }
     }
   }
 
@@ -787,12 +867,14 @@ function collectGroupQualifierIdsByRoute(
   // REMAINING HIGHER
   // =========================================================
 
-  if (higherRank.length > pairCount) {
+  if (higherRank.length > pairedIndexes.size) {
     for (
-      let index = pairCount;
+      let index = 0;
       index < higherRank.length;
       index += 1
     ) {
+      if (pairedIndexes.has(index)) continue
+
       const teamId = higherRank[index]
 
       if (teamId) {
@@ -805,12 +887,14 @@ function collectGroupQualifierIdsByRoute(
   // REMAINING LOWER
   // =========================================================
 
-  if (lowerRank.length > pairCount) {
+  if (lowerRank.length > pairedIndexes.size) {
     for (
-      let index = pairCount;
+      let index = 0;
       index < lowerRank.length;
       index += 1
     ) {
+      if (pairedIndexes.has(index)) continue
+
       const teamId = lowerRank[index]
 
       if (teamId) {
@@ -2545,7 +2629,29 @@ export async function duplicateTournamentForOrganization(
     const sourcePitches = includePitches
       ? await prisma.pitch.findMany({
           where: { tournamentId },
-          select: { name: true, phaseId: true },
+          select: { id: true, name: true, phaseId: true },
+        })
+      : []
+
+    const sourceBracketMatches = includePitches
+      ? await prisma.match.findMany({
+          where: {
+            phase: {
+              tournamentId,
+              type: { in: [PhaseType.BRACKET_SINGLE, PhaseType.BRACKET_DOUBLE, PhaseType.PLACEMENT_BRACKET, PhaseType.CUSTOM] },
+            },
+          },
+          select: {
+            id: true,
+            phaseId: true,
+            pitchId: true,
+            roundNumber: true,
+            bracketPos: true,
+            scheduledAt: true,
+            homeTeamId: true,
+            awayTeamId: true,
+          },
+          orderBy: [{ phaseId: 'asc' }, { roundNumber: 'asc' }, { bracketPos: 'asc' }],
         })
       : []
 
@@ -2621,13 +2727,63 @@ export async function duplicateTournamentForOrganization(
       }
 
       if (includePitches && sourcePitches.length > 0) {
-        const pitchRows = sourcePitches.map((pitch) => ({
-          tournamentId: duplicatedTournament.id,
-          name: pitch.name,
-          phaseId: pitch.phaseId ? newPhaseIdByOldId.get(pitch.phaseId) ?? null : null,
-        }))
+        const newPitchIdByOldId = new Map<string, string>()
+        const newMatchIdByOldId = new Map<string, string>()
 
-        await tx.pitch.createMany({ data: pitchRows })
+        for (const pitch of sourcePitches) {
+          const createdPitch = await tx.pitch.create({
+            data: {
+              tournamentId: duplicatedTournament.id,
+              name: pitch.name,
+              phaseId: pitch.phaseId ? newPhaseIdByOldId.get(pitch.phaseId) ?? null : null,
+            },
+            select: { id: true },
+          })
+          newPitchIdByOldId.set(pitch.id, createdPitch.id)
+        }
+
+        for (const match of sourceBracketMatches) {
+          const newPhaseId = newPhaseIdByOldId.get(match.phaseId)
+          const newPitchId = newPitchIdByOldId.get(match.pitchId)
+          if (!newPhaseId || !newPitchId) continue
+
+          const createdMatch = await tx.match.create({
+            data: {
+              phaseId: newPhaseId,
+              pitchId: newPitchId,
+              status: MatchStatus.SCHEDULED,
+              roundNumber: match.roundNumber,
+              bracketPos: match.bracketPos,
+              scheduledAt: match.scheduledAt,
+              homeTeamId: match.homeTeamId,
+              awayTeamId: match.awayTeamId,
+            },
+            select: { id: true },
+          })
+          newMatchIdByOldId.set(match.id, createdMatch.id)
+        }
+
+        if (newMatchIdByOldId.size > 0) {
+          for (const sourcePhase of sourcePhases) {
+            const newPhaseId = newPhaseIdByOldId.get(sourcePhase.id)
+            if (!newPhaseId) continue
+
+            const duplicatedPhase = await tx.phase.findUnique({
+              where: { id: newPhaseId },
+              select: { config: true },
+            })
+
+            await tx.phase.update({
+              where: { id: newPhaseId },
+              data: {
+                config: remapInterleavedTimeSlotsInConfig(
+                  duplicatedPhase?.config,
+                  newMatchIdByOldId
+                ),
+              },
+            })
+          }
+        }
       }
 
       return duplicatedTournament

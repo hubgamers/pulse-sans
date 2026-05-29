@@ -565,7 +565,7 @@ function remapInterleavedTimeSlotsInConfig(
         selectedMatchIds,
       }
     })
-    .filter((slot): slot is Record<string, unknown> => Boolean(slot))
+    .filter((slot) => slot !== null)
 
   return base as Prisma.InputJsonValue
 }

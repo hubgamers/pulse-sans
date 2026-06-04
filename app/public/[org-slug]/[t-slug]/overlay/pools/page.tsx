@@ -18,6 +18,8 @@ type OverlaySearchParams = OverlayBackgroundSearchParams & {
     refresh?: string | string[]
     timer?: string | string[]
     startedAt?: string | string[]
+    groupFrom?: string | string[]
+    groupTo?: string | string[]
 }
 
 type LaunchSlotPayload = {
@@ -117,6 +119,19 @@ function parseIntervalSeconds(
     return Math.max(minSeconds, Math.min(maxSeconds, Math.round(parsed)))
 }
 
+function parseGroupIndex(raw: string | undefined) {
+    const value = raw?.trim()
+    if (!value) return null
+
+    const numberValue = Number(value)
+    if (Number.isInteger(numberValue) && numberValue > 0) return numberValue
+
+    const letters = value.toUpperCase()
+    if (!/^[A-Z]+$/.test(letters)) return null
+
+    return letters.split('').reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0)
+}
+
 function readLaunchSlotPayload(value: unknown): LaunchSlotPayload | null {
     if (!value || typeof value !== 'object') return null
     return value as LaunchSlotPayload
@@ -137,6 +152,8 @@ export default async function TournamentPoolsOverlayPage({
     const refreshSeconds = parseIntervalSeconds(firstParam(query.refresh), 10, 3, 120)
     const timerSecondsFromQuery = parseIntervalSeconds(firstParam(query.timer), 0, 0, 7200)
     const startedAtRaw = firstParam(query.startedAt)
+    const groupFrom = parseGroupIndex(firstParam(query.groupFrom))
+    const groupTo = parseGroupIndex(firstParam(query.groupTo))
     const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
     const rotationMs = rotateSeconds * 1000
     const refreshMs = refreshSeconds * 1000
@@ -191,7 +208,7 @@ export default async function TournamentPoolsOverlayPage({
 
     const groupOverviews = computeGroupOverviews(tournament.registrations, tournament.phases, matches)
     const phaseNameById = new Map(tournament.phases.map((phase) => [phase.id, phase.name]))
-    const cards = groupOverviews.flatMap((phase) =>
+    const allCards = groupOverviews.flatMap((phase) =>
         phase.groups.map((group) => {
             const sourcePhase = tournament.phases.find((item) => item.id === phase.phaseId)
             const qualificationMeta = buildQualificationMeta(sourcePhase?.config, phaseNameById)
@@ -232,10 +249,13 @@ export default async function TournamentPoolsOverlayPage({
             }
         })
     )
+    const minGroupIndex = groupFrom ?? 1
+    const maxGroupIndex = groupTo ?? Number.MAX_SAFE_INTEGER
+    const cards = allCards.filter((card) => card.groupIndex >= minGroupIndex && card.groupIndex <= maxGroupIndex)
 
     return (
         <>
-            {groupOverviews.length === 0 ? (
+            {groupOverviews.length === 0 || cards.length === 0 ? (
                 <main className="min-h-screen bg-transparent text-slate-900" style={backgroundStyle}>
                     <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-4 px-4 py-4">
                         <section className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur">
@@ -255,9 +275,13 @@ export default async function TournamentPoolsOverlayPage({
                         </section>
 
                         <section className="rounded-3xl border border-slate-200 bg-white/95 p-8 text-center shadow-sm backdrop-blur">
-                            <p className="text-lg font-semibold text-slate-700">Aucune phase de poules configuree.</p>
+                            <p className="text-lg font-semibold text-slate-700">
+                                {groupOverviews.length === 0 ? 'Aucune phase de poules configuree.' : 'Aucune poule dans cette plage.'}
+                            </p>
                             <p className="mt-2 text-sm text-slate-500">
-                                Cet overlay s&apos;active des qu&apos;une phase de type poule contient des equipes ou des matchs planifies.
+                                {groupOverviews.length === 0
+                                    ? 'Cet overlay s\'active des qu\'une phase de type poule contient des equipes ou des matchs planifies.'
+                                    : 'Verifiez les parametres groupFrom et groupTo de l\'URL.'}
                             </p>
                         </section>
                     </div>

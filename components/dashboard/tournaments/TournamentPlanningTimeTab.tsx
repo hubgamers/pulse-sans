@@ -119,6 +119,12 @@ export default function TournamentPlanningTimeTab({
                         timer: String(slotTimerMinutes * 60),
                         startedAt: new Date().toISOString(),
                     })
+                    const overlayFirstRangeParams = new URLSearchParams(overlayParams)
+                    overlayFirstRangeParams.set('groupFrom', 'A')
+                    overlayFirstRangeParams.set('groupTo', 'N')
+                    const overlaySecondRangeParams = new URLSearchParams(overlayParams)
+                    overlaySecondRangeParams.set('groupFrom', 'O')
+                    overlaySecondRangeParams.set('groupTo', 'Z')
 
                     return (
                         <div key={`planning-time-${slot.at}`} className="rounded-xl border border-slate-200 bg-white p-3">
@@ -146,6 +152,20 @@ export default function TournamentPlanningTimeTab({
                                         className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
                                     >
                                         Overlay timer
+                                    </Link>
+                                    <Link
+                                        href={`/public/${orgSlug}/${tournament.slug}/overlay/pools?${overlayFirstRangeParams.toString()}`}
+                                        target="_blank"
+                                        className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
+                                    >
+                                        Timer A-N
+                                    </Link>
+                                    <Link
+                                        href={`/public/${orgSlug}/${tournament.slug}/overlay/pools?${overlaySecondRangeParams.toString()}`}
+                                        target="_blank"
+                                        className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
+                                    >
+                                        Timer O-Z
                                     </Link>
                                 </div>
                             </div>

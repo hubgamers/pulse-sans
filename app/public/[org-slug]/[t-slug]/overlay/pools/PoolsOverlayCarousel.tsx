@@ -87,6 +87,19 @@ function initialsFromTeamName(name: string): string {
     return name.trim().split(/[\s-]+/).map(word => word[0]).filter(Boolean).slice(0, 6).join('').toUpperCase();
 }
 
+function formatGroupIndex(index: number): string {
+    if (!Number.isInteger(index) || index <= 0) return String(index)
+
+    let value = index
+    let label = ''
+    while (value > 0) {
+        value -= 1
+        label = String.fromCharCode(65 + (value % 26)) + label
+        value = Math.floor(value / 26)
+    }
+    return label
+}
+
 export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refreshMs = 10000, timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55, sponsors = [] }: Props) {
     const [activeSlide, setActiveSlide] = useState(0)
     const [refreshCycle, setRefreshCycle] = useState(0)
@@ -195,7 +208,7 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
                     return (
                         <article key={card.key} className="flex flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900/40 backdrop-blur-sm shadow-xl">
                             <div className="bg-white/5 px-3 py-1.5 flex justify-between items-center border-b border-white/5">
-                                <h3 className="text-sm font-black text-[#ccff00] tracking-tight">POULE {card.groupIndex}</h3>
+                                <h3 className="text-sm font-black text-[#ccff00] tracking-tight">POULE {formatGroupIndex(card.groupIndex)}</h3>
                                 <span className="text-[8px] text-slate-500 not-italic font-bold tracking-widest">{card.phaseName}</span>
                             </div>
 

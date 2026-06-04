@@ -534,6 +534,9 @@ function resetPhaseRuntimeConfig(config: unknown): Prisma.InputJsonValue {
     }
   }
 
+  delete base.rotationMode
+  delete base.interleavedTimeSlots
+
   return base as Prisma.InputJsonValue
 }
 

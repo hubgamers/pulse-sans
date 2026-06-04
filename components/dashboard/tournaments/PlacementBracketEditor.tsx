@@ -193,7 +193,7 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
           <div className="flex items-center gap-1">
             <div className={`w-1 h-1 rounded-full ${isLive ? 'bg-emerald-400 animate-bounce' : 'bg-[#ccff00]'}`} />
             <span className={`text-[7px] font-black tracking-tighter uppercase ${isLive ? 'text-emerald-400' : 'text-slate-400'}`}>
-              {isLive ? 'EN DIRECT' : (scheduledAt && new Date(scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }))}
+              {isLive ? 'EN DIRECT' : (scheduledAt && new Date(scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }))}
             </span>
           </div>
           {pitchName && (

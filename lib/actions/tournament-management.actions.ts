@@ -1647,6 +1647,18 @@ export async function propagateWinnerToNextBracketMatch(
 // --------------- Round-robin helpers ---------------
 
 function buildRoundRobinPairings(teamIds: string[]) {
+  if (teamIds.length === 4) {
+    const [a, b, c, d] = teamIds
+    return [
+      { round: 1, homeTeamId: a, awayTeamId: b },
+      { round: 1, homeTeamId: c, awayTeamId: d },
+      { round: 2, homeTeamId: a, awayTeamId: c },
+      { round: 2, homeTeamId: b, awayTeamId: d },
+      { round: 3, homeTeamId: a, awayTeamId: d },
+      { round: 3, homeTeamId: b, awayTeamId: c },
+    ]
+  }
+
   const teams = [...teamIds]
   const hasBye = teams.length % 2 !== 0
   if (hasBye) teams.push('BYE')

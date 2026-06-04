@@ -515,7 +515,7 @@ const MatchBox = ({
             </div>
             {match.scheduledAt && (
                 <div className="px-2 pt-0.5 text-[6px] font-semibold text-teal-400 opacity-80 tracking-wide">
-                    {new Date(match.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(match.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}
                     {match.pitchName && <span className="ml-1 opacity-60">· {match.pitchName}</span>}
                 </div>
             )}

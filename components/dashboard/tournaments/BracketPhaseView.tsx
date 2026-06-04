@@ -128,7 +128,7 @@ function renderMatchCard(match: BracketMatch, orgSlug: string, tournamentSlug: s
                 </div>
                 {match.scheduledAt && (
                     <p className="mb-1 text-[10px] font-medium text-teal-600">
-                        {new Date(match.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(match.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}
                         {match.pitchName && <span className="ml-1 text-slate-400">· {match.pitchName}</span>}
                     </p>
                 )}

@@ -1535,6 +1535,32 @@ async function assignTeamToBracketSlot(
   })
 }
 
+async function resolvePlacementOffsetForPhase(
+  tx: Prisma.TransactionClient,
+  phaseId: string,
+  normalizedSize: number
+) {
+  const placementMatches = await tx.match.findMany({
+    where: {
+      phaseId,
+      bracketPos: { startsWith: 'P' },
+    },
+    select: { bracketPos: true },
+  })
+
+  let maxPlacementEnd = 0
+  for (const match of placementMatches) {
+    const parsed = parsePlacementBracketCoordinate(match.bracketPos)
+    if (!parsed) continue
+    maxPlacementEnd = Math.max(maxPlacementEnd, parsed.end)
+  }
+
+  if (maxPlacementEnd <= 0) return 0
+
+  const offset = maxPlacementEnd - normalizedSize
+  return Number.isInteger(offset) && offset > 0 ? offset : 0
+}
+
 export async function propagateWinnerToNextBracketMatch(
   tx: Prisma.TransactionClient,
   source: {
@@ -1571,8 +1597,9 @@ export async function propagateWinnerToNextBracketMatch(
       const totalWbRounds = wbRounds._max.roundNumber ?? 0
       if (parsed.round < totalWbRounds) {
         const normalizedSize = 2 ** totalWbRounds
-        const rangeStart = normalizedSize / 2 ** parsed.round + 1
-        const rangeEnd = normalizedSize / 2 ** (parsed.round - 1)
+        const placementOffset = await resolvePlacementOffsetForPhase(tx, source.phaseId, normalizedSize)
+        const rangeStart = normalizedSize / 2 ** parsed.round + 1 + placementOffset
+        const rangeEnd = normalizedSize / 2 ** (parsed.round - 1) + placementOffset
         await assignTeamToBracketSlot(tx, {
           phaseId: source.phaseId,
           targetBracketPos: `P${rangeStart}-${rangeEnd}-R1-M${Math.ceil(parsed.matchNo / 2)}`,

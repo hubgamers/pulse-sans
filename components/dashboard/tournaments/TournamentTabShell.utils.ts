@@ -1,5 +1,5 @@
 import { TournamentStatus } from '@prisma/client'
-import type { ActionLogPayload, GroupPlacement, GroupConfig, PlacementRankingMatch, PlacementRankingRow, RouteConfig } from './TournamentTabShell.types'
+import type { ActionLogPayload, GroupPlacement, GroupConfig, PlacementRankingMatch, PlacementRankingRow, RouteConfig, TimerLogPayload } from './TournamentTabShell.types'
 
 export function va<T extends (fd: FormData) => Promise<any>>(action: T) {
     return (fd: FormData): void => { void action(fd) }
@@ -241,23 +241,36 @@ export function readPlanningDefaultsFromLogs(logs: Array<{ actionType: string; p
     const MIN_BREAK_MINUTES = 0
     const MAX_BREAK_MINUTES = 240
 
+    let matchMinutes: number | null = null
+    let breakMinutes: number | null = null
+
     for (const log of logs) {
-        const payload = (log.payload && typeof log.payload === 'object' ? log.payload : null) as ActionLogPayload | null
+        const payload = (log.payload && typeof log.payload === 'object' ? log.payload : null) as (ActionLogPayload & TimerLogPayload) | null
         if (!payload) continue
 
         const rawMatch = typeof payload.maxDurationMinutes === 'number' ? payload.maxDurationMinutes : null
         const rawBreak = typeof payload.teamBreakMinutes === 'number' ? payload.teamBreakMinutes : null
-        if (rawMatch === null || rawBreak === null) continue
+        const rawTimer = typeof payload.timerMinutes === 'number' ? payload.timerMinutes : null
 
-        return {
-            matchMinutes: Math.min(MAX_MATCH_MINUTES, Math.max(MIN_MATCH_MINUTES, Math.round(rawMatch))),
-            breakMinutes: Math.min(MAX_BREAK_MINUTES, Math.max(MIN_BREAK_MINUTES, Math.round(rawBreak))),
+        if (matchMinutes === null && rawTimer !== null && payload.timerKind === 'MATCH') {
+            matchMinutes = rawTimer
         }
+        if (breakMinutes === null && rawTimer !== null && payload.timerKind === 'BREAK') {
+            breakMinutes = rawTimer
+        }
+        if (matchMinutes === null && rawMatch !== null) {
+            matchMinutes = rawMatch
+        }
+        if (breakMinutes === null && rawBreak !== null) {
+            breakMinutes = rawBreak
+        }
+
+        if (matchMinutes !== null && breakMinutes !== null) break
     }
 
     return {
-        matchMinutes: 30,
-        breakMinutes: 10,
+        matchMinutes: Math.min(MAX_MATCH_MINUTES, Math.max(MIN_MATCH_MINUTES, Math.round(matchMinutes ?? 30))),
+        breakMinutes: Math.min(MAX_BREAK_MINUTES, Math.max(MIN_BREAK_MINUTES, Math.round(breakMinutes ?? 10))),
     }
 }
 

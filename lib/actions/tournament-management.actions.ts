@@ -140,6 +140,8 @@ const StartTournamentBreakTimerSchema = ManageTournamentBaseSchema.extend({
   ),
 })
 
+const StopTournamentTimerSchema = ManageTournamentBaseSchema
+
 const DeleteMatchSchema = ManageTournamentBaseSchema.extend({
   matchId: z.string().uuid(),
 })
@@ -613,6 +615,77 @@ function readParallelGroupFromConfig(config: unknown): string | null {
   const raw = config as Record<string, unknown>
   const value = typeof raw.parallelGroup === 'string' ? raw.parallelGroup.trim() : ''
   return value.length > 0 ? value : null
+}
+
+function routePlacementPriority(route: PhaseRouteConfig) {
+  if (route.rule === 'TOP') return 0
+  if (route.rule === 'RANGE') return 1
+  if (route.rule === 'BOTTOM') return 2
+  return 3
+}
+
+function routePlacementRank(route: PhaseRouteConfig) {
+  if (route.rule === 'TOP') return route.countPerGroup ?? 0
+  if (route.rule === 'RANGE') return route.startRank ?? 0
+  if (route.rule === 'BOTTOM') return route.countPerGroup ?? 0
+  return 0
+}
+
+async function resolveLinkedBracketRouteOrder(
+  tournamentId: string,
+  targetPhaseIds: string[]
+): Promise<Map<string, number>> {
+  if (targetPhaseIds.length === 0) return new Map()
+
+  const targetSet = new Set(targetPhaseIds)
+  const sourcePhases = await prisma.phase.findMany({
+    where: {
+      tournamentId,
+      type: PhaseType.GROUP,
+    },
+    select: {
+      order: true,
+      config: true,
+    },
+    orderBy: { order: 'asc' },
+  })
+
+  const routeOrders = new Map<string, { sourceOrder: number; routeIndex: number; priority: number; rank: number }>()
+
+  for (const sourcePhase of sourcePhases) {
+    const routes = readRoutesFromConfig(sourcePhase.config)
+    routes.forEach((route, routeIndex) => {
+      if (!route.toPhaseId || !targetSet.has(route.toPhaseId)) return
+
+      const candidate = {
+        sourceOrder: sourcePhase.order,
+        routeIndex,
+        priority: routePlacementPriority(route),
+        rank: routePlacementRank(route),
+      }
+      const current = routeOrders.get(route.toPhaseId)
+      if (
+        !current ||
+        candidate.sourceOrder < current.sourceOrder ||
+        (candidate.sourceOrder === current.sourceOrder && candidate.priority < current.priority) ||
+        (candidate.sourceOrder === current.sourceOrder && candidate.priority === current.priority && candidate.rank < current.rank) ||
+        (candidate.sourceOrder === current.sourceOrder && candidate.priority === current.priority && candidate.rank === current.rank && candidate.routeIndex < current.routeIndex)
+      ) {
+        routeOrders.set(route.toPhaseId, candidate)
+      }
+    })
+  }
+
+  return new Map(
+    Array.from(routeOrders.entries())
+      .sort(([, a], [, b]) =>
+        a.sourceOrder - b.sourceOrder ||
+        a.priority - b.priority ||
+        a.rank - b.rank ||
+        a.routeIndex - b.routeIndex
+      )
+      .map(([phaseId], index) => [phaseId, index])
+  )
 }
 
 function computeGroupStandingsForPhase(
@@ -3366,6 +3439,35 @@ export async function startTournamentBreakTimer(
   }
 }
 
+export async function stopTournamentTimer(
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = StopTournamentTimerSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) return { success: false, message: 'Tournoi invalide.' }
+
+  const { tournamentId, orgSlug, tournamentSlug } = parsed.data
+
+  try {
+    await assertOrganizerCanManageTournament(tournamentId)
+    const stoppedAt = new Date()
+
+    await recordTournamentAction({
+      tournamentId,
+      actionType: 'TIMER_CONTROL',
+      message: 'Timer arrete.',
+      payload: {
+        stoppedAt: stoppedAt.toISOString(),
+        timerKind: 'STOP',
+      },
+    })
+
+    revalidateTournamentPath(orgSlug, tournamentSlug)
+    return { success: true, message: 'Timer arrete.' }
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Erreur arret timer.' }
+  }
+}
+
 export async function recordTournamentMatchResult(
   formData: FormData
 ): Promise<ActionState> {
@@ -5234,13 +5336,26 @@ export async function generateLinkedBracketMatches(
       orderBy: { order: 'asc' },
     })
 
-    const linkedPhases = candidatePhases.filter(
+    const linkedPhasesByPhaseOrder = candidatePhases.filter(
       (phase) => readParallelGroupFromConfig(phase.config) === sourceGroup
     )
 
-    if (linkedPhases.length <= 1) {
+    if (linkedPhasesByPhaseOrder.length <= 1) {
       return generateCustomPlacementBracketMatches(formData)
     }
+
+    const routeOrderByPhaseId = await resolveLinkedBracketRouteOrder(
+      tournamentId,
+      linkedPhasesByPhaseOrder.map((phase) => phase.id)
+    )
+    const linkedPhases = [...linkedPhasesByPhaseOrder].sort((a, b) => {
+      const routeOrderA = routeOrderByPhaseId.get(a.id)
+      const routeOrderB = routeOrderByPhaseId.get(b.id)
+      if (routeOrderA !== undefined || routeOrderB !== undefined) {
+        return (routeOrderA ?? Number.MAX_SAFE_INTEGER) - (routeOrderB ?? Number.MAX_SAFE_INTEGER) || a.order - b.order
+      }
+      return a.order - b.order
+    })
 
     const requestedParticipantsCount = Number(String(formData.get('participantsCount') ?? '0')) || 0
     const overwritePhaseMatches = formData.get('overwritePhaseMatches') === 'on' || formData.get('overwritePhaseMatches') === 'true'

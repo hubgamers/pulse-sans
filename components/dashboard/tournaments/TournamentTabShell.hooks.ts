@@ -473,7 +473,9 @@ export function useTournamentLiveAdmin(
     const latestTimerEvent = useMemo(() => {
         return tournament.actionLogs.find((log) => {
             const payload = (log.payload && typeof log.payload === 'object') ? (log.payload as TimerLogPayload) : null
-            if (!payload || typeof payload.timerMinutes !== 'number') return false
+            if (!payload) return false
+            if (log.actionType === 'TIMER_CONTROL' && payload.timerKind === 'STOP') return true
+            if (typeof payload.timerMinutes !== 'number') return false
             if (log.actionType === 'TIMER_CONTROL' && payload.timerKind === 'BREAK') return true
             if (log.actionType === 'MATCH_BULK_UPDATE' && payload.launchedStatus === 'LIVE') return true
             return false
@@ -486,6 +488,7 @@ export function useTournamentLiveAdmin(
             ? (latestTimerEvent.payload as TimerLogPayload)
             : null
         if (!payload || typeof payload.timerMinutes !== 'number') return null
+        if (payload.timerKind === 'STOP') return null
 
         const slotAtMs = typeof payload.slotAt === 'string' ? new Date(payload.slotAt).getTime() : NaN
         const startedAtMs = typeof payload.startedAt === 'string' ? new Date(payload.startedAt).getTime() : NaN

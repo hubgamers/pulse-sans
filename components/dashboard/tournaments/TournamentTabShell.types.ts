@@ -51,6 +51,7 @@ export type ActionLogPayload = {
 export type TimerLogPayload = {
     timerMinutes?: unknown
     startedAt?: unknown
+    stoppedAt?: unknown
     timerKind?: unknown
     launchedStatus?: unknown
     slotAt?: unknown

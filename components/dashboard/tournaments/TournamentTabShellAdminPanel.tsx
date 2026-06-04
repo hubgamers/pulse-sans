@@ -1,11 +1,20 @@
-import type { Dispatch, ReactNode, SetStateAction } from 'react'
+'use client'
+
+import { useFormStatus } from 'react-dom'
+import type { ComponentProps, Dispatch, ReactNode, SetStateAction } from 'react'
 import type { SerializedMatch, TabId } from './TournamentTabShell.types'
+import type { InlineActionState } from './TournamentTabShell.types'
 import { Badge, Button, Card, StatusAlert } from '@/components/ui'
 
 type TournamentTabShellAdminPanelProps = {
     isAdminPanelCollapsed: boolean
     setIsAdminPanelCollapsed: Dispatch<SetStateAction<boolean>>
     adminTimer: { mode: 'MATCH' | 'BREAK'; label: string; isDone: boolean } | null
+    tournamentId: string
+    orgSlug: string
+    tournamentSlug: string
+    stopTimerAction: ComponentProps<'form'>['action']
+    stopTimerState: InlineActionState
     requiredActionsCount: number
     liveWithoutScores: SerializedMatch[]
     finishedWithoutScores: SerializedMatch[]
@@ -40,10 +49,29 @@ function ActionButton({
     )
 }
 
+function StopTimerButton({ disabled }: { disabled: boolean }) {
+    const { pending } = useFormStatus()
+
+    return (
+        <button
+            type="submit"
+            disabled={disabled || pending}
+            className="rounded-md border border-rose-300 px-2 py-1 text-[11px] font-semibold text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50"
+        >
+            {pending ? 'Arret...' : 'Arreter'}
+        </button>
+    )
+}
+
 export default function TournamentTabShellAdminPanel({
     isAdminPanelCollapsed,
     setIsAdminPanelCollapsed,
     adminTimer,
+    tournamentId,
+    orgSlug,
+    tournamentSlug,
+    stopTimerAction,
+    stopTimerState,
     requiredActionsCount,
     liveWithoutScores,
     finishedWithoutScores,
@@ -84,6 +112,18 @@ export default function TournamentTabShellAdminPanel({
                             ? (adminTimer.mode === 'BREAK' ? 'Temps de battement actif' : 'Timer de match actif')
                             : 'Aucun timer actif'}
                     </p>
+                    <form action={stopTimerAction} className="mt-2 flex items-center justify-between gap-2">
+                        <input type="hidden" name="tournamentId" value={tournamentId} />
+                        <input type="hidden" name="orgSlug" value={orgSlug} />
+                        <input type="hidden" name="tournamentSlug" value={tournamentSlug} />
+                        <span className="text-[11px] text-slate-500">Controle timer overlay</span>
+                        <StopTimerButton disabled={!adminTimer} />
+                    </form>
+                    {stopTimerState.message && (
+                        <StatusAlert variant={stopTimerState.success ? 'success' : 'danger'} className="mt-2 px-2 py-1.5 text-xs">
+                            {stopTimerState.message}
+                        </StatusAlert>
+                    )}
                 </div>
 
                 {!isAdminPanelCollapsed && (

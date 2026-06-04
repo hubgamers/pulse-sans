@@ -6,9 +6,10 @@ import PlacementBracketEditor from '@/components/dashboard/tournaments/Placement
 
 type LaunchSlotPayload = {
     startedAt?: string
+    stoppedAt?: string
     timerMinutes?: number
     launchedStatus?: string
-    timerKind?: 'MATCH' | 'BREAK'
+    timerKind?: 'MATCH' | 'BREAK' | 'STOP'
 }
 
 function readLaunchSlotPayload(value: unknown): LaunchSlotPayload | null {
@@ -90,16 +91,19 @@ export default async function PlacementBracketEditPage({
     const phases = tournament.phases
     const latestTimerEvent = tournament.actionLogs.find((log) => {
         const launch = readLaunchSlotPayload(log.payload)
-        if (!launch || typeof launch.timerMinutes !== 'number') return false
+        if (!launch) return false
+        if (log.actionType === 'TIMER_CONTROL' && launch.timerKind === 'STOP') return true
+        if (typeof launch.timerMinutes !== 'number') return false
         if (log.actionType === 'TIMER_CONTROL' && launch.timerKind === 'BREAK') return true
         if (log.actionType === 'MATCH_BULK_UPDATE' && launch.launchedStatus === 'LIVE') return true
         return false
     })
 
     const latestLaunchPayload = latestTimerEvent ? readLaunchSlotPayload(latestTimerEvent.payload) : null
+    const timerStopped = latestLaunchPayload?.timerKind === 'STOP'
     const latestLaunchStartedAtMs = latestLaunchPayload?.startedAt ? new Date(latestLaunchPayload.startedAt).getTime() : NaN
     const latestLaunchCreatedAtMs = latestTimerEvent ? new Date(latestTimerEvent.createdAt).getTime() : NaN
-    const latestLaunchTimerSeconds = typeof latestLaunchPayload?.timerMinutes === 'number'
+    const latestLaunchTimerSeconds = !timerStopped && typeof latestLaunchPayload?.timerMinutes === 'number'
         ? Math.max(0, Math.min(7200, Math.round(latestLaunchPayload.timerMinutes * 60)))
         : 0
 
@@ -110,7 +114,7 @@ export default async function PlacementBracketEditPage({
         ? rawTimerStartMs
         : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : requestTimeMs)
 
-    const timerStartMs = Number.isFinite(resolvedTimerStartMs) ? resolvedTimerStartMs : null
+    const timerStartMs = !timerStopped && Number.isFinite(resolvedTimerStartMs) ? resolvedTimerStartMs : null
     const timerMode = latestLaunchPayload?.timerKind === 'BREAK' ? 'BREAK' : 'MATCH'
 
     const matches = await prisma.match.findMany({

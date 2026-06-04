@@ -13,6 +13,7 @@ import {
     retryTournamentPropagation,
     startTournamentBreakTimer,
     startTournamentMatchesByScheduleSlot,
+    stopTournamentTimer,
     updateTournamentOverlayBackground,
     updateTournamentOverlaySponsors,
     updateTournamentTabletAccess,
@@ -140,6 +141,10 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
     )
     const [breakTimerState, breakTimerAction] = useActionState(
         async (_: InlineActionState, formData: FormData) => startTournamentBreakTimer(formData),
+        INITIAL_INLINE_ACTION_STATE
+    )
+    const [stopTimerState, stopTimerAction] = useActionState(
+        async (_: InlineActionState, formData: FormData) => stopTournamentTimer(formData),
         INITIAL_INLINE_ACTION_STATE
     )
     const [placementLabelsState, placementLabelsAction] = useActionState(
@@ -532,6 +537,11 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                 isAdminPanelCollapsed={isAdminPanelCollapsed}
                 setIsAdminPanelCollapsed={setIsAdminPanelCollapsed}
                 adminTimer={adminTimer}
+                tournamentId={tournament.id}
+                orgSlug={orgSlug}
+                tournamentSlug={tournament.slug}
+                stopTimerAction={stopTimerAction}
+                stopTimerState={stopTimerState}
                 requiredActionsCount={requiredActionsCount}
                 liveWithoutScores={liveWithoutScores}
                 finishedWithoutScores={finishedWithoutScores}

@@ -25,9 +25,10 @@ type OverlaySearchParams = OverlayBackgroundSearchParams & {
 type LaunchSlotPayload = {
     slotAt?: string
     startedAt?: string
+    stoppedAt?: string
     timerMinutes?: number
     launchedStatus?: string
-    timerKind?: 'MATCH' | 'BREAK'
+    timerKind?: 'MATCH' | 'BREAK' | 'STOP'
 }
 
 type PhaseRouteConfig = {
@@ -164,13 +165,16 @@ export default async function TournamentPoolsOverlayPage({
     const sponsors = readOverlaySponsors(tournament.sponsorConfig)
     const latestTimerEvent = tournament.actionLogs.find((log) => {
         const launch = readLaunchSlotPayload(log.payload)
-        if (!launch || typeof launch.timerMinutes !== 'number') return false
+        if (!launch) return false
+        if (log.actionType === 'TIMER_CONTROL' && launch.timerKind === 'STOP') return true
+        if (typeof launch.timerMinutes !== 'number') return false
         if (log.actionType === 'TIMER_CONTROL' && launch.timerKind === 'BREAK') return true
         if (log.actionType === 'MATCH_BULK_UPDATE' && launch.launchedStatus === 'LIVE' && typeof launch.slotAt === 'string') return true
         return false
     })
 
     const latestLaunchPayload = latestTimerEvent ? readLaunchSlotPayload(latestTimerEvent.payload) : null
+    const timerStopped = latestLaunchPayload?.timerKind === 'STOP'
     const timerKind = latestLaunchPayload?.timerKind === 'BREAK' ? 'BREAK' : 'MATCH'
     const latestLaunchSlotAtMs = latestLaunchPayload?.slotAt ? new Date(latestLaunchPayload.slotAt).getTime() : NaN
     const latestLaunchStartedAtMs = latestLaunchPayload?.startedAt ? new Date(latestLaunchPayload.startedAt).getTime() : NaN
@@ -179,8 +183,10 @@ export default async function TournamentPoolsOverlayPage({
         ? Math.max(0, Math.min(7200, Math.round(latestLaunchPayload.timerMinutes * 60)))
         : 0
 
-    const hasLaunchLog = latestLaunchPayload !== null
-    const timerSeconds = hasLaunchLog
+    const hasLaunchLog = latestLaunchPayload !== null && !timerStopped
+    const timerSeconds = timerStopped
+        ? 0
+        : hasLaunchLog
         ? latestLaunchTimerSeconds
         : timerSecondsFromQuery
     const rawTimerStartMs = hasLaunchLog

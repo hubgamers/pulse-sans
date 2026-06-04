@@ -3756,6 +3756,7 @@ export async function generatePhaseRoundRobinMatches(
 
     for (const existingMatch of existingScheduledMatches) {
       if (!existingMatch.scheduledAt) continue
+      if (startAt && existingMatch.scheduledAt.getTime() >= startDate.getTime()) continue
       const resourceKey = toPitchResourceKey(existingMatch.pitch.name)
       if (!pitchAvailableAt.has(resourceKey)) continue
       const existingEnd = existingMatch.scheduledAt.getTime() + DEFAULT_EXISTING_MATCH_DURATION_MINUTES * 60 * 1000
@@ -4490,6 +4491,7 @@ export async function generateGroupMatchesFromPlacements(
 
     for (const existingMatch of effectiveExistingMatches) {
       if (!existingMatch.scheduledAt) continue
+      if (startAt && existingMatch.scheduledAt.getTime() >= startDate.getTime()) continue
       const resourceKey = toPitchResourceKey(existingMatch.pitch.name)
       if (!pitchAvailableAt.has(resourceKey)) continue
       const existingEnd = existingMatch.scheduledAt.getTime() + DEFAULT_EXISTING_MATCH_DURATION_MINUTES * 60 * 1000

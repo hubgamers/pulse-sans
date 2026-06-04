@@ -120,11 +120,11 @@ export default function TournamentPlanningTimeTab({
                         startedAt: new Date().toISOString(),
                     })
                     const overlayFirstRangeParams = new URLSearchParams(overlayParams)
-                    overlayFirstRangeParams.set('groupFrom', 'A')
-                    overlayFirstRangeParams.set('groupTo', 'N')
+                    overlayFirstRangeParams.set('groupFrom', '1')
+                    overlayFirstRangeParams.set('groupTo', '4')
                     const overlaySecondRangeParams = new URLSearchParams(overlayParams)
-                    overlaySecondRangeParams.set('groupFrom', 'O')
-                    overlaySecondRangeParams.set('groupTo', 'Z')
+                    overlaySecondRangeParams.set('groupFrom', '5')
+                    overlaySecondRangeParams.set('groupTo', '8')
 
                     return (
                         <div key={`planning-time-${slot.at}`} className="rounded-xl border border-slate-200 bg-white p-3">
@@ -158,14 +158,14 @@ export default function TournamentPlanningTimeTab({
                                         target="_blank"
                                         className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
                                     >
-                                        Timer A-N
+                                        Timer 1-4
                                     </Link>
                                     <Link
                                         href={`/public/${orgSlug}/${tournament.slug}/overlay/pools?${overlaySecondRangeParams.toString()}`}
                                         target="_blank"
                                         className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
                                     >
-                                        Timer O-Z
+                                        Timer 5-8
                                     </Link>
                                 </div>
                             </div>

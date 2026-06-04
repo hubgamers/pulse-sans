@@ -197,63 +197,65 @@ export default function TournamentPoolsTab({
                     </StepSection>
 
                     {/* Step 4: Standings */}
-                    <StepSection num={4} title="Classements en direct" desc="Mis a jour apres chaque enregistrement de score. Tiebreaker : Pts > Diff buts > Buts marques." color="amber">
-                        <div className="mb-3 flex flex-wrap gap-2">
-                            <Link
-                                href={`/public/${orgSlug}/${tournament.slug}/overlay/standings?phaseId=${phase.id}&mode=groups`}
-                                target="_blank"
-                                className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
-                            >
-                                Overlay classement par poule
-                            </Link>
-                            <Link
-                                href={`/public/${orgSlug}/${tournament.slug}/overlay/standings?phaseId=${phase.id}&mode=global`}
-                                target="_blank"
-                                className="rounded-md border border-teal-300 px-2 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-50"
-                            >
-                                Overlay classement global
-                            </Link>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                            {Array.from({ length: groupConfig.count }, (_, i) => {
-                                const gIdx = i + 1
-                                const standings = computeGroupStandings(gIdx, groupConfig, phase.id, matches, teamNameById)
-                                return (
-                                    <div key={`${phase.id}-standings-${gIdx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300">Poule {gIdx}</p>
-                                        {standings.length === 0 ? (
-                                            <p className="text-xs text-slate-500">Aucune equipe.</p>
-                                        ) : (
-                                            <table className="w-full text-[11px]">
-                                                <thead>
-                                                    <tr className="text-slate-500">
-                                                        <th className="px-1 py-0.5 text-left">#</th>
-                                                        <th className="px-1 py-0.5 text-left">Equipe</th>
-                                                        <th className="px-1 py-0.5 text-right">Pts</th>
-                                                        <th className="px-1 py-0.5 text-right">J</th>
-                                                        <th className="px-1 py-0.5 text-right">GD</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {standings.map((row, rank) => (
-                                                        <tr key={row.teamId} className={`border-t border-slate-200 ${rank === 0 ? 'text-amber-200' : 'text-slate-800'}`}>
-                                                            <td className="px-1 py-0.5 font-semibold">{rank + 1}</td>
-                                                            <td className="px-1 py-0.5 truncate max-w-[80px]">{row.teamName}</td>
-                                                            <td className="px-1 py-0.5 text-right font-bold">{row.points}</td>
-                                                            <td className="px-1 py-0.5 text-right">{row.played}</td>
-                                                            <td className={`px-1 py-0.5 text-right ${row.goalDiff > 0 ? 'text-emerald-400' : row.goalDiff < 0 ? 'text-red-400' : ''}`}>
-                                                                {row.goalDiff > 0 ? '+' : ''}{row.goalDiff}
-                                                            </td>
+                    <div className="mb-40 lg:mb-48">
+                        <StepSection num={4} title="Classements en direct" desc="Mis a jour apres chaque enregistrement de score. Tiebreaker : Pts > Diff buts > Buts marques." color="amber">
+                            <div className="mb-3 flex flex-wrap gap-2">
+                                <Link
+                                    href={`/public/${orgSlug}/${tournament.slug}/overlay/standings?phaseId=${phase.id}&mode=groups`}
+                                    target="_blank"
+                                    className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
+                                >
+                                    Overlay classement par poule
+                                </Link>
+                                <Link
+                                    href={`/public/${orgSlug}/${tournament.slug}/overlay/standings?phaseId=${phase.id}&mode=global`}
+                                    target="_blank"
+                                    className="rounded-md border border-teal-300 px-2 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-50"
+                                >
+                                    Overlay classement global
+                                </Link>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                {Array.from({ length: groupConfig.count }, (_, i) => {
+                                    const gIdx = i + 1
+                                    const standings = computeGroupStandings(gIdx, groupConfig, phase.id, matches, teamNameById)
+                                    return (
+                                        <div key={`${phase.id}-standings-${gIdx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300">Poule {gIdx}</p>
+                                            {standings.length === 0 ? (
+                                                <p className="text-xs text-slate-500">Aucune equipe.</p>
+                                            ) : (
+                                                <table className="w-full text-[11px]">
+                                                    <thead>
+                                                        <tr className="text-slate-500">
+                                                            <th className="px-1 py-0.5 text-left">#</th>
+                                                            <th className="px-1 py-0.5 text-left">Equipe</th>
+                                                            <th className="px-1 py-0.5 text-right">Pts</th>
+                                                            <th className="px-1 py-0.5 text-right">J</th>
+                                                            <th className="px-1 py-0.5 text-right">GD</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </StepSection>
+                                                    </thead>
+                                                    <tbody>
+                                                        {standings.map((row, rank) => (
+                                                            <tr key={row.teamId} className={`border-t border-slate-200 ${rank === 0 ? 'text-amber-200' : 'text-slate-800'}`}>
+                                                                <td className="px-1 py-0.5 font-semibold">{rank + 1}</td>
+                                                                <td className="px-1 py-0.5 truncate max-w-[80px]">{row.teamName}</td>
+                                                                <td className="px-1 py-0.5 text-right font-bold">{row.points}</td>
+                                                                <td className="px-1 py-0.5 text-right">{row.played}</td>
+                                                                <td className={`px-1 py-0.5 text-right ${row.goalDiff > 0 ? 'text-emerald-400' : row.goalDiff < 0 ? 'text-red-400' : ''}`}>
+                                                                    {row.goalDiff > 0 ? '+' : ''}{row.goalDiff}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </StepSection>
+                    </div>
                 </div>
             )
         })

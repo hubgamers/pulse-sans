@@ -100,12 +100,12 @@ export default async function PublicTournamentPage({
                                 Overlay poules
                             </Link>
 
-                            <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?groupFrom=A&groupTo=N`, bg, bgDim)} className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20">
-                                Poules A-N
+                            <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?groupFrom=1&groupTo=4`, bg, bgDim)} className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20">
+                                Poules 1-4
                             </Link>
 
-                            <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?groupFrom=O&groupTo=Z`, bg, bgDim)} className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20">
-                                Poules O-Z
+                            <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?groupFrom=5&groupTo=8`, bg, bgDim)} className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20">
+                                Poules 5-8
                             </Link>
 
                             {hasGroupPhase ? (

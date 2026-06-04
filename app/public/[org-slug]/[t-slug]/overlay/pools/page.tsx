@@ -126,10 +126,7 @@ function parseGroupIndex(raw: string | undefined) {
     const numberValue = Number(value)
     if (Number.isInteger(numberValue) && numberValue > 0) return numberValue
 
-    const letters = value.toUpperCase()
-    if (!/^[A-Z]+$/.test(letters)) return null
-
-    return letters.split('').reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0)
+    return null
 }
 
 function readLaunchSlotPayload(value: unknown): LaunchSlotPayload | null {

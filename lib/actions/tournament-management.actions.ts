@@ -282,7 +282,7 @@ const RetryTournamentPropagationSchema = ManageTournamentBaseSchema.extend({
 
 const GenerateCustomPlacementBracketSchema = ManageTournamentBaseSchema.extend({
   phaseId: z.string().uuid(),
-  participantsCount: z.preprocess((value) => Number(value), z.number().int().min(4).max(64)),
+  participantsCount: z.preprocess((value) => Number(value), z.number().int().min(2).max(64)),
   startAt: z.preprocess((value) => {
     if (value === '' || value === null || value === undefined) return undefined
     const date = new Date(String(value))
@@ -4124,23 +4124,48 @@ export async function autoPlaceGroupTeams(
 
     const groupConfig = readGroupPhaseConfig(phase.config)
 
-    let registrations = await prisma.tournamentRegistration.findMany({
-      where: {
-        tournamentId,
-        ...(confirmedOnly ? { isConfirmed: true } : {}),
-      },
-      select: { teamId: true, seed: true, registeredAt: true },
-      orderBy: [{ seed: 'asc' }, { registeredAt: 'asc' }],
+    const incomingQualifiers = await resolveIncomingQualifierIdsForTargetPhase({
+      tournamentId,
+      targetPhaseId: phaseId,
     })
 
-    // UX safeguard: if "confirmed only" is requested but none are confirmed yet,
-    // fallback to all registrations so auto-placement still works in first setup.
-    if (confirmedOnly && registrations.length === 0) {
+    let registrations: Array<{ teamId: string; seed: number | null; registeredAt: Date }>
+
+    if (incomingQualifiers.hasRouting) {
+      if (incomingQualifiers.teamIds.length === 0) {
+        return { success: false, message: 'Aucune equipe qualifiee a placer pour cette phase.' }
+      }
+
+      const qualifierOrder = new Map(incomingQualifiers.teamIds.map((teamId, index) => [teamId, index]))
       registrations = await prisma.tournamentRegistration.findMany({
-        where: { tournamentId },
+        where: {
+          tournamentId,
+          teamId: { in: incomingQualifiers.teamIds },
+          ...(confirmedOnly ? { isConfirmed: true } : {}),
+        },
+        select: { teamId: true, seed: true, registeredAt: true },
+      })
+
+      registrations.sort((a, b) => (qualifierOrder.get(a.teamId) ?? 0) - (qualifierOrder.get(b.teamId) ?? 0))
+    } else {
+      registrations = await prisma.tournamentRegistration.findMany({
+        where: {
+          tournamentId,
+          ...(confirmedOnly ? { isConfirmed: true } : {}),
+        },
         select: { teamId: true, seed: true, registeredAt: true },
         orderBy: [{ seed: 'asc' }, { registeredAt: 'asc' }],
       })
+
+      // UX safeguard: if "confirmed only" is requested but none are confirmed yet,
+      // fallback to all registrations so auto-placement still works in first setup.
+      if (confirmedOnly && registrations.length === 0) {
+        registrations = await prisma.tournamentRegistration.findMany({
+          where: { tournamentId },
+          select: { teamId: true, seed: true, registeredAt: true },
+          orderBy: [{ seed: 'asc' }, { registeredAt: 'asc' }],
+        })
+      }
     }
 
     if (registrations.length === 0) {
@@ -4288,6 +4313,14 @@ export async function setGroupPlacement(
       if (!registration) {
         return { success: false, message: 'Equipe non inscrite au tournoi.' }
       }
+
+      const incomingQualifiers = await resolveIncomingQualifierIdsForTargetPhase({
+        tournamentId,
+        targetPhaseId: phaseId,
+      })
+      if (incomingQualifiers.hasRouting && !incomingQualifiers.teamIds.includes(teamId)) {
+        return { success: false, message: 'Cette equipe n\'est pas qualifiee pour cette phase.' }
+      }
     }
 
     let placements = groupConfig.placements.filter((placement) => {
@@ -4397,6 +4430,18 @@ export async function bulkSetGroupPlacements(
       const allRegistered = placements.every((placement) => registeredIds.has(placement.teamId))
       if (!allRegistered) {
         return { success: false, message: 'Certaines équipes ne sont pas inscrites au tournoi.' }
+      }
+
+      const incomingQualifiers = await resolveIncomingQualifierIdsForTargetPhase({
+        tournamentId,
+        targetPhaseId: phaseId,
+      })
+      if (incomingQualifiers.hasRouting) {
+        const qualifiedIds = new Set(incomingQualifiers.teamIds)
+        const allQualified = placements.every((placement) => qualifiedIds.has(placement.teamId))
+        if (!allQualified) {
+          return { success: false, message: 'Certaines equipes ne sont pas qualifiees pour cette phase.' }
+        }
       }
     }
 
@@ -5383,10 +5428,6 @@ export async function generateLinkedBracketMatches(
     const linkedPhasesByPhaseOrder = candidatePhases.filter(
       (phase) => readParallelGroupFromConfig(phase.config) === sourceGroup
     )
-
-    if (linkedPhasesByPhaseOrder.length <= 1) {
-      return generateCustomPlacementBracketMatches(formData)
-    }
 
     const routeOrderByPhaseId = await resolveLinkedBracketRouteOrder(
       tournamentId,

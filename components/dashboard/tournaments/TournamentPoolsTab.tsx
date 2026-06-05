@@ -9,7 +9,7 @@ import {
 } from '@/lib/actions/tournament-management.actions'
 import GroupPlacementBoard from './GroupPlacementBoard'
 import type { PhaseData, SerializedMatch, TournamentData } from './TournamentTabShell.types'
-import { computeGroupStandings, readGroupConfig, va } from './TournamentTabShell.utils'
+import { computeGroupStandings, readGroupConfig, readRoutes, va } from './TournamentTabShell.utils'
 import { EmptyState, LoadingSubmitButton, PhaseTypeBadge, StepSection } from './TournamentTabShell.helpers'
 
 type TournamentPoolsTabProps = {
@@ -18,6 +18,7 @@ type TournamentPoolsTabProps = {
     groupPhases: PhaseData[]
     matches: SerializedMatch[]
     teamNameById: Map<string, string>
+    incomingQualifiersByPhase: Map<string, string[]>
     inputCls: string
     btnPrimary: string
     btnGhost: string
@@ -29,6 +30,7 @@ export default function TournamentPoolsTab({
     groupPhases,
     matches,
     teamNameById,
+    incomingQualifiersByPhase,
     inputCls,
     btnPrimary,
     btnGhost,
@@ -45,6 +47,16 @@ export default function TournamentPoolsTab({
     ) : (
         groupPhases.map((phase) => {
             const groupConfig = readGroupConfig(phase.config)
+            const incomingQualifierIds = incomingQualifiersByPhase.get(phase.id) ?? []
+            const hasIncomingRoutes = tournament.phases.some((sourcePhase) =>
+                readRoutes(sourcePhase.config).some((route) => route.toPhaseId === phase.id)
+            )
+            const teamOptions = hasIncomingRoutes
+                ? incomingQualifierIds.map((teamId) => ({ id: teamId, name: teamNameById.get(teamId) ?? 'Equipe' }))
+                : tournament.registrations.map((r) => ({ id: r.teamId, name: r.team.name }))
+            const visiblePlacements = hasIncomingRoutes
+                ? groupConfig.placements.filter((placement) => incomingQualifierIds.includes(placement.teamId))
+                : groupConfig.placements
             const availablePitches = tournament.pitches.filter(
                 (pitch) => !pitch.phase || pitch.phase.id === phase.id
             )
@@ -109,6 +121,11 @@ export default function TournamentPoolsTab({
                                 ↺ Auto-placer (serpentin)
                             </LoadingSubmitButton>
                         </form>
+                        {hasIncomingRoutes && (
+                            <p className="mt-2 text-[11px] text-slate-500">
+                                Liste limitee aux {incomingQualifierIds.length} equipe(s) qualifiee(s) vers cette phase.
+                            </p>
+                        )}
                         <div className="mt-2">
                             <GroupPlacementBoard
                                 tournamentId={tournament.id}
@@ -117,8 +134,8 @@ export default function TournamentPoolsTab({
                                 phaseId={phase.id}
                                 groupCount={groupConfig.count}
                                 teamsPerGroup={groupConfig.teamsPerGroup}
-                                placements={groupConfig.placements}
-                                teamOptions={tournament.registrations.map((r) => ({ id: r.teamId, name: r.team.name }))}
+                                placements={visiblePlacements}
+                                teamOptions={teamOptions}
                             />
                         </div>
                     </StepSection>
@@ -200,6 +217,13 @@ export default function TournamentPoolsTab({
                     <div className="mb-40 lg:mb-48">
                         <StepSection num={4} title="Classements en direct" desc="Mis a jour apres chaque enregistrement de score. Tiebreaker : Pts > Diff buts > Buts marques." color="amber">
                             <div className="mb-3 flex flex-wrap gap-2">
+                                <Link
+                                    href={`/public/${orgSlug}/${tournament.slug}/overlay/pools?phaseId=${phase.id}`}
+                                    target="_blank"
+                                    className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50"
+                                >
+                                    Overlay poules phase
+                                </Link>
                                 <Link
                                     href={`/public/${orgSlug}/${tournament.slug}/overlay/standings?phaseId=${phase.id}&mode=groups`}
                                     target="_blank"

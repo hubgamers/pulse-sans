@@ -228,10 +228,18 @@ export default function TournamentBracketTab({
                         awayScore: m.result?.awayScore ?? null,
                     }))
                 const phaseParallelGroup = readParallelGroup(phase.config)
-                const canGenerateThisPhase = !phaseParallelGroup
+                const phaseParallelGroupSize = phaseParallelGroup
+                    ? bracketParallelGroups.find((group) => group.group === phaseParallelGroup)?.phases.length ?? 0
+                    : 0
+                const canGenerateThisPhase = !phaseParallelGroup || phaseParallelGroupSize <= 1
                 const incomingQualifierCount = (incomingQualifiersByPhase.get(phase.id) ?? []).length
                 const expectedCount = Math.max(expectedIncomingQualifierCountByPhase.get(phase.id) ?? 0, 0)
-                const defaultParticipantsCount = Math.max(incomingQualifierCount, expectedCount, 8)
+                const routedParticipantsCount = Math.max(incomingQualifierCount, expectedCount)
+                const defaultParticipantsCount = phase.type === 'PLACEMENT_BRACKET'
+                    ? Math.max(routedParticipantsCount, 4)
+                    : routedParticipantsCount > 0
+                        ? routedParticipantsCount
+                        : 8
 
                 return (
                     <div key={phase.id} className="space-y-3 rounded-2xl border border-slate-300 bg-white p-4">
@@ -265,7 +273,7 @@ export default function TournamentBracketTab({
                                         <input
                                             name="participantsCount"
                                             type="number"
-                                            min={4}
+                                            min={phase.type === 'PLACEMENT_BRACKET' ? 4 : 2}
                                             max={64}
                                             defaultValue={defaultParticipantsCount}
                                             className={`${inputCls} w-full`}
@@ -308,6 +316,13 @@ export default function TournamentBracketTab({
                                             defaultValue={planningDefaults.breakMinutes}
                                             className={`${inputCls} w-full`}
                                         />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs text-slate-500">Roulement</label>
+                                        <select name="rotationMode" defaultValue="sequential" className={`${inputCls} w-full`}>
+                                            <option value="sequential">Sequentiel</option>
+                                            <option value="interleaved">Rotations</option>
+                                        </select>
                                     </div>
                                     {phase.type === 'PLACEMENT_BRACKET' && (
                                         <div className="md:col-span-2">

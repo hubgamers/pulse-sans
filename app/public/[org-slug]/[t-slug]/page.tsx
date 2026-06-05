@@ -58,7 +58,10 @@ export default async function PublicTournamentPage({
         .sort((a, b) => a.order - b.order)
     const bracketAPhase = placementPhases[0] ?? null
     const bracketBPhase = placementPhases[1] ?? null
-    const hasGroupPhase = tournament.phases.some((phase) => phase.type === 'GROUP')
+    const groupPhases = tournament.phases
+        .filter((phase) => phase.type === 'GROUP')
+        .sort((a, b) => a.order - b.order)
+    const hasGroupPhase = groupPhases.length > 0
 
     return (
         <main className="min-h-screen bg-slate-950 text-white">
@@ -96,17 +99,38 @@ export default async function PublicTournamentPage({
                         </div>
 
                         <div className="mt-6 flex flex-wrap gap-3">
-                            <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools`, bg, bgDim)} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-bold text-amber-950 hover:bg-amber-300">
-                                Overlay poules
-                            </Link>
+                            {groupPhases.map((phase, index) => (
+                                <Link
+                                    key={`public-pools-overlay-${phase.id}`}
+                                    target='_blank'
+                                    href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?phaseId=${phase.id}`, bg, bgDim)}
+                                    className={`${index === 0 ? 'bg-amber-400 text-amber-950 hover:bg-amber-300' : 'border border-amber-300/40 bg-amber-300/10 text-amber-200 hover:bg-amber-300/20'} rounded-full px-4 py-2 text-xs font-bold`}
+                                >
+                                    Overlay poules - {phase.name}
+                                </Link>
+                            ))}
 
-                            <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?groupFrom=1&groupTo=4`, bg, bgDim)} className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20">
-                                Poules 1-4
-                            </Link>
+                            {groupPhases.map((phase) => (
+                                <Link
+                                    key={`public-pools-overlay-${phase.id}-1-4`}
+                                    target='_blank'
+                                    href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?phaseId=${phase.id}&groupFrom=1&groupTo=4`, bg, bgDim)}
+                                    className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20"
+                                >
+                                    {phase.name} - Poules 1-4
+                                </Link>
+                            ))}
 
-                            <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?groupFrom=5&groupTo=8`, bg, bgDim)} className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20">
-                                Poules 5-8
-                            </Link>
+                            {groupPhases.map((phase) => (
+                                <Link
+                                    key={`public-pools-overlay-${phase.id}-5-8`}
+                                    target='_blank'
+                                    href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/pools?phaseId=${phase.id}&groupFrom=5&groupTo=8`, bg, bgDim)}
+                                    className="rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300/20"
+                                >
+                                    {phase.name} - Poules 5-8
+                                </Link>
+                            ))}
 
                             {hasGroupPhase ? (
                                 <Link target='_blank' href={buildOverlayHref(`/public/${orgSlug}/${tournamentSlug}/overlay/standings`, bg, bgDim)} className="rounded-full bg-orange-400 px-4 py-2 text-xs font-bold text-orange-950 hover:bg-orange-300">

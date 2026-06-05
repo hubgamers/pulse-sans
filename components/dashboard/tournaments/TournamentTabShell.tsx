@@ -458,6 +458,7 @@ export default function TournamentTabShell({ orgSlug, tournament, availableTeams
                         groupPhases={groupPhases}
                         matches={matches}
                         teamNameById={teamNameById}
+                        incomingQualifiersByPhase={incomingQualifiersByPhase}
                         inputCls={inputCls}
                         btnPrimary={btnPrimary}
                         btnGhost={btnGhost}

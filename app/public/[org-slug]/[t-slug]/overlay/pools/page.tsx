@@ -14,6 +14,7 @@ import {
 import { OverlaySponsorStrip, readOverlaySponsors } from '../_lib/sponsors'
 
 type OverlaySearchParams = OverlayBackgroundSearchParams & {
+    phaseId?: string | string[]
     rotate?: string | string[]
     refresh?: string | string[]
     timer?: string | string[]
@@ -150,6 +151,7 @@ export default async function TournamentPoolsOverlayPage({
     const refreshSeconds = parseIntervalSeconds(firstParam(query.refresh), 10, 3, 120)
     const timerSecondsFromQuery = parseIntervalSeconds(firstParam(query.timer), 0, 0, 7200)
     const startedAtRaw = firstParam(query.startedAt)
+    const requestedPhaseId = firstParam(query.phaseId)
     const groupFrom = parseGroupIndex(firstParam(query.groupFrom))
     const groupTo = parseGroupIndex(firstParam(query.groupTo))
     const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
@@ -210,8 +212,11 @@ export default async function TournamentPoolsOverlayPage({
     const activeSlotAtMs = timerKind === 'MATCH' && Number.isFinite(latestLaunchSlotAtMs) ? latestLaunchSlotAtMs : NaN
 
     const groupOverviews = computeGroupOverviews(tournament.registrations, tournament.phases, matches)
+    const visibleGroupOverviews = requestedPhaseId
+        ? groupOverviews.filter((phase) => phase.phaseId === requestedPhaseId)
+        : groupOverviews
     const phaseNameById = new Map(tournament.phases.map((phase) => [phase.id, phase.name]))
-    const allCards = groupOverviews.flatMap((phase) =>
+    const allCards = visibleGroupOverviews.flatMap((phase) =>
         phase.groups.map((group) => {
             const sourcePhase = tournament.phases.find((item) => item.id === phase.phaseId)
             const qualificationMeta = buildQualificationMeta(sourcePhase?.config, phaseNameById)
@@ -258,7 +263,7 @@ export default async function TournamentPoolsOverlayPage({
 
     return (
         <>
-            {groupOverviews.length === 0 || cards.length === 0 ? (
+            {visibleGroupOverviews.length === 0 || cards.length === 0 ? (
                 <main className="min-h-screen bg-transparent text-slate-900" style={backgroundStyle}>
                     <div className="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col gap-4 px-4 py-4">
                         <section className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur">
@@ -272,17 +277,17 @@ export default async function TournamentPoolsOverlayPage({
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-right">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Phases de poules</p>
-                                    <p className="mt-1 text-2xl font-black text-teal-700">{groupOverviews.length}</p>
+                                    <p className="mt-1 text-2xl font-black text-teal-700">{visibleGroupOverviews.length}</p>
                                 </div>
                             </div>
                         </section>
 
                         <section className="rounded-3xl border border-slate-200 bg-white/95 p-8 text-center shadow-sm backdrop-blur">
                             <p className="text-lg font-semibold text-slate-700">
-                                {groupOverviews.length === 0 ? 'Aucune phase de poules configuree.' : 'Aucune poule dans cette plage.'}
+                                {visibleGroupOverviews.length === 0 ? 'Aucune phase de poules configuree.' : 'Aucune poule dans cette plage.'}
                             </p>
                             <p className="mt-2 text-sm text-slate-500">
-                                {groupOverviews.length === 0
+                                {visibleGroupOverviews.length === 0
                                     ? 'Cet overlay s\'active des qu\'une phase de type poule contient des equipes ou des matchs planifies.'
                                     : 'Verifiez les parametres groupFrom et groupTo de l\'URL.'}
                             </p>

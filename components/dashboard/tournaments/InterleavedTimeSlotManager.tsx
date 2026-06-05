@@ -67,7 +67,7 @@ function groupMatchesByPhase(matches: BracketMatch[], phases: PhaseData[]): Map<
 
 function formatTime(ms: number): string {
   const date = new Date(ms)
-  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
 }
 
 function getMatchLabel(match: BracketMatch): string {
@@ -100,14 +100,14 @@ export default function InterleavedTimeSlotManager({
     if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return
 
     const date = new Date()
-    date.setHours(hours, minutes, 0, 0)
+    const startTimeMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0, 0)
     const slotId = `slot-${Date.now()}`
 
     setTimeSlots((prev) => [
       ...prev,
       {
         id: slotId,
-        startTimeMs: date.getTime(),
+        startTimeMs,
         label: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
         selectedMatchIds: [],
       },

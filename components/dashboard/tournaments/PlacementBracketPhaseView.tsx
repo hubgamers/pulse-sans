@@ -231,19 +231,20 @@ function serializeInterleavedTimeSlots(slots: InterleavedTimeSlot[]): string {
 
 function formatDateTimeLocal(ms: number): string {
     const date = new Date(ms)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const hours = String(date.getUTCHours()).padStart(2, '0')
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0')
     return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
 function parseDateTimeLocal(value: string): number | null {
     if (!value) return null
-    const parsed = new Date(value)
-    const time = parsed.getTime()
-    return Number.isNaN(time) ? null : time
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
+    if (!match) return null
+    const [, year, month, day, hours, minutes] = match
+    return Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes), 0, 0)
 }
 
 function buildRotationLookup(slots: InterleavedTimeSlot[]): Map<string, string> {

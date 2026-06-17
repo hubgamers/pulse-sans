@@ -54,7 +54,7 @@ export default async function PublicTournamentPage({
         .slice(0, 8)
 
     const placementPhases = tournament.phases
-        .filter((phase) => phase.type === 'PLACEMENT_BRACKET')
+        .filter((phase) => phase.type === 'BRACKET_SINGLE' || phase.type === 'PLACEMENT_BRACKET')
         .sort((a, b) => a.order - b.order)
     const bracketAPhase = placementPhases[0] ?? null
     const bracketBPhase = placementPhases[1] ?? null

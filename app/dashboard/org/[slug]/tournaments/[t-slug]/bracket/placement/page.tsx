@@ -44,7 +44,7 @@ export default async function PlacementBracketEditPage({
             phases: {
                 orderBy: { order: 'asc' },
                 where: {
-                    type: 'PLACEMENT_BRACKET',
+                    type: { in: ['BRACKET_SINGLE', 'PLACEMENT_BRACKET'] },
                 },
             },
             actionLogs: {
@@ -81,7 +81,7 @@ export default async function PlacementBracketEditPage({
                 </div>
 
                 <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-                    Aucune phase de placement bracket configurée dans ce tournoi.
+                    Aucune phase de bracket simple ou placement bracket configurée dans ce tournoi.
                 </div>
             </div>
         )
@@ -121,7 +121,7 @@ export default async function PlacementBracketEditPage({
         where: {
             phase: {
                 tournamentId: tournament.id,
-                type: 'PLACEMENT_BRACKET',
+                type: { in: ['BRACKET_SINGLE', 'PLACEMENT_BRACKET'] },
             },
         },
         include: {

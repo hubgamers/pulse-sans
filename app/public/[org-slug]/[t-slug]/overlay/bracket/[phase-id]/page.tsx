@@ -1,8 +1,6 @@
 import { notFound } from 'next/navigation'
-import {
-    formatMatchDateLabel,
-    getPublicTournamentBySlugs,
-} from '@/lib/actions/tournament/public.queries'
+import PlacementBracketEditor from '@/components/dashboard/tournaments/PlacementBracketEditor'
+import { getPublicTournamentBySlugs } from '@/lib/actions/tournament/public.queries'
 import {
     buildOverlayBackgroundStyle,
     readOverlayBackgroundConfig,
@@ -12,41 +10,19 @@ import { OverlaySponsorStrip, readOverlaySponsors } from '../../_lib/sponsors'
 
 export const dynamic = 'force-dynamic'
 
-type OverlaySearchParams = OverlayBackgroundSearchParams & {
-    range?: string | string[]
+type OverlaySearchParams = OverlayBackgroundSearchParams
+
+type LaunchSlotPayload = {
+    startedAt?: string
+    stoppedAt?: string
+    timerMinutes?: number
+    launchedStatus?: string
+    timerKind?: 'MATCH' | 'BREAK' | 'STOP'
 }
 
-function firstParam(value: string | string[] | undefined) {
-    if (Array.isArray(value)) return value[0]
-    return value
-}
-
-function readPlacementLabels(config: unknown): Record<string, string> {
-    if (!config || typeof config !== 'object') return {}
-    const raw = (config as { placementLabels?: unknown }).placementLabels
-    if (!raw || typeof raw !== 'object') return {}
-
-    return Object.fromEntries(
-        Object.entries(raw as Record<string, unknown>)
-            .filter(([key, value]) => /^\d+-\d+$/.test(key) && typeof value === 'string' && value.trim().length > 0)
-            .map(([key, value]) => [key, (value as string).trim()])
-    )
-}
-
-function readPlacementRangesFromMatches(matches: Array<{ bracketPos: string | null }>) {
-    const ranges = new Set<string>()
-    for (const match of matches) {
-        const parsed = match.bracketPos?.match(/^P(\d+)-(\d+)-R\d+-M\d+$/)
-        if (!parsed) continue
-        ranges.add(`${Number(parsed[1])}-${Number(parsed[2])}`)
-    }
-
-    return Array.from(ranges)
-        .map((key) => {
-            const [start, end] = key.split('-').map(Number)
-            return { key, start, end, size: end - start + 1 }
-        })
-        .sort((a, b) => b.size - a.size || a.start - b.start)
+function readLaunchSlotPayload(value: unknown): LaunchSlotPayload | null {
+    if (!value || typeof value !== 'object') return null
+    return value as LaunchSlotPayload
 }
 
 export default async function TournamentBracketOverlayPage({
@@ -67,91 +43,74 @@ export default async function TournamentBracketOverlayPage({
     const backgroundStyle = buildOverlayBackgroundStyle(background.backgroundUrl, background.dim)
     const sponsors = readOverlaySponsors(tournament.sponsorConfig)
     const phase = tournament.phases.find((item) => item.id === phaseId)
-    if (!phase || phase.type !== 'PLACEMENT_BRACKET') notFound()
+    if (!phase || (phase.type !== 'BRACKET_SINGLE' && phase.type !== 'PLACEMENT_BRACKET')) notFound()
 
-    const phaseMatches = matches.filter((match) => match.phase.id === phaseId)
-    const ranges = readPlacementRangesFromMatches(phaseMatches)
-    if (ranges.length === 0) {
-        return (
-            <main className="min-h-screen bg-transparent text-slate-900" style={backgroundStyle}>
-                <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-6">
-                    <section className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                        <p className="text-xs uppercase tracking-[0.2em] text-teal-700">Overlay bracket placement</p>
-                        <h1 className="mt-2 text-3xl font-black">{phase.name}</h1>
-                        <p className="mt-2 text-sm text-slate-500">Aucun sous-bracket de placement detecte pour cette phase.</p>
-                    </section>
-                </div>
-                <OverlaySponsorStrip sponsors={sponsors} variant="light" />
-            </main>
-        )
-    }
+    const latestTimerEvent = tournament.actionLogs.find((log) => {
+        const launch = readLaunchSlotPayload(log.payload)
+        if (!launch) return false
+        if (log.actionType === 'TIMER_CONTROL' && launch.timerKind === 'STOP') return true
+        if (typeof launch.timerMinutes !== 'number') return false
+        if (log.actionType === 'TIMER_CONTROL' && launch.timerKind === 'BREAK') return true
+        if (log.actionType === 'MATCH_BULK_UPDATE' && launch.launchedStatus === 'LIVE') return true
+        return false
+    })
 
-    const placementLabels = readPlacementLabels(phase.config)
-    const requestedRange = firstParam(query.range)
-    const selectedRange = ranges.find((item) => item.key === requestedRange) ?? ranges[0]
+    const latestLaunchPayload = latestTimerEvent ? readLaunchSlotPayload(latestTimerEvent.payload) : null
+    const timerStopped = latestLaunchPayload?.timerKind === 'STOP'
+    const latestLaunchStartedAtMs = latestLaunchPayload?.startedAt ? new Date(latestLaunchPayload.startedAt).getTime() : Number.NaN
+    const latestLaunchCreatedAtMs = latestTimerEvent ? new Date(latestTimerEvent.createdAt).getTime() : Number.NaN
+    const latestLaunchTimerSeconds = !timerStopped && typeof latestLaunchPayload?.timerMinutes === 'number'
+        ? Math.max(0, Math.min(7200, Math.round(latestLaunchPayload.timerMinutes * 60)))
+        : 0
 
-    const rangeMatches = phaseMatches
-        .filter((match) => match.bracketPos?.startsWith(`P${selectedRange.key}-`))
-        .sort((a, b) => {
-            const aRound = a.roundNumber ?? 0
-            const bRound = b.roundNumber ?? 0
-            if (aRound !== bRound) return aRound - bRound
-            return (a.bracketPos ?? '').localeCompare(b.bracketPos ?? '')
-        })
+    const requestReferenceMs = Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : latestLaunchStartedAtMs
+    const maxAcceptedFutureMs = Number.isFinite(requestReferenceMs)
+        ? requestReferenceMs + 5 * 60 * 1000
+        : Number.MAX_SAFE_INTEGER
+    const rawTimerStartMs = Number.isFinite(latestLaunchStartedAtMs) ? latestLaunchStartedAtMs : latestLaunchCreatedAtMs
+    const resolvedTimerStartMs = Number.isFinite(rawTimerStartMs) && rawTimerStartMs <= maxAcceptedFutureMs
+        ? rawTimerStartMs
+        : (Number.isFinite(latestLaunchCreatedAtMs) ? latestLaunchCreatedAtMs : requestReferenceMs)
 
-    const title = placementLabels[selectedRange.key] ?? `Bracket ${selectedRange.key}`
+    const timerStartMs = !timerStopped && Number.isFinite(resolvedTimerStartMs) ? resolvedTimerStartMs : null
+    const timerMode = latestLaunchPayload?.timerKind === 'BREAK' ? 'BREAK' : 'MATCH'
 
     return (
-        <main className="min-h-screen bg-transparent text-slate-900" style={backgroundStyle}>
-            <div className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-6 py-6">
-                <section className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <p className="text-xs uppercase tracking-[0.2em] text-teal-700">Overlay bracket placement</p>
-                    <h1 className="mt-2 text-3xl font-black">{title}</h1>
-                    <p className="mt-1 text-sm text-slate-500">{tournament.name} · {phase.name}</p>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        {ranges.map((range) => {
-                            const label = placementLabels[range.key] ?? `Bracket ${range.key}`
-                            const isActive = range.key === selectedRange.key
-                            return (
-                                <a
-                                    key={`range-${range.key}`}
-                                    href={`/public/${orgSlug}/${tournamentSlug}/overlay/bracket/${phase.id}?range=${range.key}`}
-                                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${isActive
-                                        ? 'border-teal-500 bg-teal-50 text-teal-700'
-                                        : 'border-slate-300 bg-white text-slate-700 hover:border-slate-500'
-                                        }`}
-                                >
-                                    {label}
-                                </a>
-                            )
-                        })}
-                    </div>
-
-                    {rangeMatches.length === 0 ? (
-                        <p className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                            Aucun match trouve pour ce bracket.
-                        </p>
-                    ) : (
-                        <div className="mt-6 grid gap-3 md:grid-cols-2">
-                            {rangeMatches.map((match) => (
-                                <div key={match.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-[11px] uppercase tracking-wider text-slate-500">
-                                        {match.bracketPos ?? 'Match'} · {match.status} · {formatMatchDateLabel(match.scheduledAt)}
-                                    </p>
-                                    <p className="mt-1 text-base font-bold text-slate-900">
-                                        {match.homeTeam?.name ?? 'TBD'} {match.result?.homeScore ?? 0}
-                                        {' - '}
-                                        {match.result?.awayScore ?? 0} {match.awayTeam?.name ?? 'TBD'}
-                                    </p>
-                                    <p className="mt-1 text-xs text-slate-500">{match.pitch.name}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </section>
-            </div>
-            <OverlaySponsorStrip sponsors={sponsors} variant="light" />
-        </main>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" style={backgroundStyle}>
+            <PlacementBracketEditor
+                orgSlug={orgSlug}
+                tournamentSlug={tournament.slug}
+                tournamentId={tournament.id}
+                phases={[{
+                    id: phase.id,
+                    name: phase.name,
+                    type: phase.type,
+                    order: phase.order,
+                }]}
+                matches={matches
+                    .filter((match) => match.phase.id === phase.id)
+                    .map((match) => ({
+                        id: match.id,
+                        phaseId: match.phase.id,
+                        roundNumber: match.roundNumber,
+                        bracketPos: match.bracketPos,
+                        scheduledAt: match.scheduledAt ? match.scheduledAt.toISOString() : null,
+                        pitchName: match.pitch?.name ?? null,
+                        status: match.status,
+                        homeTeamId: match.homeTeam?.id ?? null,
+                        homeTeamName: match.homeTeam?.name || 'TBD',
+                        awayTeamId: match.awayTeam?.id ?? null,
+                        awayTeamName: match.awayTeam?.name || 'TBD',
+                        homeScore: match.result?.homeScore ?? null,
+                        awayScore: match.result?.awayScore ?? null,
+                    }))}
+                timerSeconds={latestLaunchTimerSeconds}
+                timerStartMs={timerStartMs}
+                timerMode={timerMode}
+                backgroundImageUrl={background.backgroundUrl}
+                backgroundDim={background.dim}
+            />
+            <OverlaySponsorStrip sponsors={sponsors} />
+        </div>
     )
 }

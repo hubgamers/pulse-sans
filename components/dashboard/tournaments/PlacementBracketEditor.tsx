@@ -427,15 +427,15 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
 
       <main className="flex-1 flex gap-4 min-h-0 relative z-10 px-2 overflow-hidden">
         {/* WINNER BRACKET */}
-        <div className="w-[30%] flex flex-col h-full">
+        <div className={`${isPlacementBracketPhase ? 'w-[30%]' : 'w-full'} flex flex-col h-full`}>
           <BracketCard
             rounds={winnerData}
             className="h-full border-none bg-transparent"
-            matchWidth="w-[120px]"
+            matchWidth={isPlacementBracketPhase ? 'w-[120px]' : 'w-[170px]'}
           />
         </div>
 
-        {isPlacementBracketPhase ? (
+        {isPlacementBracketPhase && (
           <div className="flex-1 min-h-0 overflow-hidden">
             {sizedPlacementTrees.length > 0 ? (
               <div className="h-full flex flex-col gap-4">
@@ -483,19 +483,6 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
                 Aucun bracket de placement généré
               </div>
             )}
-          </div>
-        ) : (
-          /* FALLBACK */
-          <div className="flex-1 grid grid-cols-2 gap-4">
-            {placementTrees.map((tree) => (
-              <BracketCard
-                key={`${tree.start}-${tree.end}`}
-                title={tree.title}
-                rounds={tree.rounds}
-                className="h-full bg-slate-900/20 border-white/5"
-                matchWidth="w-[120px]"
-              />
-            ))}
           </div>
         )}
       </main>

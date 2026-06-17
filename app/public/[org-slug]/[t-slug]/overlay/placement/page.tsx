@@ -51,15 +51,15 @@ export default async function PublicPlacementBracketOverlayPage({
     const sponsors = readOverlaySponsors(tournament.sponsorConfig)
 
     const placementPhases = tournament.phases
-        .filter((phase) => phase.type === 'PLACEMENT_BRACKET')
+        .filter((phase) => phase.type === 'BRACKET_SINGLE' || phase.type === 'PLACEMENT_BRACKET')
         .sort((a, b) => a.order - b.order)
 
     if (placementPhases.length === 0) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4" style={backgroundStyle}>
                 <div className="text-center">
-                    <h1 className="text-3xl font-black text-white mb-4">Aucune phase de placement bracket</h1>
-                    <p className="text-slate-400 mb-8">Ce tournoi n&apos;a pas de phase de placement bracket configuree.</p>
+                    <h1 className="text-3xl font-black text-white mb-4">Aucune phase de bracket</h1>
+                    <p className="text-slate-400 mb-8">Ce tournoi n&apos;a pas de phase bracket simple ou placement configuree.</p>
                 </div>
                 <OverlaySponsorStrip sponsors={sponsors} />
             </div>

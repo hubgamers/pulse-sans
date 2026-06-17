@@ -183,7 +183,7 @@ function renderLane(
 }
 
 export default function BracketPhaseView({ tournamentId, orgSlug, tournamentSlug, phase, matches, timer = null }: Props) {
-    if (phase.type === 'PLACEMENT_BRACKET') {
+    if (phase.type === 'PLACEMENT_BRACKET' || phase.type === 'BRACKET_SINGLE') {
         return (
             <PlacementBracketPhaseView
                 tournamentId={tournamentId}

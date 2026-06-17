@@ -52,7 +52,7 @@ export default async function ExternalPlacementBracketEditPage({
             phases: {
                 orderBy: { order: 'asc' },
                 where: {
-                    type: 'PLACEMENT_BRACKET',
+                    type: { in: ['BRACKET_SINGLE', 'PLACEMENT_BRACKET'] },
                 },
             },
             actionLogs: {
@@ -75,8 +75,8 @@ export default async function ExternalPlacementBracketEditPage({
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
                 <div className="text-center">
-                    <h1 className="text-3xl font-black text-white mb-4">Aucune phase de placement bracket</h1>
-                    <p className="text-slate-400 mb-8">Ce tournoi n'a pas de phase de placement bracket configurée.</p>
+                    <h1 className="text-3xl font-black text-white mb-4">Aucune phase de bracket</h1>
+                    <p className="text-slate-400 mb-8">Ce tournoi n&apos;a pas de phase bracket simple ou placement configurée.</p>
                     <a
                         href={`/dashboard/org/${canonicalOrgSlug}/tournaments/${tournament.slug}`}
                         className="inline-flex items-center rounded-xl border border-slate-600 px-6 py-3 text-sm font-semibold text-slate-300 hover:border-slate-400 hover:bg-slate-800 transition"
@@ -127,7 +127,7 @@ export default async function ExternalPlacementBracketEditPage({
         where: {
             phase: {
                 tournamentId: tournament.id,
-                type: 'PLACEMENT_BRACKET',
+                type: { in: ['BRACKET_SINGLE', 'PLACEMENT_BRACKET'] },
             },
             phaseId: currentPhase.id,
         },

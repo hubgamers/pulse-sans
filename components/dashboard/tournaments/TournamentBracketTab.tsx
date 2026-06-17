@@ -45,6 +45,16 @@ type TournamentBracketTabProps = {
     btnGhost: string
 }
 
+const GENERATABLE_BRACKET_PHASE_TYPES = ['CUSTOM', 'BRACKET_SINGLE', 'BRACKET_DOUBLE', 'PLACEMENT_BRACKET']
+
+function canGenerateBracketPhase(type: string) {
+    return GENERATABLE_BRACKET_PHASE_TYPES.includes(type)
+}
+
+function canReplayLosers(type: string) {
+    return type === 'CUSTOM' || type === 'BRACKET_DOUBLE'
+}
+
 export default function TournamentBracketTab({
     orgSlug,
     tournament,
@@ -71,7 +81,7 @@ export default function TournamentBracketTab({
 <div className="space-y-4">
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
         <p className="font-semibold text-slate-800">Visualisation bracket</p>
-        <p className="mt-1">Les colonnes representent les rounds. Cliquez sur un match pour voir son detail et mettre a jour le score. Pour les phases <em>Personnalisees</em>, generez d'abord la structure du bracket ci-dessous.</p>
+        <p className="mt-1">Les colonnes representent les rounds. Cliquez sur un match pour voir son detail et mettre a jour le score. Generez d&apos;abord la structure du bracket ci-dessous si aucun match n&apos;existe encore.</p>
     </div>
 
     {bracketPhases.length === 0 ? (
@@ -186,10 +196,12 @@ export default function TournamentBracketTab({
                                     <option value="interleaved">Entrelacer (alterner les brackets)</option>
                                 </select>
                             </div>
-                            <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
-                                <input name="includeLosersReplay" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
-                                Perdants rejouent (classement complet)
-                            </label>
+                            {group.phases.some((phase) => canReplayLosers(phase.type)) && (
+                                <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
+                                    <input name="includeLosersReplay" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
+                                    Perdants rejouent (classement complet)
+                                </label>
+                            )}
                             <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
                                 <input name="overwritePhaseMatches" type="checkbox" className="h-4 w-4 accent-amber-500" />
                                 <span className="text-amber-700">Ecraser les matchs</span>
@@ -260,8 +272,8 @@ export default function TournamentBracketTab({
                             timer={bracketTimerContext}
                         />
 
-                        {(phase.type === 'CUSTOM' || phase.type === 'PLACEMENT_BRACKET') && canGenerateThisPhase && (
-                            <StepSection num={1} title="Generer la structure du bracket personnalise" desc="Definissez le nombre de participants. Pour un bracket a placement, vous pouvez aussi configurer les plages de classement.">
+                        {canGenerateBracketPhase(phase.type) && canGenerateThisPhase && (
+                            <StepSection num={1} title="Generer la structure du bracket" desc="Definissez le nombre de participants. Pour un bracket a placement, vous pouvez aussi configurer les plages de classement.">
                                 <form action={customBracketGenerationAction} className="grid gap-2 md:grid-cols-10">
                                     <input type="hidden" name="tournamentId" value={tournament.id} />
                                     <input type="hidden" name="orgSlug" value={orgSlug} />
@@ -337,10 +349,12 @@ export default function TournamentBracketTab({
                                             </p>
                                         </div>
                                     )}
-                                    <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
-                                        <input name="includeLosersReplay" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
-                                        Perdants rejouent (classement complet)
-                                    </label>
+                                    {canReplayLosers(phase.type) && (
+                                        <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
+                                            <input name="includeLosersReplay" type="checkbox" defaultChecked className="h-4 w-4 accent-teal-600" />
+                                            Perdants rejouent (classement complet)
+                                        </label>
+                                    )}
                                     <label className={`flex cursor-pointer items-center gap-2 self-end ${inputCls}`}>
                                         <input name="overwritePhaseMatches" type="checkbox" className="h-4 w-4 accent-amber-500" />
                                         <span className="text-amber-700">Ecraser les matchs</span>
@@ -522,7 +536,7 @@ export default function TournamentBracketTab({
                             </StepSection>
                         )}
 
-                        {(phase.type === 'CUSTOM' || phase.type === 'PLACEMENT_BRACKET') && !canGenerateThisPhase && phaseParallelGroup && (
+                        {canGenerateBracketPhase(phase.type) && !canGenerateThisPhase && phaseParallelGroup && (
                             <div className="rounded-lg border border-cyan-300 bg-cyan-50 p-3 text-xs text-cyan-800">
                                 Cette phase est liee au groupe <span className="font-semibold">{phaseParallelGroup}</span>. Utilisez l'onglet de groupe parallele pour generer tous les brackets lies en une seule fois.
                             </div>

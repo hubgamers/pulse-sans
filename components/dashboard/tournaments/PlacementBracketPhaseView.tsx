@@ -728,6 +728,7 @@ export default function PlacementBracketPhaseView({
     fullscreen = false,
     showFullscreenLink = true,
 }: Props) {
+    const isPlacementBracketPhase = phase.type === 'PLACEMENT_BRACKET'
     const [nowMs, setNowMs] = useState(() => Date.now())
     const [isSavingTimeSlots, setIsSavingTimeSlots] = useState(false)
     const [rotationSaveMessage, setRotationSaveMessage] = useState<{ success: boolean; message: string } | null>(null)
@@ -990,11 +991,11 @@ export default function PlacementBracketPhaseView({
             )}
 
             <main className="flex-1 flex gap-4 min-h-0 relative z-10 px-2 overflow-hidden">
-                <div className="w-[30%] flex flex-col h-full">
+                <div className={`${isPlacementBracketPhase ? 'w-[30%]' : 'w-full'} flex flex-col h-full`}>
                     <BracketCard
                         rounds={winnerData}
                         className="h-full border-none bg-transparent"
-                        matchWidth="w-[100px]"
+                        matchWidth={isPlacementBracketPhase ? 'w-[100px]' : 'w-[150px]'}
                         orgSlug={orgSlug}
                         tournamentSlug={tournamentSlug}
                         onExpand={() => openFullscreenBracket('winner', 'Bracket principal', winnerData)}
@@ -1008,6 +1009,7 @@ export default function PlacementBracketPhaseView({
                     />
                 </div>
 
+                {isPlacementBracketPhase && (
                 <div className="flex-1 min-h-0 overflow-hidden">
                     {sizedPlacementTrees.length > 0 ? (
                         <div className="h-full flex flex-col gap-3">
@@ -1071,6 +1073,7 @@ export default function PlacementBracketPhaseView({
                         </div>
                     )}
                 </div>
+                )}
             </main>
 
             <footer className="mt-4 flex justify-between items-end relative z-10 border-t border-white/5 pt-3">
@@ -1098,7 +1101,7 @@ export default function PlacementBracketPhaseView({
             <div className="rounded-[26px] border border-slate-200 bg-white px-6 py-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                     <div className="text-center flex-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Admin placement bracket</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Admin bracket</p>
                         <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">{phase.name}</h3>
                         <p className="mt-2 text-sm text-slate-500">Meme affichage que l'editeur externe, avec edition des scores depuis chaque match.</p>
                     </div>
@@ -1230,7 +1233,7 @@ export default function PlacementBracketPhaseView({
 
             {matches.length === 0 ? (
                 <div className="rounded-[26px] border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-                    Aucun match de bracket de placement dans cette phase.
+                    Aucun match de bracket dans cette phase.
                 </div>
             ) : (
                 renderBracketBoard({})
@@ -1322,7 +1325,7 @@ export default function PlacementBracketPhaseView({
                 </div>
             )}
 
-            {segmentsToDisplay.length > 0 && (
+            {isPlacementBracketPhase && segmentsToDisplay.length > 0 && (
                 <div className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="mb-3 flex items-center justify-between">
                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Classement lie des brackets</p>

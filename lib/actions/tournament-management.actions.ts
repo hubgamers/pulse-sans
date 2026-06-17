@@ -1859,6 +1859,7 @@ function buildBracketSkeleton(params: {
 
   if (
     phaseType !== 'PLACEMENT_BRACKET' &&
+    phaseType !== 'BRACKET_SINGLE' &&
     includeLosersReplay
   ) {
     for (
@@ -1937,7 +1938,7 @@ function buildBracketSkeleton(params: {
         )
       }
     }
-  } else if (normalizedSize >= 4) {
+  } else if (phaseType !== 'BRACKET_SINGLE' && normalizedSize >= 4) {
     for (
       let place = 3;
       place <= normalizedSize;

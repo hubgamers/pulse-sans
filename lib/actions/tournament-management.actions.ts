@@ -329,14 +329,31 @@ function comparePitchNames(a: string, b: string) {
   return a.localeCompare(b, 'fr', { numeric: true, sensitivity: 'base' })
 }
 
-function uniquePitchResources(pitches: Array<{ id: string; name: string }>) {
-  const resources = new Map<string, { id: string; key: string }>()
-  for (const pitch of pitches) {
+function uniquePitchResources(
+  pitches: Array<{ id: string; name: string; phaseId?: string | null }>,
+  preferredPhaseId?: string | null
+) {
+  const candidates = preferredPhaseId
+    ? pitches.filter((pitch) => pitch.phaseId === preferredPhaseId || pitch.phaseId === null)
+    : pitches
+
+  const hasPhaseSpecificPitches = preferredPhaseId
+    ? pitches.some((pitch) => pitch.phaseId === preferredPhaseId)
+    : false
+
+  const scopedPitches = hasPhaseSpecificPitches && preferredPhaseId
+    ? candidates.filter((pitch) => pitch.phaseId === preferredPhaseId)
+    : candidates
+
+  const resources = new Map<string, { id: string; key: string; phaseId?: string | null }>()
+
+  for (const pitch of scopedPitches) {
     const key = toPitchResourceKey(pitch.name)
     if (!resources.has(key)) {
-      resources.set(key, { id: pitch.id, key })
+      resources.set(key, { id: pitch.id, key, phaseId: pitch.phaseId })
     }
   }
+
   return Array.from(resources.values()).sort((a, b) => comparePitchNames(a.key, b.key))
 }
 
@@ -1795,6 +1812,7 @@ type BracketSkeletonMatch = {
   bracketPos: string
   homeTeamId?: string | null
   awayTeamId?: string | null
+  pitchResources?: Array<{ id: string; key: string }>
 }
 
 function buildBracketSkeleton(params: {
@@ -1849,6 +1867,7 @@ function buildBracketSkeleton(params: {
         phaseId,
         roundNumber: round,
         bracketPos: `WB-R${round}-M${matchNo}`,
+        pitchResources,
       })
     }
   }
@@ -1881,6 +1900,7 @@ function buildBracketSkeleton(params: {
           phaseId,
           roundNumber: rounds + round,
           bracketPos: `LB-R${round}-M${matchNo}`,
+          pitchResources,
         })
       }
     }
@@ -1948,6 +1968,7 @@ function buildBracketSkeleton(params: {
         phaseId,
         roundNumber: rounds + 10,
         bracketPos: `P${place}-P${place + 1}`,
+        pitchResources,
       })
     }
   }
@@ -2015,6 +2036,7 @@ function scheduleBracketMatches(params: {
     bracketPos: string
     homeTeamId?: string | null
     awayTeamId?: string | null
+    pitchResources?: Array<{ id: string; key: string }>
   }>
   pitchResources: Array<{ id: string; key: string }>
   startTimeMs: number
@@ -2090,6 +2112,7 @@ function scheduleBracketMatches(params: {
 
     for (let index = 0; index < pending.length; index += 1) {
       const match = pending[index]
+      const matchPitchResources = match.pitchResources ?? pitchResources
       const dependencies = getDependencies(match.phaseId, match.bracketPos)
       const dependencyEndTimes = dependencies.map((key) => scheduledEndByBracketPos.get(key))
       if (dependencyEndTimes.some((value) => value === undefined)) {
@@ -2101,7 +2124,7 @@ function scheduleBracketMatches(params: {
         : startTimeMs
       const stageFloor = startTimeMs + (match.roundNumber - 1) * roundDurationMs
 
-      for (const pitch of pitchResources) {
+      for (const pitch of matchPitchResources) {
         const candidateStart = findEarliestPitchSlot(pitch.key, Math.max(stageFloor, dependencyReadyAt))
 
         const currentBestPhaseCount = scheduledCountByPhase.get(pending[bestPendingIndex]?.phaseId ?? '') ?? 0
@@ -2123,11 +2146,12 @@ function scheduleBracketMatches(params: {
     if (bestPendingIndex === -1) {
       const fallback = pending.shift()
       if (!fallback) break
+      const fallbackPitchResources = fallback.pitchResources ?? pitchResources
       const stageFloor = startTimeMs + (fallback.roundNumber - 1) * roundDurationMs
-      let fallbackPitch = pitchResources[0]
+      let fallbackPitch = fallbackPitchResources[0]
       let fallbackStart = Number.POSITIVE_INFINITY
 
-      for (const pitch of pitchResources) {
+      for (const pitch of fallbackPitchResources) {
         const candidateStart = findEarliestPitchSlot(pitch.key, stageFloor)
         if (candidateStart < fallbackStart) {
           fallbackStart = candidateStart
@@ -2189,6 +2213,89 @@ function buildInterleavedTimeSlotsFromMatches(matches: Array<{ id: string; sched
       label: `R${index + 1}`,
       selectedMatchIds,
     }))
+}
+
+async function applyInterleavedPhasePitchAssignments(params: {
+  tx: Prisma.TransactionClient
+  tournamentId: string
+  phaseId: string
+  matchTimeById: Map<string, Date>
+}) {
+  const { tx, tournamentId, phaseId, matchTimeById } = params
+  const matchIds = Array.from(matchTimeById.keys())
+
+  if (matchIds.length === 0) return
+
+  const matches = await tx.match.findMany({
+    where: {
+      phaseId,
+      id: { in: matchIds },
+    },
+    select: {
+      id: true,
+      pitchId: true,
+      scheduledAt: true,
+      roundNumber: true,
+      bracketPos: true,
+    },
+  })
+
+  if (matches.length === 0) return
+
+  const pitches = await tx.pitch.findMany({
+    where: {
+      tournamentId,
+      OR: [{ phaseId }, { phaseId: null }],
+    },
+    select: { id: true, name: true, phaseId: true },
+    orderBy: { name: 'asc' },
+  })
+
+  const pitchResources = uniquePitchResources(pitches, phaseId)
+  if (pitchResources.length === 0) return
+
+  const matchesByTime = new Map<number, typeof matches>()
+
+  for (const match of matches) {
+    const targetScheduledAt = matchTimeById.get(match.id) ?? match.scheduledAt
+    if (!targetScheduledAt) continue
+    const key = targetScheduledAt.getTime()
+    const bucket = matchesByTime.get(key) ?? []
+    bucket.push(match)
+    matchesByTime.set(key, bucket)
+  }
+
+  const pitchAssignments = new Map<string, string>()
+
+  for (const [startTimeMs, bucket] of Array.from(matchesByTime.entries()).sort((a, b) => a[0] - b[0])) {
+    const orderedMatches = [...bucket].sort((a, b) => {
+      if ((a.roundNumber ?? 0) !== (b.roundNumber ?? 0)) {
+        return (a.roundNumber ?? 0) - (b.roundNumber ?? 0)
+      }
+      return (a.bracketPos ?? '').localeCompare(b.bracketPos ?? '')
+    })
+
+    const usedPitchIds = new Set<string>()
+    for (const match of orderedMatches) {
+      const assignedPitch = pitchResources.find((pitch) => !usedPitchIds.has(pitch.id))
+      if (!assignedPitch) continue
+      usedPitchIds.add(assignedPitch.id)
+      pitchAssignments.set(match.id, assignedPitch.id)
+    }
+  }
+
+  for (const match of matches) {
+    const targetScheduledAt = matchTimeById.get(match.id) ?? match.scheduledAt
+    const nextPitchId = pitchAssignments.get(match.id) ?? match.pitchId
+
+    await tx.match.update({
+      where: { id: match.id },
+      data: {
+        scheduledAt: targetScheduledAt ?? null,
+        ...(nextPitchId ? { pitchId: nextPitchId } : {}),
+      },
+    })
+  }
 }
 
 export async function createTournamentPitch(
@@ -3722,7 +3829,7 @@ export async function generatePhaseRoundRobinMatches(
           tournamentId,
           OR: [{ phaseId }, { phaseId: null }],
         },
-        select: { id: true, name: true },
+        select: { id: true, name: true, phaseId: true },
         orderBy: { name: 'asc' },
       }),
       prisma.tournamentRegistration.findMany({
@@ -3748,7 +3855,7 @@ export async function generatePhaseRoundRobinMatches(
       return { success: false, message: 'Ajoutez au moins une piste avant generation.' }
     }
 
-    const pitchResources = uniquePitchResources(pitches)
+    const pitchResources = uniquePitchResources(pitches, phase.id)
 
     const existingScheduledMatches = await prisma.match.findMany({
       where: {
@@ -4523,7 +4630,7 @@ export async function generateGroupMatchesFromPlacements(
       return { success: false, message: 'Aucune poule avec au moins 2 équipes placees.' }
     }
 
-    const pitchResources = uniquePitchResources(pitches)
+    const pitchResources = uniquePitchResources(pitches, phase.id)
 
     const existingScheduledMatches = await prisma.match.findMany({
       where: {
@@ -5220,7 +5327,7 @@ export async function generateCustomPlacementBracketMatches(
       return { success: false, message: 'Ajoutez au moins une piste associee au tournoi/phase.' }
     }
 
-    const pitchResources = uniquePitchResources(pitches)
+    const pitchResources = uniquePitchResources(pitches, phase.id)
 
     const existing = await prisma.match.count({ where: { phaseId } })
     if (existing > 0 && !overwritePhaseMatches) {
@@ -5465,7 +5572,7 @@ export async function generateLinkedBracketMatches(
             tournamentId,
             OR: [...linkedPhaseIds.map((id) => ({ phaseId: id })), { phaseId: null }],
           },
-          select: { id: true, name: true },
+          select: { id: true, name: true, phaseId: true },
           orderBy: { name: 'asc' },
         }),
         prisma.tournamentRegistration.findMany({
@@ -5487,7 +5594,7 @@ export async function generateLinkedBracketMatches(
         return { success: false, message: 'Ajoutez au moins une piste associee au tournoi/phase.' }
       }
 
-      const pitchResources = uniquePitchResources(pitches)
+      const pitchResources = uniquePitchResources(pitches, linkedPhaseIds[0])
       const linkedPhaseIdSet = new Set(linkedPhaseIds)
 
       const effectiveExistingMatches = hasExplicitStartAt
@@ -5537,6 +5644,10 @@ export async function generateLinkedBracketMatches(
 
         const phaseRounds = Math.ceil(Math.log2(effectiveParticipantsCount))
         const phaseNormalizedSize = 2 ** phaseRounds
+        const phasePitchResources = uniquePitchResources(
+          pitches.filter((pitch) => pitch.phaseId === phase.id || pitch.phaseId === null),
+          phase.id
+        )
 
         const skeletonResult = buildBracketSkeleton({
           phaseId: phase.id,
@@ -5546,7 +5657,7 @@ export async function generateLinkedBracketMatches(
           includeLosersReplay,
           placementRanges,
           placementOffset: phasePlacementOffset,
-          pitchResources,
+          pitchResources: phasePitchResources,
           roundDurationMs,
         })
 
@@ -6154,22 +6265,17 @@ export async function configureInterleavedTimeSlots(
         ? ({ ...(phase.config as Record<string, unknown>) } as Prisma.InputJsonObject)
         : {}
 
-    const slotScheduleUpdates = timeSlots
-      .filter((slot) => slot.selectedMatchIds.length > 0)
-      .map((slot) =>
-        prisma.match.updateMany({
-          where: {
-            phaseId,
-            id: { in: slot.selectedMatchIds },
-          },
-          data: {
-            scheduledAt: new Date(slot.startTimeMs),
-          },
-        })
-      )
+    const matchTimeById = new Map<string, Date>()
+    for (const slot of timeSlots) {
+      if (slot.selectedMatchIds.length === 0) continue
+      const scheduledAt = new Date(slot.startTimeMs)
+      slot.selectedMatchIds.forEach((matchId) => {
+        matchTimeById.set(matchId, scheduledAt)
+      })
+    }
 
-    await prisma.$transaction([
-      prisma.phase.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.phase.update({
         where: { id: phaseId },
         data: {
           config: {
@@ -6177,9 +6283,15 @@ export async function configureInterleavedTimeSlots(
             interleavedTimeSlots: timeSlots,
           } as Prisma.InputJsonValue,
         },
-      }),
-      ...slotScheduleUpdates,
-    ])
+      })
+
+      await applyInterleavedPhasePitchAssignments({
+        tx,
+        tournamentId,
+        phaseId,
+        matchTimeById,
+      })
+    })
 
     await recordTournamentAction({
       tournamentId,
@@ -6291,15 +6403,14 @@ export async function configureGroupInterleavedTimeSlots(
       return { success: false, message: 'Un match est assigne multiple fois au meme creneau.' }
     }
 
-    // Update config for all linked phases with interleaved time slots
-    await prisma.$transaction(
-      linkedPhases.map((phase) => {
+    await prisma.$transaction(async (tx) => {
+      for (const phase of linkedPhases) {
         const baseConfig: Prisma.InputJsonObject =
           phase.config && typeof phase.config === 'object'
             ? ({ ...(phase.config as Record<string, unknown>) } as Prisma.InputJsonObject)
             : {}
 
-        return prisma.phase.update({
+        await tx.phase.update({
           where: { id: phase.id },
           data: {
             config: {
@@ -6308,8 +6419,34 @@ export async function configureGroupInterleavedTimeSlots(
             } as Prisma.InputJsonValue,
           },
         })
-      })
-    )
+      }
+
+      for (const phase of linkedPhases) {
+        const phaseMatchTimeById = new Map<string, Date>()
+        const phaseMatchIds = new Set<string>()
+
+        const existingMatches = await tx.match.findMany({
+          where: { phaseId: phase.id },
+          select: { id: true },
+        })
+
+        existingMatches.forEach((match) => phaseMatchIds.add(match.id))
+
+        for (const slot of timeSlots) {
+          slot.selectedMatchIds.forEach((matchId) => {
+            if (!phaseMatchIds.has(matchId)) return
+            phaseMatchTimeById.set(matchId, new Date(slot.startTimeMs))
+          })
+        }
+
+        await applyInterleavedPhasePitchAssignments({
+          tx,
+          tournamentId,
+          phaseId: phase.id,
+          matchTimeById: phaseMatchTimeById,
+        })
+      }
+    })
 
     await recordTournamentAction({
       tournamentId,

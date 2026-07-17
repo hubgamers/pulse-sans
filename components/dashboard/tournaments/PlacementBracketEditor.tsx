@@ -175,7 +175,7 @@ function countTreeMatches(tree: PlacementTree): number {
 
 // --- UI Components ---
 
-const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isFinished }: { players: DisplayPlayer[]; isFinal: boolean; width: string; scheduledAt: string | null; pitchName: string | null; isLive?: boolean; isFinished?: boolean }) => {
+const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isFinished, isNextMatch }: { players: DisplayPlayer[]; isFinal: boolean; width: string; scheduledAt: string | null; pitchName: string | null; isLive?: boolean; isFinished?: boolean; isNextMatch?: boolean; }) => {
   const scores = players.map(p => p.score ?? -1);
   const highImg = Math.max(...scores);
 
@@ -185,17 +185,51 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
       ${isFinal ? 'border-[#ccff00] shadow-[0_0_15px_rgba(204,255,0,0.15)]' : 'border-white/20'}
       ${isLive ? 'border-l-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)] animate-pulse' : ''}
       ${isFinished ? 'border-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.3)]' : ''}
+      ${isNextMatch ? 'border-l-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]' : ''}
     `}>
 
       {/* Header : Heure et Terrain */}
       {(scheduledAt || pitchName) && (
-        <div className={`flex items-center justify-between px-1.5 py-0.5 border-b border-white/5 ${isLive ? 'bg-emerald-500/10' : 'bg-white/5'}`}>
+        <div className={`
+    flex items-center justify-between px-1.5 py-0.5 border-b border-white/5
+    ${isLive
+            ? 'bg-emerald-500/10'
+            : isNextMatch
+              ? 'bg-amber-500/10'
+              : 'bg-white/5'}
+  `}>
           <div className="flex items-center gap-1">
-            <div className={`w-1 h-1 rounded-full ${isLive ? 'bg-emerald-400 animate-bounce' : 'bg-[#ccff00]'}`} />
-            <span className={`text-[7px] font-black tracking-tighter uppercase ${isLive ? 'text-emerald-400' : 'text-slate-400'}`}>
-              {isLive ? 'EN DIRECT' : (scheduledAt && new Date(scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }))}
+            <div className={`
+        w-1 h-1 rounded-full
+        ${isLive
+                ? 'bg-emerald-400 animate-bounce'
+                : isNextMatch
+                  ? 'bg-amber-400 animate-pulse'
+                  : 'bg-[#ccff00]'}
+      `} />
+
+            <span className={`
+        text-[7px] font-black tracking-tighter uppercase
+        ${isLive
+                ? 'text-emerald-400'
+                : isNextMatch
+                  ? 'text-amber-400'
+                  : 'text-slate-400'}
+      `}>
+              {isLive
+                ? 'EN DIRECT'
+                : isNextMatch
+                  ? 'PROCHAIN'
+                  : (scheduledAt &&
+                    new Date(scheduledAt).toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      timeZone: 'UTC'
+                    }))
+              }
             </span>
           </div>
+
           {pitchName && (
             <span className="text-[7px] font-bold text-white/40 uppercase truncate max-w-[40px]">
               {pitchName}
@@ -233,7 +267,7 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
 };
 
 // COMPOSANT CORRIGÉ : Utilisation native du système Flexbox pour les traits
-const BracketRound = ({ round, roundIdx, isLast, matchWidth }: { round: BracketRoundData; roundIdx: number; isLast: boolean; matchWidth: string }) => {
+const BracketRound = ({ round, roundIdx, isLast, matchWidth, upcomingMatchIds }: { round: BracketRoundData; roundIdx: number; isLast: boolean; matchWidth: string; upcomingMatchIds: Set<string>; }) => {
   const matches = round.matches;
 
   return (
@@ -244,12 +278,13 @@ const BracketRound = ({ round, roundIdx, isLast, matchWidth }: { round: BracketR
 
       <div className="flex flex-col flex-grow relative w-full">
         {matches.map((match, idx) => {
+          const isNextMatch = upcomingMatchIds.has(match.id);
           const isTop = idx % 2 === 0;
           const isOddLast = isTop && idx === matches.length - 1;
 
           return (
             <div key={match.id} className="relative flex items-center flex-1 w-full">
-              
+
               {/* Connecteur Entrant (Gauche) : Comble le "ml-4" natif de MatchBox */}
               {roundIdx > 0 && (
                 <div className="absolute left-0 top-1/2 w-4 h-[1px] -translate-y-1/2 bg-white/20" />
@@ -263,6 +298,7 @@ const BracketRound = ({ round, roundIdx, isLast, matchWidth }: { round: BracketR
                 pitchName={match.pitchName}
                 isLive={match.isLive}
                 isFinished={match.isFinished}
+                isNextMatch={isNextMatch}
               />
 
               {/* Connecteurs Sortants (Droite) */}
@@ -291,7 +327,7 @@ const BracketRound = ({ round, roundIdx, isLast, matchWidth }: { round: BracketR
   );
 };
 
-const BracketCard = ({ title, rounds, className = '', matchWidth = 'w-[80px]' }: { title?: string; rounds: BracketRoundData[]; className?: string; matchWidth?: string }) => (
+const BracketCard = ({ title, rounds, className = '', matchWidth = 'w-[80px]', upcomingMatchIds }: { title?: string; rounds: BracketRoundData[]; className?: string; matchWidth?: string; upcomingMatchIds: Set<string>; }) => (
   <div className={`flex flex-col bg-white/[0.02] border border-white/5 rounded p-2 overflow-hidden ${className}`}>
     {title && (
       <div className="flex items-center gap-2 mb-2">
@@ -308,6 +344,7 @@ const BracketCard = ({ title, rounds, className = '', matchWidth = 'w-[80px]' }:
             roundIdx={i}
             isLast={i === rounds.length - 1}
             matchWidth={matchWidth}
+            upcomingMatchIds={upcomingMatchIds}
           />
         ))
       ) : (
@@ -365,6 +402,61 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
   const phaseMatches = currentPhase
     ? matches.filter(match => match.phaseId === currentPhase.id)
     : matches;
+
+  const upcomingMatchIds = useMemo(() => {
+    const getTime = (date: string | null) =>
+      date ? new Date(date).getTime() : null;
+
+    // Matchs LIVE actuels
+    const liveMatches = phaseMatches.filter(
+      (m) => m.status === 'LIVE' && m.scheduledAt
+    );
+
+    // Derniers matchs terminés (fallback)
+    const finishedMatches = phaseMatches
+      .filter((m) => m.status === 'FINISHED' && m.scheduledAt)
+      .sort(
+        (a, b) =>
+          getTime(b.scheduledAt)! - getTime(a.scheduledAt)!
+      );
+
+    // Priorité LIVE, sinon dernier FINISHED
+    const referenceScheduledAt =
+      liveMatches.length > 0
+        ? getTime(liveMatches[0].scheduledAt)
+        : finishedMatches.length > 0
+          ? getTime(finishedMatches[0].scheduledAt)
+          : null;
+
+    if (referenceScheduledAt === null) {
+      return new Set<string>();
+    }
+
+    // Matchs non commencés
+    const waitingMatches = phaseMatches
+      .filter(
+        (m) =>
+          m.status === 'SCHEDULED' &&
+          m.scheduledAt &&
+          getTime(m.scheduledAt)! > referenceScheduledAt
+      )
+      .sort(
+        (a, b) =>
+          getTime(a.scheduledAt)! - getTime(b.scheduledAt)!
+      );
+
+    // Premier créneau uniquement
+    const nextScheduledAt = waitingMatches[0]?.scheduledAt;
+
+    return new Set(
+      waitingMatches
+        .filter(
+          (m) =>
+            getTime(m.scheduledAt) === getTime(nextScheduledAt ?? null)
+        )
+        .map((m) => m.id)
+    );
+  }, [phaseMatches]);
 
   const winnerData = buildWinnerData(phaseMatches);
   const placementTrees = buildPlacementTrees(phaseMatches);
@@ -432,6 +524,8 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
             rounds={winnerData}
             className="h-full border-none bg-transparent"
             matchWidth={isPlacementBracketPhase ? 'w-[120px]' : 'w-[170px]'}
+            upcomingMatchIds={upcomingMatchIds}
+
           />
         </div>
 
@@ -451,6 +545,8 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
                           rounds={tree.rounds}
                           className="w-full h-[115px] bg-slate-950/40 border-white/5"
                           matchWidth="w-full"
+                          upcomingMatchIds={upcomingMatchIds}
+
                         />
                       ))}
                     </div>
@@ -468,6 +564,8 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
                           rounds={tree.rounds}
                           className={`bg-slate-900/20 border-white/5 ${tree.totalMatches >= 4 ? 'h-full' : 'min-h-[140px]'}`}
                           matchWidth="w-[100px]"
+                          upcomingMatchIds={upcomingMatchIds}
+
                         />
                       ))}
                     </div>

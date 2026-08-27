@@ -448,8 +448,8 @@ function readGroupPhaseConfig(config: unknown): GroupPhaseConfig {
       : 2
   const teamsPerGroup =
     typeof rawGroups.teamsPerGroup === 'number' &&
-    Number.isInteger(rawGroups.teamsPerGroup) &&
-    rawGroups.teamsPerGroup > 0
+      Number.isInteger(rawGroups.teamsPerGroup) &&
+      rawGroups.teamsPerGroup > 0
       ? rawGroups.teamsPerGroup
       : 4
 
@@ -577,9 +577,9 @@ function remapInterleavedTimeSlotsInConfig(
       const entry = slot as Record<string, unknown>
       const selectedMatchIds = Array.isArray(entry.selectedMatchIds)
         ? entry.selectedMatchIds
-            .filter((item): item is string => typeof item === 'string')
-            .map((matchId) => matchIdByOldId.get(matchId))
-            .filter((matchId): matchId is string => typeof matchId === 'string')
+          .filter((item): item is string => typeof item === 'string')
+          .map((matchId) => matchIdByOldId.get(matchId))
+          .filter((matchId): matchId is string => typeof matchId === 'string')
         : []
 
       return {
@@ -1737,7 +1737,29 @@ function scheduleRoundRobinMatches(params: {
     preferredPitchKeyByGroup,
   } = params
 
+  // Sécurité : impossible de programmer des matchs sans piste.
+  if (pitchResources.length === 0) {
+    throw new Error(
+      'Impossible de programmer les matchs : aucune piste disponible.'
+    )
+  }
+
+  // Sécurité : la date de départ doit être valide.
+  if (!Number.isFinite(startTimeMs)) {
+    throw new Error(
+      `Impossible de programmer les matchs : startTimeMs est invalide (${startTimeMs}).`
+    )
+  }
+
+  // Sécurité : durée du match.
+  if (!Number.isFinite(matchDurationMs) || matchDurationMs <= 0) {
+    throw new Error(
+      `Impossible de programmer les matchs : matchDurationMs est invalide (${matchDurationMs}).`
+    )
+  }
+
   const pending = [...pairings]
+
   const scheduled: Array<{
     phaseId: string
     pitchId: string
@@ -1748,49 +1770,127 @@ function scheduleRoundRobinMatches(params: {
     scheduledAt: Date
   }> = []
 
-  
   while (pending.length > 0) {
-    let bestPairingIndex = 0
-    let bestPitchId = pitchResources[0]?.id
-    let bestPitchKey = pitchResources[0]?.key
+    let bestPairingIndex = -1
+    let bestPitchId: string | undefined
+    let bestPitchKey: string | undefined
     let bestStart = Number.POSITIVE_INFINITY
+    let bestRound = Number.POSITIVE_INFINITY
 
-    for (let pairingIndex = 0; pairingIndex < pending.length; pairingIndex += 1) {
+    for (
+      let pairingIndex = 0;
+      pairingIndex < pending.length;
+      pairingIndex += 1
+    ) {
       const pairing = pending[pairingIndex]
-      const homeReadyAt = teamAvailableAt.get(pairing.homeTeamId) ?? startTimeMs
-      const awayReadyAt = teamAvailableAt.get(pairing.awayTeamId) ?? startTimeMs
+
+      const homeReadyAt =
+        teamAvailableAt.get(pairing.homeTeamId) ?? startTimeMs
+
+      const awayReadyAt =
+        teamAvailableAt.get(pairing.awayTeamId) ?? startTimeMs
+
       const preferredPitchKey =
         typeof pairing.groupIndex === 'number'
           ? preferredPitchKeyByGroup?.get(pairing.groupIndex)
           : undefined
-      const candidatePitches = preferredPitchKey
-        ? pitchResources.filter((pitch) => pitch.key === preferredPitchKey)
+
+      // Si une piste préférée existe et est réellement disponible,
+      // on l'utilise. Sinon, on retombe sur toutes les pistes.
+      let candidatePitches = preferredPitchKey
+        ? pitchResources.filter(
+          (pitch) => pitch.key === preferredPitchKey
+        )
         : pitchResources
 
-      for (const pitch of candidatePitches) {
-        const pitchReadyAt = pitchAvailableAt.get(pitch.key) ?? startTimeMs
-        const candidateStart = Math.max(startTimeMs, pitchReadyAt, homeReadyAt, awayReadyAt)
+      if (candidatePitches.length === 0) {
+        candidatePitches = pitchResources
+      }
 
-        if (
+      for (const pitch of candidatePitches) {
+        const pitchReadyAt =
+          pitchAvailableAt.get(pitch.key) ?? startTimeMs
+
+        const candidateStart = Math.max(
+          startTimeMs,
+          pitchReadyAt,
+          homeReadyAt,
+          awayReadyAt
+        )
+
+        if (!Number.isFinite(candidateStart)) {
+          continue
+        }
+
+        const isBetter =
           candidateStart < bestStart ||
-          (candidateStart === bestStart && pairing.round < (pending[bestPairingIndex]?.round ?? Number.POSITIVE_INFINITY))
-        ) {
+          (
+            candidateStart === bestStart &&
+            pairing.round < bestRound
+          )
+
+        if (isBetter) {
           bestStart = candidateStart
           bestPitchId = pitch.id
           bestPitchKey = pitch.key
           bestPairingIndex = pairingIndex
+          bestRound = pairing.round
         }
       }
     }
 
+    // Aucun créneau/piste valide trouvé.
+    if (
+      bestPairingIndex === -1 ||
+      !bestPitchId ||
+      !bestPitchKey ||
+      !Number.isFinite(bestStart)
+    ) {
+      throw new Error(
+        'Impossible de programmer un match : aucune piste ou date valide trouvée.'
+      )
+    }
+
     const pairing = pending.splice(bestPairingIndex, 1)[0]
+
+    if (!pairing) {
+      throw new Error(
+        'Impossible de récupérer le match à programmer.'
+      )
+    }
+
     const matchEnd = bestStart + matchDurationMs
 
-    if (bestPitchKey) {
-      pitchAvailableAt.set(bestPitchKey, matchEnd + teamBreakMs)
+    if (!Number.isFinite(matchEnd)) {
+      throw new Error(
+        `Date de fin invalide pour le match ${pairing.bracketPos ?? ''}.`
+      )
     }
-    teamAvailableAt.set(pairing.homeTeamId, matchEnd)
-    teamAvailableAt.set(pairing.awayTeamId, matchEnd)
+
+    // La piste sera disponible après le temps de repos.
+    pitchAvailableAt.set(
+      bestPitchKey,
+      matchEnd + teamBreakMs
+    )
+
+    // Les équipes ne peuvent pas rejouer avant la fin du match.
+    teamAvailableAt.set(
+      pairing.homeTeamId,
+      matchEnd
+    )
+
+    teamAvailableAt.set(
+      pairing.awayTeamId,
+      matchEnd
+    )
+
+    const scheduledAt = new Date(bestStart)
+
+    if (Number.isNaN(scheduledAt.getTime())) {
+      throw new Error(
+        `Date invalide pour le match ${pairing.bracketPos ?? ''}.`
+      )
+    }
 
     scheduled.push({
       phaseId,
@@ -1798,8 +1898,10 @@ function scheduleRoundRobinMatches(params: {
       homeTeamId: pairing.homeTeamId,
       awayTeamId: pairing.awayTeamId,
       roundNumber: pairing.round,
-      ...(pairing.bracketPos ? { bracketPos: pairing.bracketPos } : {}),
-      scheduledAt: new Date(bestStart),
+      ...(pairing.bracketPos
+        ? { bracketPos: pairing.bracketPos }
+        : {}),
+      scheduledAt,
     })
   }
 
@@ -2252,6 +2354,19 @@ async function applyInterleavedPhasePitchAssignments(params: {
   })
 
   const pitchResources = uniquePitchResources(pitches, phaseId)
+  console.log('========== PITCH DEBUG ==========')
+  console.log('phase.id:', phaseId)
+  console.log(
+    'pitches:',
+    pitches.map((p) => ({
+      id: p.id,
+      name: p.name,
+      phaseId: p.phaseId,
+    }))
+  )
+  console.log('pitchResources:', pitchResources)
+  console.log('pitchResources.length:', pitchResources.length)
+  console.log('=================================')
   if (pitchResources.length === 0) return
 
   const matchesByTime = new Map<number, typeof matches>()
@@ -2851,31 +2966,31 @@ export async function duplicateTournamentForOrganization(
 
     const sourcePitches = includePitches
       ? await prisma.pitch.findMany({
-          where: { tournamentId },
-          select: { id: true, name: true, phaseId: true },
-        })
+        where: { tournamentId },
+        select: { id: true, name: true, phaseId: true },
+      })
       : []
 
     const sourceBracketMatches = includePitches
       ? await prisma.match.findMany({
-          where: {
-            phase: {
-              tournamentId,
-              type: { in: [PhaseType.BRACKET_SINGLE, PhaseType.BRACKET_DOUBLE, PhaseType.PLACEMENT_BRACKET, PhaseType.CUSTOM] },
-            },
+        where: {
+          phase: {
+            tournamentId,
+            type: { in: [PhaseType.BRACKET_SINGLE, PhaseType.BRACKET_DOUBLE, PhaseType.PLACEMENT_BRACKET, PhaseType.CUSTOM] },
           },
-          select: {
-            id: true,
-            phaseId: true,
-            pitchId: true,
-            roundNumber: true,
-            bracketPos: true,
-            scheduledAt: true,
-            homeTeamId: true,
-            awayTeamId: true,
-          },
-          orderBy: [{ phaseId: 'asc' }, { roundNumber: 'asc' }, { bracketPos: 'asc' }],
-        })
+        },
+        select: {
+          id: true,
+          phaseId: true,
+          pitchId: true,
+          roundNumber: true,
+          bracketPos: true,
+          scheduledAt: true,
+          homeTeamId: true,
+          awayTeamId: true,
+        },
+        orderBy: [{ phaseId: 'asc' }, { roundNumber: 'asc' }, { bracketPos: 'asc' }],
+      })
       : []
 
     const createdTournament = await prisma.$transaction(async (tx) => {
@@ -3695,9 +3810,8 @@ export async function recordTournamentMatchResult(
       const propagation = await rerunTournamentPropagationForTournament(tournamentId, true)
       propagationMessage = `Propagation relancee (${propagation.finishedBracketMatches} match(s), ${propagation.completedPhases} phase(s)).`
     } catch (error) {
-      propagationMessage = `Resultat enregistre. Relance propagation impossible: ${
-        error instanceof Error ? error.message : 'Erreur inconnue'
-      }`
+      propagationMessage = `Resultat enregistre. Relance propagation impossible: ${error instanceof Error ? error.message : 'Erreur inconnue'
+        }`
       revalidateTournamentPath(orgSlug, tournamentSlug)
       return { success: true, message: propagationMessage }
     }
@@ -4603,7 +4717,11 @@ export async function generateGroupMatchesFromPlacements(
         tournamentId,
         OR: [{ phaseId }, { phaseId: null }],
       },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        phaseId: true,
+      },
       orderBy: { name: 'asc' },
     })
 
@@ -4706,6 +4824,8 @@ export async function generateGroupMatchesFromPlacements(
       preferredPitchKeyByGroup,
     })
 
+    console.log('matchesToCreate', matchesToCreate)
+
     await prisma.$transaction(async (tx) => {
       if (existingMatchesCount > 0 && overwritePhaseMatches) {
         await tx.match.deleteMany({ where: { phaseId } })
@@ -4730,6 +4850,7 @@ export async function generateGroupMatchesFromPlacements(
     revalidateTournamentPath(orgSlug, tournamentSlug)
     return { success: true, message: `${matchesToCreate.length} match(s) de poules generes (une piste fixe par poule).` }
   } catch (error) {
+    console.log('alexis err', error)
     return { success: false, message: error instanceof Error ? error.message : 'Erreur generation poules.' }
   }
 }

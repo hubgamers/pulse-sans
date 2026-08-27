@@ -3624,11 +3624,11 @@ export async function updateTournamentMatchStatus(
 export async function startTournamentMatchesByScheduleSlot(
   formData: FormData
 ): Promise<ActionState> {
+console.log('createRenderResumeDataCache', formData)
   const parsed = StartMatchesByScheduleSlotSchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) return { success: false, message: 'Creneau invalide.' }
 
   const { tournamentId, orgSlug, tournamentSlug, slotAt, timerMinutes } = parsed.data
-
   try {
     await assertOrganizerCanManageTournament(tournamentId)
     const startedAt = new Date()
@@ -3641,6 +3641,9 @@ export async function startTournamentMatchesByScheduleSlot(
       },
       select: { id: true },
     })
+
+  console.log('startTournamentMatchesByScheduleSlot', scheduledMatches)
+
 
     if (scheduledMatches.length === 0) {
       return { success: false, message: 'Aucun match planifie a lancer pour ce creneau.' }
@@ -3670,6 +3673,7 @@ export async function startTournamentMatchesByScheduleSlot(
     revalidateTournamentPath(orgSlug, tournamentSlug)
     return { success: true, message: `${matchIds.length} match(s) lances pour ce creneau.` }
   } catch (error) {
+    console.log('alexis', error)
     return { success: false, message: error instanceof Error ? error.message : 'Erreur lancement creneau.' }
   }
 }

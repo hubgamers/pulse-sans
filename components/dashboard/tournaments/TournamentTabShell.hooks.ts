@@ -339,7 +339,7 @@ export function useTournamentScheduling(tournament: TournamentData, matches: Ser
                         day: '2-digit',
                         hour: '2-digit',
                         minute: '2-digit',
-                        timeZone: 'UTC',
+                        timeZone: 'Europe/Paris', // Remplace 'UTC' par 'Europe/Paris'
                     })
                     return {
                         slotStart,
@@ -394,7 +394,7 @@ export function useTournamentScheduling(tournament: TournamentData, matches: Ser
                     day: '2-digit',
                     hour: '2-digit',
                     minute: '2-digit',
-                    timeZone: 'UTC',
+                    timeZone: 'Europe/Paris',
                 }),
                 matches: [...slotMatches].sort((a, b) => {
                     const pitchCmp = comparePitchNames(a.pitch.name, b.pitch.name)

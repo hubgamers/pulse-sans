@@ -62,9 +62,9 @@ type Props = {
 const CARDS_PER_SLIDE = 4
 
 function getQualificationRuleTone(ruleType: 'TOP' | 'BOTTOM' | 'RANGE') {
-    if (ruleType === 'TOP') return { badge: 'border-[#ccff00]/30 bg-[#ccff00]/10 text-[#ccff00]', dot: 'bg-[#ccff00]', row: 'bg-[#ccff00]/20 ring-1 ring-[#ccff00]/30', text: 'text-[#ccff00]' }
-    if (ruleType === 'RANGE') return { badge: 'border-amber-500/30 bg-amber-500/10 text-amber-300', dot: 'bg-amber-400', row: 'bg-amber-500/20 ring-1 ring-amber-500/30', text: 'text-amber-300' }
-    return { badge: 'border-rose-500/30 bg-rose-500/10 text-rose-300', dot: 'bg-rose-400', row: 'bg-rose-500/20 ring-1 ring-rose-500/30', text: 'text-rose-300' }
+    if (ruleType === 'TOP') return { badge: 'border-emerald-400/60 bg-emerald-500/30 text-emerald-300', dot: 'bg-emerald-400', row: 'bg-emerald-500/25 ring-2 ring-emerald-400/60', text: 'text-emerald-200 font-black' }
+    if (ruleType === 'RANGE') return { badge: 'border-amber-400/60 bg-amber-500/30 text-amber-300', dot: 'bg-amber-400', row: 'bg-amber-500/25 ring-2 ring-amber-400/60', text: 'text-amber-200 font-black' }
+    return { badge: 'border-rose-400/60 bg-rose-500/30 text-rose-300', dot: 'bg-rose-400', row: 'bg-rose-500/25 ring-2 ring-rose-400/60', text: 'text-rose-200 font-black' }
 }
 
 function getQualificationRuleForRank(card: GroupCard, rank: number) {
@@ -78,16 +78,24 @@ function getQualificationRuleForRank(card: GroupCard, rank: number) {
 }
 
 function getMatchStatusTone(status: string) {
-    if (status === 'LIVE') return { badge: 'border-emerald-500/30 bg-emerald-500/20 text-emerald-300', score: 'text-emerald-300' }
-    if (status === 'FINISHED') return { badge: 'border-sky-500/30 bg-sky-500/10 text-sky-400', score: 'text-sky-400' }
-    return { badge: 'border-white/10 bg-white/5 text-slate-500', score: 'text-amber-400' }
+    if (status === 'LIVE') return { badge: 'border-emerald-400/60 bg-emerald-500/30 text-emerald-200', score: 'text-emerald-300' }
+    if (status === 'FINISHED') return { badge: 'border-sky-400/60 bg-sky-500/30 text-sky-200', score: 'text-sky-300' }
+    return { badge: 'border-slate-500/60 bg-slate-800/80 text-slate-300', score: 'text-amber-300' }
 }
 
 function initialsFromTeamName(name: string): string {
-    return name.trim().split(/[\s-]+/).map(word => word[0]).filter(Boolean).slice(0, 6).join('').toUpperCase();
+    const trimmed = name.trim();
+    if (trimmed.length <= 10) {
+        return trimmed.toUpperCase();
+    }
+    const words = trimmed.split(/[\s-]+/).filter(Boolean);
+    if (words.length > 1) {
+        return words.map(word => word[0]).join('').slice(0, 5).toUpperCase();
+    }
+    return trimmed.slice(0, 4).toUpperCase();
 }
 
-export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refreshMs = 10000, timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55, sponsors = [] }: Props) {
+export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refreshMs = 10000, timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.4, sponsors = [] }: Props) {
     const [activeSlide, setActiveSlide] = useState(0)
     const [refreshCycle, setRefreshCycle] = useState(0)
     const [lastSyncAt, setLastSyncAt] = useState(() => Date.now())
@@ -144,9 +152,9 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
     const lastSyncLabel = useMemo(() => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(lastSyncAt), [lastSyncAt])
     
     const rootStyle = useMemo(() => {
-        if (!backgroundImageUrl) return undefined
+        if (!backgroundImageUrl) return { backgroundColor: '#090d16' }
         return {
-            backgroundImage: `linear-gradient(rgba(2, 6, 23, ${backgroundDim}), rgba(2, 6, 23, ${backgroundDim})), url(${backgroundImageUrl})`,
+            backgroundImage: `linear-gradient(rgba(9, 13, 22, ${backgroundDim}), rgba(9, 13, 22, ${backgroundDim})), url(${backgroundImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
@@ -154,34 +162,34 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
     }, [backgroundDim, backgroundImageUrl])
 
     return (
-        <div className="relative aspect-video w-full overflow-hidden bg-slate-950 p-6 font-sans text-white uppercase italic select-none" style={rootStyle}>
+        <div className="relative aspect-video w-full overflow-hidden bg-[#090d16] p-6 font-sans text-white uppercase italic select-none" style={rootStyle}>
 
             {/* HEADER AREA */}
-            <header className="mb-4 flex items-end justify-between border-b border-white/10 pb-4">
+            {/*<header className="mb-4 flex items-center justify-center border-b-2 border-slate-700 pb-4">
                 <div className="flex flex-col">
                     {timerLabel && (
-                        <div className={`flex items-center gap-2 text-sm font-black tracking-tighter ${remainingTimerSeconds === 0 ? 'text-rose-500 animate-pulse' : 'text-[#ccff00]'}`}>
-                            <span className="text-[9px] opacity-60 tracking-widest uppercase not-italic">{timerMode === 'BREAK' ? 'Temps de battement' : 'Session en cours'}</span>
+                        <div className={`flex flex-col items-center gap-2 text-sm font-black tracking-tighter ${remainingTimerSeconds === 0 ? 'text-rose-400 animate-pulse' : 'text-[#ccff00]'}`}>
+                            <span className="text-[10px] text-slate-300 tracking-widest uppercase not-italic font-bold">{timerMode === 'BREAK' ? 'Temps de battement' : 'Session en cours'}</span>
                             <h1 className="text-5xl font-black tracking-tighter leading-none">{timerLabel}</h1>
                         </div>
                     )}
                 </div>
 
-                <div className="text-right flex flex-col items-end gap-1">
-                    <p className="text-[9px] text-slate-500 not-italic font-bold tracking-widest uppercase">Page {activeSlide + 1}/{slides.length} • Sync {lastSyncLabel}</p>
-                    <div className="flex gap-1 mt-1">
+               <div className="text-right flex flex-col items-end gap-1">
+                    <p className="text-[10px] text-slate-300 not-italic font-extrabold tracking-widest uppercase">Page {activeSlide + 1}/{slides.length} • Sync {lastSyncLabel}</p>
+                    <div className="flex gap-1.5 mt-1">
                         {slides.map((_, i) => (
-                            <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i === activeSlide ? 'w-8 bg-[#ccff00]' : 'w-2 bg-slate-800'}`} />
+                            <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i === activeSlide ? 'w-8 bg-[#ccff00]' : 'w-2 bg-slate-700'}`} />
                         ))}
                     </div>
                 </div>
-            </header>
+            </header>*/}
 
             {sponsors.length > 0 && (
                 <div className="absolute left-6 right-6 top-4 flex items-center justify-center gap-2">
                     {sponsors.slice(0, 6).map((sponsor) => (
-                        <div key={sponsor.id} className="flex h-full w-full items-center justify-center rounded-lg px-2">
-                            <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-20 max-w-full object-contain" />
+                        <div key={sponsor.id} className="flex h-full w-full items-center justify-center rounded-lg px-2 bg-slate-900/60 border border-slate-700/50 backdrop-blur-sm">
+                            <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-20 max-w-full object-contain filter drop-shadow" />
                         </div>
                     ))}
                 </div>
@@ -190,50 +198,50 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
             {/* MAIN CONTENT GRID (2x2) */}
             <main className="grid h-[90%] grid-cols-2 grid-rows-2 gap-4">
                 {currentSlide.map((card, idx) => {
-                    if (!card) return <div key={idx} className="rounded-xl border border-white/5 bg-white/[0.01]" />
+                    if (!card) return <div key={idx} className="rounded-xl border-2 border-dashed border-slate-800 bg-slate-900/20" />
 
                     return (
-                        <article key={card.key} className="flex flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900/40 backdrop-blur-sm shadow-xl">
-                            <div className="bg-white/5 px-3 py-1.5 flex justify-between items-center border-b border-white/5">
+                        <article key={card.key} className="flex flex-col overflow-hidden rounded-xl border-2 border-slate-700 bg-slate-900/85 backdrop-blur-md shadow-2xl">
+                            <div className="bg-slate-800/90 px-3.5 py-2 flex justify-between items-center border-b-2 border-slate-700">
                                 <h3 className="text-sm font-black text-[#ccff00] tracking-tight">POULE {card.groupIndex}</h3>
-                                <span className="text-[8px] text-slate-500 not-italic font-bold tracking-widest">{card.phaseName}</span>
+                                <span className="text-[9px] text-slate-300 not-italic font-extrabold tracking-widest">{card.phaseName}</span>
                             </div>
 
-                            <div className="grid flex-1 grid-cols-[1.6fr_0.9fr] gap-3 p-2 overflow-hidden">
+                            <div className="grid flex-1 grid-cols-[1.6fr_0.9fr] gap-3 p-2.5 overflow-hidden">
 
                                 {/* LEFT: STANDINGS TABLE */}
                                 <div className="overflow-hidden">
                                     <table className="w-full text-[12px] border-separate border-spacing-y-1">
                                         <thead>
-                                            <tr className="text-slate-500 not-italic">
-                                                <th className="px-1 py-1 text-left font-bold">Rang</th>
-                                                <th className="px-1 py-1 text-left font-bold">éQUIPE</th>
-                                                <th className="px-1 py-1 text-center font-bold">PTS</th>
-                                                <th className="px-1 py-1 text-center font-bold">J</th>
-                                                <th className="px-1 py-1 text-center font-bold">GD</th>
+                                            <tr className="text-slate-300 not-italic font-extrabold">
+                                                <th className="px-1.5 py-1 text-left">Rang</th>
+                                                <th className="px-1.5 py-1 text-left">ÉQUIPE</th>
+                                                <th className="px-1.5 py-1 text-center">PTS</th>
+                                                <th className="px-1.5 py-1 text-center">J</th>
+                                                <th className="px-1.5 py-1 text-center">GD</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {card.standings.slice(0, 6).map((row, i) => {
                                                 const rule = getQualificationRuleForRank(card, i + 1)
                                                 const tone = rule ? getQualificationRuleTone(rule.type) : null
-                                                const gdColor = row.goalDiff > 0 ? 'text-[#ccff00]' : row.goalDiff < 0 ? 'text-red-400' : 'text-slate-400'
+                                                const gdColor = row.goalDiff > 0 ? 'text-emerald-400 font-extrabold' : row.goalDiff < 0 ? 'text-rose-400 font-extrabold' : 'text-slate-300 font-bold'
 
                                                 return (
-                                                    <tr key={row.teamId} className={`${tone ? tone.row : 'bg-white/5'} transition-all`}>
-                                                        <td className={`px-2 py-1 font-black ${tone ? tone.text : 'text-slate-500'}`}>{i + 1}</td>
-                                                        <td className="px-1 py-1">
+                                                    <tr key={row.teamId} className={`${tone ? tone.row : 'bg-slate-800/70'} transition-all`}>
+                                                        <td className={`px-2 py-1 font-black ${tone ? tone.text : 'text-slate-200'}`}>{i + 1}</td>
+                                                        <td className="px-1.5 py-1">
                                                             {row.teamLogoUrl ? (
-                                                                <img src={row.teamLogoUrl} alt={row.teamName} className="h-13 w-13 object-contain block shrink-0" />
+                                                                <img src={row.teamLogoUrl} alt={row.teamName} className="h-13 w-13 object-contain block shrink-0 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
                                                             ) : (
-                                                                <div className="flex h-13 w-13 items-center justify-center rounded-md border border-white/10 bg-slate-800 text-[8px] font-black text-slate-200">
+                                                                <div className="flex h-13 w-13 items-center justify-center rounded-md border border-slate-600 bg-slate-800 text-[8px] font-black text-white shadow-md">
                                                                     {initialsFromTeamName(row.teamName)}
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className={`px-1 py-1 text-center font-black ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
-                                                        <td className="px-1 py-1 text-center font-bold text-slate-400">{row.played}</td>
-                                                        <td className={`px-1 py-1 text-center font-bold tabular-nums ${gdColor}`}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
+                                                        <td className={`px-1.5 py-1 text-center font-black ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
+                                                        <td className="px-1.5 py-1 text-center font-extrabold text-slate-300">{row.played}</td>
+                                                        <td className={`px-1.5 py-1 text-center tabular-nums ${gdColor}`}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
                                                     </tr>
                                                 )
                                             })}
@@ -242,27 +250,27 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
                                 </div>
 
                                 {/* RIGHT: MATCHES LIST */}
-                                <div className="flex flex-col gap-1 border-l border-white/5 pl-2 overflow-hidden">
-                                    <p className="text-[7px] font-bold text-slate-500 tracking-widest not-italic uppercase mb-1">Matchs à suivre</p>
-                                    <div className="grid gap-1">
+                                <div className="flex flex-col gap-1 border-l-2 border-slate-700/80 pl-2.5 overflow-hidden">
+                                    <p className="text-[8px] font-extrabold text-slate-300 tracking-widest not-italic uppercase mb-1">Matchs à suivre</p>
+                                    <div className="grid gap-1.5">
                                         {card.featuredMatches.slice(0, 6).map((match) => {
                                             const tone = getMatchStatusTone(match.status)
                                             const isLive = match.status === 'LIVE'
                                             const isActiveSlotLive = Boolean(match.isActiveSlotLive)
 
                                             return (
-                                                <div key={match.id} className={`rounded border px-2 py-1.5 transition-all ${isLive ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-950/40 border-white/5'} ${isActiveSlotLive ? 'ring-1 ring-amber-400/50 shadow-[0_0_8px_rgba(251,191,36,0.2)] animate-pulse' : ''}`}>
+                                                <div key={match.id} className={`rounded-lg border-2 px-2.5 py-1.5 transition-all ${isLive ? 'bg-emerald-950/40 border-emerald-500/80 shadow-md' : 'bg-slate-950/60 border-slate-700/80'} ${isActiveSlotLive ? 'ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.4)] animate-pulse' : ''}`}>
                                                     <div className="flex items-center justify-between gap-1">
-                                                        <p className="truncate text-[9px] font-black leading-none flex-1 tracking-tighter">
-                                                            {match.homeTeamName} <span className="text-slate-600 font-normal mx-0.5">VS</span> {match.awayTeamName}
+                                                        <p className="truncate text-[10px] font-black leading-none flex-1 tracking-tighter text-white">
+                                                            {initialsFromTeamName(match.homeTeamName)} <span className="text-slate-400 font-bold mx-0.5">VS</span> {initialsFromTeamName(match.awayTeamName)}
                                                         </p>
                                                         <span className={`text-[11px] font-black shrink-0 tabular-nums ${tone.score}`}>
                                                             {match.homeScore !== null ? `${match.homeScore}-${match.awayScore}` : match.timeLabel}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center justify-between mt-1 opacity-60">
-                                                        <span className="text-[7px] font-bold text-slate-400 not-italic truncate w-24 uppercase tracking-tighter">{match.pitchName}</span>
-                                                        <span className={`text-[7px] font-black uppercase ${isLive ? 'text-emerald-400' : 'text-slate-600'}`}>
+                                                    <div className="flex items-center justify-between mt-1.5">
+                                                        <span className="text-[8px] font-extrabold text-slate-300 not-italic truncate w-24 uppercase tracking-tighter">{match.pitchName}</span>
+                                                        <span className={`text-[8px] font-black uppercase ${isLive ? 'text-emerald-400 font-extrabold' : 'text-slate-400'}`}>
                                                             {isLive ? '● DIRECT' : match.label}
                                                         </span>
                                                     </div>
@@ -278,10 +286,10 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
             </main>
 
             {/* PROGRESS BAR FOOTER */}
-            <div className="absolute bottom-0 left-0 h-1 w-full bg-slate-900/50">
+            <div className="absolute bottom-0 left-0 h-1.5 w-full bg-slate-800">
                 <div
                     key={`${activeSlide}-${refreshCycle}`}
-                    className="h-full bg-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.8)]"
+                    className="h-full bg-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.9)]"
                     style={{ animation: `progress ${rotationMs}ms linear forwards` }}
                 />
             </div>

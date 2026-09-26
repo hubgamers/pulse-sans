@@ -780,220 +780,88 @@ function collectGroupQualifierIdsByRoute(
 ): string[] {
   const rankBuckets: string[][] = []
 
-  // =========================================================
-  // TOP
-  // =========================================================
-
+  // 1. Récupération des rangs (ex: rang 0 pour les 1ers, rang 1 pour les 2e)
   if (route.rule === 'TOP' && route.countPerGroup) {
-    for (
-      let rank = 0;
-      rank < route.countPerGroup;
-      rank += 1
-    ) {
+    for (let rank = 0; rank < route.countPerGroup; rank += 1) {
       const bucket: string[] = []
-
       for (const group of groupStandings) {
         if (group[rank]) {
           bucket.push(group[rank])
         }
       }
-
       rankBuckets.push(bucket)
     }
-  }
-
-  // =========================================================
-  // BOTTOM
-  // =========================================================
-
-  else if (
-    route.rule === 'BOTTOM' &&
-    route.countPerGroup
-  ) {
-    for (
-      let rank = 0;
-      rank < route.countPerGroup;
-      rank += 1
-    ) {
+  } else if (route.rule === 'BOTTOM' && route.countPerGroup) {
+    for (let rank = 0; rank < route.countPerGroup; rank += 1) {
       const bucket: string[] = []
-
       for (const group of groupStandings) {
         const idx = group.length - 1 - rank
-
         if (idx >= 0 && group[idx]) {
           bucket.push(group[idx])
         }
       }
-
       rankBuckets.push(bucket)
     }
-  }
-
-  // =========================================================
-  // RANGE
-  // =========================================================
-
-  else if (
-    route.rule === 'RANGE' &&
-    route.startRank &&
-    route.endRank
-  ) {
-    for (
-      let rank = route.startRank - 1;
-      rank < route.endRank;
-      rank += 1
-    ) {
+  } else if (route.rule === 'RANGE' && route.startRank && route.endRank) {
+    for (let rank = route.startRank - 1; rank < route.endRank; rank += 1) {
       const bucket: string[] = []
-
       for (const group of groupStandings) {
         if (group[rank]) {
           bucket.push(group[rank])
         }
       }
-
       rankBuckets.push(bucket)
     }
   }
 
-  // =========================================================
-  // FALLBACK
-  // =========================================================
-
+  // S'il n'y a pas exactement 2 buckets (1er et 2e), on retourne plat
   if (rankBuckets.length !== 2) {
     return rankBuckets.flat()
   }
 
-  const [higherRank, lowerRank] = rankBuckets
-
+  const [firsts, seconds] = rankBuckets
   const ordered: string[] = []
 
-  const pairCount = Math.min(
-    higherRank.length,
-    lowerRank.length
-  )
+  // Pour s'assurer qu'un 1er (firsts[i]) et un 2e (seconds[i]) d'une même poule 
+  // se trouvent dans des moitiés d'arbres opposées (évitant l'affrontement avant la finale),
+  // on associe par exemple le 1er de la poule i avec le 2e d'une poule opposée 
+  // (ex: formule croisée haut/bas ou symétrique sur l'ensemble des poules).
 
-  // =========================================================
-  // SPLIT-HALF CROSS PAIRING
-  //
-  // For 8 groups:
-  // 1A vs 2E
-  // 2A vs 1E
-  // 1B vs 2F
-  // 2B vs 1F
-  // =========================================================
+  const totalGroups = firsts.length
+  const half = Math.ceil(totalGroups / 2)
 
-  const pairedIndexes = new Set<number>()
+  // Exemple de distribution en miroir pour séparer les moitiés d'arbre :
+  // Moitié haute de l'arbre : 1ers de la première moitié, 2e de la seconde moitié
+  // Moitié basse de l'arbre : 1ers de la seconde moitié, 2e de la première moitié
 
-  if (pairCount > 1 && pairCount % 2 === 0) {
-    const splitOffset = pairCount / 2
+  const topBracketFirsts: string[] = []
+  const topBracketSeconds: string[] = []
+  const bottomBracketFirsts: string[] = []
+  const bottomBracketSeconds: string[] = []
 
-    for (
-      let index = 0;
-      index < splitOffset;
-      index += 1
-    ) {
-      const oppositeIndex = index + splitOffset
-
-      const higherA = higherRank[index]
-      const higherB = higherRank[oppositeIndex]
-
-      const lowerA = lowerRank[index]
-      const lowerB = lowerRank[oppositeIndex]
-
-      pairedIndexes.add(index)
-      pairedIndexes.add(oppositeIndex)
-
-      // Match 1
-      if (higherA) {
-        ordered.push(higherA)
-      }
-
-      if (lowerB) {
-        ordered.push(lowerB)
-      }
-
-      if (lowerA) {
-        ordered.push(lowerA)
-      }
-
-      // Match 2
-      if (higherB) {
-        ordered.push(higherB)
-      }
-    }
-  } else {
-    for (
-      let index = 0;
-      index < pairCount;
-      index += 2
-    ) {
-      const higherA = higherRank[index]
-      const higherB = higherRank[index + 1]
-
-      const lowerA = lowerRank[index]
-      const lowerB = lowerRank[index + 1]
-
-      pairedIndexes.add(index)
-      pairedIndexes.add(index + 1)
-
-      // Match 1
-      if (higherA) {
-        ordered.push(higherA)
-      }
-
-      if (lowerB) {
-        ordered.push(lowerB)
-      }
-
-      // Match 2
-      if (higherB) {
-        ordered.push(higherB)
-      }
-
-      if (lowerA) {
-        ordered.push(lowerA)
-      }
+  for (let i = 0; i < totalGroups; i++) {
+    if (i < half) {
+      if (firsts[i]) topBracketFirsts.push(firsts[i])
+      if (seconds[i]) bottomBracketSeconds.push(seconds[i])
+    } else {
+      if (firsts[i]) bottomBracketFirsts.push(firsts[i])
+      if (seconds[i]) topBracketSeconds.push(seconds[i])
     }
   }
 
-  // =========================================================
-  // REMAINING HIGHER
-  // =========================================================
-
-  if (higherRank.length > pairedIndexes.size) {
-    for (
-      let index = 0;
-      index < higherRank.length;
-      index += 1
-    ) {
-      if (pairedIndexes.has(index)) continue
-
-      const teamId = higherRank[index]
-
-      if (teamId) {
-        ordered.push(teamId)
-      }
-    }
+  // On intercale proprement pour former les duels du premier tour (M1, M2, etc.)
+  // Chaque match oppose un 1er d'une poule à un 2e d'une autre poule, 
+  // garantissant l'absence de rencontre entre le 1er et le 2e d'une même poule avant la finale.
+  const maxPairs = Math.max(topBracketFirsts.length, topBracketSeconds.length)
+  for (let i = 0; i < maxPairs; i++) {
+    if (topBracketFirsts[i]) ordered.push(topBracketFirsts[i])
+    if (topBracketSeconds[i]) ordered.push(topBracketSeconds[i])
   }
 
-  // =========================================================
-  // REMAINING LOWER
-  // =========================================================
-
-  if (lowerRank.length > pairedIndexes.size) {
-    for (
-      let index = 0;
-      index < lowerRank.length;
-      index += 1
-    ) {
-      if (pairedIndexes.has(index)) continue
-
-      const teamId = lowerRank[index]
-
-      if (teamId) {
-        ordered.push(teamId)
-      }
-    }
+  const maxBottomPairs = Math.max(bottomBracketFirsts.length, bottomBracketSeconds.length)
+  for (let i = 0; i < maxBottomPairs; i++) {
+    if (bottomBracketFirsts[i]) ordered.push(bottomBracketFirsts[i])
+    if (bottomBracketSeconds[i]) ordered.push(bottomBracketSeconds[i])
   }
 
   return ordered
@@ -3624,7 +3492,7 @@ export async function updateTournamentMatchStatus(
 export async function startTournamentMatchesByScheduleSlot(
   formData: FormData
 ): Promise<ActionState> {
-console.log('createRenderResumeDataCache', formData)
+  console.log('createRenderResumeDataCache', formData)
   const parsed = StartMatchesByScheduleSlotSchema.safeParse(Object.fromEntries(formData))
   if (!parsed.success) return { success: false, message: 'Creneau invalide.' }
 
@@ -3642,7 +3510,7 @@ console.log('createRenderResumeDataCache', formData)
       select: { id: true },
     })
 
-  console.log('startTournamentMatchesByScheduleSlot', scheduledMatches)
+    console.log('startTournamentMatchesByScheduleSlot', scheduledMatches)
 
 
     if (scheduledMatches.length === 0) {

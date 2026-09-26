@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
-import { AlertCircle, Check, Loader2, RotateCcw, Upload } from "lucide-react";
+import { AlertCircle, Check, Image as ImageIcon, Loader2, RotateCcw, Upload, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { bulkCreateTeamsWithPlayers, type BulkImportState, type BulkImportTeamData } from "@/lib/actions/team/team.actions";
 import { Badge, Button, Card, Field, Label, Select, StatusAlert } from "@/components/ui";
+import { createClient } from "@/lib/supabase/client";
 
 type ParsedData = {
   teamColumns: {
@@ -25,6 +26,12 @@ type Props = {
   organizationId: string;
 };
 
+type LogoAssignment = {
+  id: string;
+  file: File;
+  teamName: string;
+};
+
 type ColumnCardProps = {
   label: string;
   description: string;
@@ -37,6 +44,16 @@ type ColumnCardProps = {
 
 function normalizeColumnName(column: string) {
   return column.toLowerCase();
+}
+
+function normalizeTeamIdentifier(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function ColumnCard({ label, description, value, required, columns, emptyLabel = "-- Aucun --", onChange }: ColumnCardProps) {
@@ -66,7 +83,9 @@ export default function TeamBulkImporter({ organizationId }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<BulkImportState | null>(null);
   const [localError, setLocalError] = useState("");
+  const [logoAssignments, setLogoAssignments] = useState<LogoAssignment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -173,6 +192,29 @@ export default function TeamBulkImporter({ organizationId }: Props) {
     return Array.from(teamsMap.values());
   };
 
+  const handleLogoSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
+    const validFiles = files.filter((file) => allowedTypes.includes(file.type) && file.size <= 2 * 1024 * 1024);
+    const invalidCount = files.length - validFiles.length;
+    const teams = generatePreview();
+
+    setLogoAssignments((current) => [
+      ...current,
+      ...validFiles.map((file) => {
+        const fileIdentifier = normalizeTeamIdentifier(file.name);
+        const matchingTeam = teams.find(
+          (team) => normalizeTeamIdentifier(team.teamName) === fileIdentifier || normalizeTeamIdentifier(team.teamSlug ?? "") === fileIdentifier,
+        );
+        return { id: crypto.randomUUID(), file, teamName: matchingTeam?.teamName ?? "" };
+      }),
+    ]);
+    setLocalError(invalidCount > 0 ? `${invalidCount} fichier(s) ignore(s): formats image acceptes, 2 Mo maximum par fichier.` : "");
+  };
+
   const handleImport = async () => {
     const importData = generatePreview();
     if (importData.length === 0) {
@@ -183,9 +225,31 @@ export default function TeamBulkImporter({ organizationId }: Props) {
     setIsLoading(true);
     setLocalError("");
     try {
-      const response = await bulkCreateTeamsWithPlayers(organizationId, importData);
+      const supabase = createClient();
+      const assignedLogoUrls = new Map<string, string>();
+      const assignmentsToUpload = logoAssignments.filter((assignment) => assignment.teamName);
+
+      await Promise.all(
+        assignmentsToUpload.map(async ({ file, teamName }) => {
+          const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "img";
+          const path = `teams/${organizationId}/${crypto.randomUUID()}.${extension}`;
+          const { error } = await supabase.storage.from("logos").upload(path, file, { contentType: file.type });
+          if (error) throw new Error(`Erreur pour ${file.name}: ${error.message}`);
+
+          const { data } = supabase.storage.from("logos").getPublicUrl(path);
+          assignedLogoUrls.set(teamName, data.publicUrl);
+        }),
+      );
+
+      const teamsWithLogos = importData.map((team) => ({
+        ...team,
+        teamLogoUrl: assignedLogoUrls.get(team.teamName) ?? team.teamLogoUrl,
+      }));
+      const response = await bulkCreateTeamsWithPlayers(organizationId, teamsWithLogos);
       setResult(response);
       setStep("preview");
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : "Erreur lors de l'import des equipes.");
     } finally {
       setIsLoading(false);
     }
@@ -196,7 +260,9 @@ export default function TeamBulkImporter({ organizationId }: Props) {
     setParsedData(null);
     setResult(null);
     setLocalError("");
+    setLogoAssignments([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (logoInputRef.current) logoInputRef.current.value = "";
   };
 
   if (step === "upload") {
@@ -326,6 +392,63 @@ export default function TeamBulkImporter({ organizationId }: Props) {
               </div>
             </div>
           </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Logos des equipes</h2>
+              <p className="mt-1 text-sm text-slate-600">Ajoutez plusieurs images; les noms de fichiers sont associes automatiquement aux equipes correspondantes.</p>
+            </div>
+            <Button type="button" variant="secondary" onClick={() => logoInputRef.current?.click()} icon={<ImageIcon className="h-4 w-4" />}>
+              Ajouter des logos
+            </Button>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+              multiple
+              onChange={handleLogoSelection}
+              className="hidden"
+            />
+          </div>
+
+          {logoAssignments.length > 0 && (
+            <ul className="mt-4 divide-y divide-slate-200">
+              {logoAssignments.map((assignment) => (
+                <li key={assignment.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
+                  <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-slate-700">
+                    <ImageIcon className="h-4 w-4 flex-shrink-0 text-teal-700" />
+                    <span className="truncate">{assignment.file.name}</span>
+                  </span>
+                  <Select
+                    aria-label={`Equipe pour ${assignment.file.name}`}
+                    value={assignment.teamName}
+                    onChange={(event) =>
+                      setLogoAssignments((current) => current.map((item) => (item.id === assignment.id ? { ...item, teamName: event.target.value } : item)))
+                    }
+                    className="sm:w-64"
+                  >
+                    <option value="">Ne pas attribuer</option>
+                    {preview.map((team) => (
+                      <option key={team.teamName} value={team.teamName}>
+                        {team.teamName}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-label={`Retirer ${assignment.file.name}`}
+                    onClick={() => setLogoAssignments((current) => current.filter((item) => item.id !== assignment.id))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-xs text-slate-500">PNG, JPEG, WEBP, SVG ou GIF; 2 Mo maximum par logo.</p>
         </Card>
 
         <Card className="p-6">

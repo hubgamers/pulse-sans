@@ -45,4 +45,5 @@ export const Icons = {
     Play: "M8 5v14l11-7z",
     Gamepad2: "M6 12h4m2 0h4M8 10v4M18.5 9.5l-1 5M5.5 9.5l1 5M3 8h18a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V9a1 1 0 011-1z",
     MapPinned: "M12 22s7-5.686 7-12a7 7 0 10-14 0c0 6.314 7 12 7 12zM12 11a2 2 0 100-4 2 2 0 000 4z",
+    Images: "M3 3h18v18H3zM7 14l3-3 3 3 2-2 4 4M8 8h.01",
 } as const;

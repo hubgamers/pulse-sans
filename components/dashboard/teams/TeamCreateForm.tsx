@@ -1,12 +1,11 @@
 "use client";
 
 import { useActionState, useState, type ChangeEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { ImageIcon, Link as LinkIcon, Save, Shield } from "lucide-react";
+import { Link as LinkIcon, Save, Shield } from "lucide-react";
 import { createTeam, type TeamFormState } from "@/lib/actions/team/team.actions";
-import { createClient } from "@/lib/supabase/client";
 import { buttonClassName, Button, Card, Field, FieldError, Input, Label } from "@/components/ui";
+import TeamLogoPicker from "@/components/dashboard/teams/TeamLogoPicker";
 
 type Props = {
   organizationId: string;
@@ -39,9 +38,6 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
-  const [logoPreview, setLogoPreview] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -52,44 +48,6 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
   const onSlugChange = (event: ChangeEvent<HTMLInputElement>) => {
     setSlug(event.target.value);
     setSlugEdited(true);
-  };
-
-  const onLogoChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const allowedTypes = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
-    if (!allowedTypes.includes(file.type)) {
-      setUploadError("Format non supporte. Utilisez PNG, JPEG, WEBP, SVG ou GIF.");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      setUploadError("Le fichier doit faire moins de 2 Mo.");
-      return;
-    }
-
-    setUploadError("");
-    setUploading(true);
-    setLogoPreview(URL.createObjectURL(file));
-
-    const supabase = createClient();
-    const ext = file.name.split(".").pop();
-    const path = `teams/${organizationId}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("logos").upload(path, file, { upsert: true });
-
-    if (error) {
-      setUploadError(
-        error.message.toLowerCase().includes("row-level security")
-          ? "Upload bloque par la policy Supabase Storage (RLS). Voir la configuration SQL du bucket logos."
-          : `Erreur lors de l upload : ${error.message}`,
-      );
-      setUploading(false);
-      return;
-    }
-
-    const { data } = supabase.storage.from("logos").getPublicUrl(path);
-    setLogoUrl(data.publicUrl);
-    setUploading(false);
   };
 
   return (
@@ -124,29 +82,8 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
             </Field>
           </div>
 
-          <Field>
-            <Label className="inline-flex items-center gap-2">
-              <ImageIcon size={14} /> Logo (optionnel)
-            </Label>
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500 transition hover:border-teal-500 hover:bg-teal-50/30">
-              {logoPreview ? (
-                <Image src={logoPreview} alt="Preview logo" width={80} height={80} className="h-20 w-20 rounded-lg object-contain" unoptimized />
-              ) : (
-                <ImageIcon size={32} className="text-slate-300" />
-              )}
-              <span>{uploading ? "Upload en cours..." : logoPreview ? "Changer le logo" : "Cliquer pour importer"}</span>
-              <span className="text-xs text-slate-400">PNG, JPEG, WEBP, SVG - max 2 Mo</span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
-                onChange={onLogoChange}
-                disabled={uploading || isPending}
-                className="hidden"
-              />
-            </label>
-            {uploadError && <FieldError>{uploadError}</FieldError>}
-            <FormFieldError error={state.errors?.logoUrl} />
-          </Field>
+          <TeamLogoPicker organizationId={organizationId} value={logoUrl} onChange={setLogoUrl} disabled={isPending} />
+          <FormFieldError error={state.errors?.logoUrl} />
 
           {state.message && (
             <div
@@ -160,7 +97,7 @@ export default function TeamCreateForm({ organizationId, organizationName, orgSl
           )}
 
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <Button type="submit" disabled={isPending || uploading} icon={<Save size={15} />}>
+            <Button type="submit" disabled={isPending} icon={<Save size={15} />}>
               {isPending ? "Creation..." : "Creer l'equipe"}
             </Button>
 

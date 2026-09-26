@@ -244,6 +244,38 @@ export function Sidebar({ user, navItems, organizations, collapsed, onToggleColl
                         </div>
                     )
                 })}
+                {isShowingOrgMenu && activeOrg && (() => {
+                    const mediaHref = `/dashboard/org/${activeOrg.slug}/medias`
+                    const isMediaActive = pathname === mediaHref
+
+                    return (
+                        <button
+                            key="organization-media-library"
+                            type="button"
+                            onClick={() => router.push(mediaHref)}
+                            title={collapsed ? "Medias" : undefined}
+                            aria-current={isMediaActive ? "page" : undefined}
+                            style={{
+                                display: "flex", alignItems: "center", gap: 12,
+                                width: "100%",
+                                padding: collapsed ? "12px 0" : "10px 12px",
+                                justifyContent: collapsed ? "center" : "flex-start",
+                                border: "none",
+                                borderRadius: 8,
+                                cursor: "pointer",
+                                background: isMediaActive ? "#ecfeff" : "transparent",
+                                color: isMediaActive ? "var(--accent)" : "var(--muted)",
+                                marginBottom: 4,
+                                transition: "all 0.2s",
+                                font: "inherit",
+                                textAlign: "left",
+                            }}
+                        >
+                            <Icon d={Icons.Images} size={18} />
+                            {!collapsed && <span style={{ fontSize: 14, fontWeight: isMediaActive ? 600 : 500 }}>Medias</span>}
+                        </button>
+                    )
+                })()}
             </nav>
 
             {/* CTA : Créer une org quand l'utilisateur n'en a pas encore */}

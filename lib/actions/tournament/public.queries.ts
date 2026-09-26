@@ -278,6 +278,7 @@ export function formatMatchTimeLabel(date: Date | null) {
     return new Intl.DateTimeFormat('fr-FR', {
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Europe/Paris', // Force l'affichage à l'heure de Paris peu importe le fuseau du serveur
     }).format(date)
 }
 

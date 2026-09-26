@@ -1,7 +1,9 @@
 'use client'
 
-import { startTransition, useEffect, useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
+import { DotLottiePlayer } from '@dotlottie/react-player'
 import type { OverlaySponsor } from '../_lib/sponsors'
 
 type StandingRow = {
@@ -59,12 +61,31 @@ type Props = {
     sponsors?: OverlaySponsor[]
 }
 
+type FullscreenEvent =
+    | { type: 'TIMER_START'; mode: 'MATCH' | 'BREAK' }
+    | { type: 'TIMER_END'; mode: 'MATCH' | 'BREAK' }
+    | { type: 'SCORE_UPDATE'; matches: FeaturedMatch[] }
+    | null
+
 const CARDS_PER_SLIDE = 4
 
 function getQualificationRuleTone(ruleType: 'TOP' | 'BOTTOM' | 'RANGE') {
-    if (ruleType === 'TOP') return { badge: 'border-emerald-400/60 bg-emerald-500/30 text-emerald-300', dot: 'bg-emerald-400', row: 'bg-emerald-500/25 ring-2 ring-emerald-400/60', text: 'text-emerald-200 font-black' }
-    if (ruleType === 'RANGE') return { badge: 'border-amber-400/60 bg-amber-500/30 text-amber-300', dot: 'bg-amber-400', row: 'bg-amber-500/25 ring-2 ring-amber-400/60', text: 'text-amber-200 font-black' }
-    return { badge: 'border-rose-400/60 bg-rose-500/30 text-rose-300', dot: 'bg-rose-400', row: 'bg-rose-500/25 ring-2 ring-rose-400/60', text: 'text-rose-200 font-black' }
+    if (ruleType === 'TOP') {
+        return {
+            row: 'bg-emerald-500/20 border-l-4 border-emerald-400 shadow-[inset_0_0_12px_rgba(52,211,153,0.15)]',
+            text: 'text-emerald-300 font-black drop-shadow'
+        }
+    }
+    if (ruleType === 'RANGE') {
+        return {
+            row: 'bg-amber-500/20 border-l-4 border-amber-400 shadow-[inset_0_0_12px_rgba(251,191,36,0.15)]',
+            text: 'text-amber-300 font-black drop-shadow'
+        }
+    }
+    return {
+        row: 'bg-rose-500/20 border-l-4 border-rose-400 shadow-[inset_0_0_12px_rgba(251,113,133,0.15)]',
+        text: 'text-rose-300 font-black drop-shadow'
+    }
 }
 
 function getQualificationRuleForRank(card: GroupCard, rank: number) {
@@ -77,35 +98,50 @@ function getQualificationRuleForRank(card: GroupCard, rank: number) {
     })
 }
 
-function getMatchStatusTone(status: string) {
-    if (status === 'LIVE') return { badge: 'border-emerald-400/60 bg-emerald-500/30 text-emerald-200', score: 'text-emerald-300' }
-    if (status === 'FINISHED') return { badge: 'border-sky-400/60 bg-sky-500/30 text-sky-200', score: 'text-sky-300' }
-    return { badge: 'border-slate-500/60 bg-slate-800/80 text-slate-300', score: 'text-amber-300' }
-}
-
 function initialsFromTeamName(name: string): string {
-    const trimmed = name.trim();
-    if (trimmed.length <= 10) {
-        return trimmed.toUpperCase();
-    }
-    const words = trimmed.split(/[\s-]+/).filter(Boolean);
+    const trimmed = name.trim()
+    if (trimmed.length <= 10) return trimmed.toUpperCase()
+    const words = trimmed.split(/[\s-]+/).filter(Boolean)
     if (words.length > 1) {
-        return words.map(word => word[0]).join('').slice(0, 5).toUpperCase();
+        return words.map(word => word[0]).join('').slice(0, 5).toUpperCase()
     }
-    return trimmed.slice(0, 4).toUpperCase();
+    return trimmed.slice(0, 4).toUpperCase()
 }
 
-export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refreshMs = 10000, timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.4, sponsors = [] }: Props) {
+function getTeamLogo(cards: GroupCard[], teamName: string): string | null {
+    for (const card of cards) {
+        const team = card.standings.find((s) => s.teamName === teamName)
+        if (team?.teamLogoUrl) return team.teamLogoUrl
+    }
+    return null
+}
+
+export default function PoolsOverlayCarousel({
+    cards,
+    rotationMs = 20000,
+    refreshMs = 10000,
+    timerSeconds = 0,
+    timerStartMs = null,
+    timerMode = 'MATCH',
+    backgroundImageUrl = null,
+    backgroundDim = 0.4,
+    sponsors = []
+}: Props) {
     const [activeSlide, setActiveSlide] = useState(0)
     const [refreshCycle, setRefreshCycle] = useState(0)
-    const [lastSyncAt, setLastSyncAt] = useState(() => Date.now())
     const [nowMs, setNowMs] = useState(() => Date.now())
+    const [fullscreenEvent, setFullscreenEvent] = useState<FullscreenEvent>(null)
+
     const router = useRouter()
+    const prevScoresRef = useRef<Map<string, string>>(new Map())
+    const timerEndedRef = useRef(false)
+    const timerStartedRef = useRef<number | null>(null)
 
     useEffect(() => {
+        if (!timerStartMs) return
         const interval = window.setInterval(() => setNowMs(Date.now()), 1000)
         return () => window.clearInterval(interval)
-    }, [])
+    }, [timerStartMs])
 
     const remainingTimerSeconds = useMemo(() => {
         if (!timerStartMs || timerSeconds <= 0) return null
@@ -113,6 +149,59 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
         const diff = Math.ceil((endMs - nowMs) / 1000)
         return diff <= 0 ? 0 : diff
     }, [nowMs, timerStartMs, timerSeconds])
+
+    // Détection Début & Fin du Timer
+    useEffect(() => {
+        if (timerStartMs && timerSeconds > 0) {
+            // Nouveau timer démarré
+            if (timerStartedRef.current !== timerStartMs) {
+                timerStartedRef.current = timerStartMs
+                timerEndedRef.current = false
+                setFullscreenEvent({ type: 'TIMER_START', mode: timerMode })
+            }
+        }
+
+        if (remainingTimerSeconds === 0 && !timerEndedRef.current) {
+            timerEndedRef.current = true
+            setFullscreenEvent({ type: 'TIMER_END', mode: timerMode })
+        }
+    }, [remainingTimerSeconds, timerStartMs, timerSeconds, timerMode])
+
+    // Détection des Scores mis à jour
+    useEffect(() => {
+        const currentScores = new Map<string, string>()
+        const updatedMatches: FeaturedMatch[] = []
+
+        cards.forEach((card) => {
+            card.featuredMatches.forEach((m) => {
+                const key = m.id
+                const scoreValue = `${m.homeScore ?? '-'}-${m.awayScore ?? '-'}`
+                currentScores.set(key, scoreValue)
+
+                if (prevScoresRef.current.has(key)) {
+                    const prevValue = prevScoresRef.current.get(key)
+                    if (prevValue !== scoreValue && (m.homeScore !== null || m.awayScore !== null)) {
+                        updatedMatches.push(m)
+                    }
+                }
+            })
+        })
+
+        if (prevScoresRef.current.size > 0 && updatedMatches.length > 0) {
+            setFullscreenEvent({ type: 'SCORE_UPDATE', matches: updatedMatches })
+        }
+
+        prevScoresRef.current = currentScores
+    }, [cards])
+
+    // Auto-close overlay (6s)
+    useEffect(() => {
+        if (!fullscreenEvent) return
+        const timeout = setTimeout(() => {
+            setFullscreenEvent(null)
+        }, 6000)
+        return () => window.clearInterval(timeout)
+    }, [fullscreenEvent])
 
     const timerLabel = useMemo(() => {
         if (remainingTimerSeconds === null) return null
@@ -141,7 +230,6 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
     useEffect(() => {
         const interval = window.setInterval(() => {
             if (document.visibilityState !== 'visible') return
-            setLastSyncAt(Date.now())
             setRefreshCycle((c) => c + 1)
             startTransition(() => router.refresh())
         }, refreshMs)
@@ -149,12 +237,11 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
     }, [refreshMs, router])
 
     const currentSlide = slides[activeSlide] || slides[0]
-    const lastSyncLabel = useMemo(() => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(lastSyncAt), [lastSyncAt])
-    
+
     const rootStyle = useMemo(() => {
-        if (!backgroundImageUrl) return { backgroundColor: '#090d16' }
+        if (!backgroundImageUrl) return { backgroundColor: '#070a12' }
         return {
-            backgroundImage: `linear-gradient(rgba(9, 13, 22, ${backgroundDim}), rgba(9, 13, 22, ${backgroundDim})), url(${backgroundImageUrl})`,
+            backgroundImage: `radial-gradient(circle at center, rgba(15, 23, 42, ${backgroundDim}) 0%, rgba(7, 10, 18, 0.95) 100%), url(${backgroundImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
@@ -162,139 +249,330 @@ export default function PoolsOverlayCarousel({ cards, rotationMs = 20000, refres
     }, [backgroundDim, backgroundImageUrl])
 
     return (
-        <div className="relative aspect-video w-full overflow-hidden bg-[#090d16] p-6 font-sans text-white uppercase italic select-none" style={rootStyle}>
+        <div className="relative h-screen w-screen overflow-hidden bg-[#070a12] p-4 font-sans text-white uppercase italic select-none flex flex-col gap-3" style={rootStyle}>
 
-            {/* HEADER AREA */}
-            {/*<header className="mb-4 flex items-center justify-center border-b-2 border-slate-700 pb-4">
-                <div className="flex flex-col">
-                    {timerLabel && (
-                        <div className={`flex flex-col items-center gap-2 text-sm font-black tracking-tighter ${remainingTimerSeconds === 0 ? 'text-rose-400 animate-pulse' : 'text-[#ccff00]'}`}>
-                            <span className="text-[10px] text-slate-300 tracking-widest uppercase not-italic font-bold">{timerMode === 'BREAK' ? 'Temps de battement' : 'Session en cours'}</span>
-                            <h1 className="text-5xl font-black tracking-tighter leading-none">{timerLabel}</h1>
+            {/* OVERLAY PLEIN ÉCRAN ANIMÉ SANS SCROLLBAR */}
+            <AnimatePresence>
+                {fullscreenEvent && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        onClick={() => setFullscreenEvent(null)}
+                        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-3xl cursor-pointer overflow-hidden p-6"
+                    >
+                        {/* Animation Lottie de fond */}
+                        <div className="absolute inset-0 pointer-events-none opacity-40 flex items-center justify-center">
+                            {/* AJOUT FUTUR BG ANIME LOTTIE */}
                         </div>
-                    )}
-                </div>
 
-               <div className="text-right flex flex-col items-end gap-1">
-                    <p className="text-[10px] text-slate-300 not-italic font-extrabold tracking-widest uppercase">Page {activeSlide + 1}/{slides.length} • Sync {lastSyncLabel}</p>
-                    <div className="flex gap-1.5 mt-1">
-                        {slides.map((_, i) => (
-                            <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i === activeSlide ? 'w-8 bg-[#ccff00]' : 'w-2 bg-slate-700'}`} />
-                        ))}
-                    </div>
-                </div>
-            </header>*/}
+                        {/* OVERLAY DE DÉBUT DE TIMER */}
+                        {fullscreenEvent.type === 'TIMER_START' && (
+                            <motion.div
+                                initial={{ y: 20 }}
+                                animate={{ y: 0 }}
+                                className="flex flex-col items-center gap-6 text-center z-10"
+                            >
+                                <span className="px-6 py-2 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/40 text-[#ccff00] text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(204,255,0,0.3)]">
+                                    NOTIFICATION
+                                </span>
 
-            {sponsors.length > 0 && (
-                <div className="absolute left-6 right-6 top-4 flex items-center justify-center gap-2">
+                                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-emerald-400 to-[#ccff00] tracking-tighter drop-shadow-[0_10px_35px_rgba(204,255,0,0.5)]">
+                                    {fullscreenEvent.mode === 'MATCH' ? 'DÉBUT DES MATCHS !' : 'DÉBUT DE LA PAUSE !'}
+                                </h1>
+
+                                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                                    {fullscreenEvent.mode === 'MATCH'
+                                        ? 'Les équipes sont priées de se rendre sur leurs terrains respectifs'
+                                        : 'Profitez de la pause avant la prochaine session'}
+                                </p>
+                            </motion.div>
+                        )}
+
+                        {/* OVERLAY DE FIN DE TIMER */}
+                        {fullscreenEvent.type === 'TIMER_END' && (
+                            <motion.div
+                                initial={{ y: 20 }}
+                                animate={{ y: 0 }}
+                                className="flex flex-col items-center gap-6 text-center z-10"
+                            >
+                                <span className="px-6 py-2 rounded-full bg-rose-500/10 border border-rose-500/40 text-rose-400 text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                                    NOTIFICATION
+                                </span>
+
+                                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500 tracking-tighter drop-shadow-[0_10px_35px_rgba(244,63,94,0.5)]">
+                                    {fullscreenEvent.mode === 'MATCH' ? 'FIN DU TEMPS !' : 'PAUSE TERMINÉE !'}
+                                </h1>
+
+                                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                                    Veuillez valider vos feuilles de matchs auprès de la table de marque
+                                </p>
+                            </motion.div>
+                        )}
+
+                        {/* OVERLAY DE SCORE UPDATE */}
+                        {fullscreenEvent.type === 'SCORE_UPDATE' && (
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                className="flex flex-col items-center gap-3 text-center w-full max-w-6xl z-10 h-full justify-center overflow-hidden"
+                            >
+                                <div className="flex items-center gap-3 px-5 py-1.5 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/50 shadow-[0_0_25px_rgba(204,255,0,0.25)] shrink-0">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-[#ccff00] animate-ping" />
+                                    <span className="text-[#ccff00] text-xs font-black tracking-widest not-italic">
+                                        ÉVOLUTION DES SCORES ({fullscreenEvent.matches.length})
+                                    </span>
+                                </div>
+
+                                <div className="flex flex-col gap-2 w-full flex-1 justify-center min-h-0 overflow-hidden">
+                                    {fullscreenEvent.matches.map((match) => {
+                                        const homeLogo = getTeamLogo(cards, match.homeTeamName)
+                                        const awayLogo = getTeamLogo(cards, match.awayTeamName)
+
+                                        return (
+                                            <div
+                                                key={match.id}
+                                                className="flex flex-1 max-h-[120px] min-h-[50px] items-center justify-between gap-3 w-full bg-slate-900/90 px-4 py-2 rounded-xl border-2 border-slate-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
+                                            >
+                                                <div className="flex items-center justify-end gap-3 flex-1 min-w-0">
+                                                    <span className="text-lg md:text-2xl font-black text-white text-right truncate tracking-tight">
+                                                        {match.homeTeamName}
+                                                    </span>
+                                                    {homeLogo ? (
+                                                        <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-white/10 p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-md backdrop-blur-md">
+                                                            <img src={homeLogo} alt={match.homeTeamName} className="h-full w-full object-contain filter drop-shadow-md" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                                                            {initialsFromTeamName(match.homeTeamName)}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex flex-col items-center gap-0.5 shrink-0 px-2">
+                                                    <span className="text-[9px] text-slate-400 font-extrabold not-italic tracking-wider uppercase">
+                                                        {match.pitchName || 'TERRAIN'}
+                                                    </span>
+                                                    <motion.div
+                                                        initial={{ scale: 0.95 }}
+                                                        animate={{ scale: 1 }}
+                                                        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                                                        className="flex items-center gap-3 bg-slate-950 px-4 py-1.5 rounded-lg border border-[#ccff00]/40 shadow-[0_0_20px_rgba(204,255,0,0.2)]"
+                                                    >
+                                                        <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.homeScore ?? 0}</span>
+                                                        <span className="text-lg text-slate-600 font-bold leading-none">-</span>
+                                                        <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.awayScore ?? 0}</span>
+                                                    </motion.div>
+                                                </div>
+
+                                                <div className="flex items-center justify-start gap-3 flex-1 min-w-0">
+                                                    {awayLogo ? (
+                                                        <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-white/10 p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-md backdrop-blur-md">
+                                                            <img src={awayLogo} alt={match.awayTeamName} className="h-full w-full object-contain filter drop-shadow-md" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                                                            {initialsFromTeamName(match.awayTeamName)}
+                                                        </div>
+                                                    )}
+                                                    <span className="text-lg md:text-2xl font-black text-white text-left truncate tracking-tight">
+                                                        {match.awayTeamName}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </motion.div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* TOP BAR */}
+            <div className="flex h-14 w-full items-center justify-between gap-4 shrink-0 px-2">
+                <div className="flex h-full items-center gap-2 overflow-hidden flex-1">
                     {sponsors.slice(0, 6).map((sponsor) => (
-                        <div key={sponsor.id} className="flex h-full w-full items-center justify-center rounded-lg px-2 bg-slate-900/60 border border-slate-700/50 backdrop-blur-sm">
-                            <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-20 max-w-full object-contain filter drop-shadow" />
+                        <div key={sponsor.id} className="flex h-full w-28 items-center justify-center rounded-xl bg-slate-900/80 px-2 border border-slate-800 backdrop-blur-md shadow-lg">
+                            <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-7 max-w-full object-contain filter drop-shadow" />
                         </div>
                     ))}
                 </div>
-            )}
 
-            {/* MAIN CONTENT GRID (2x2) */}
-            <main className="grid h-[90%] grid-cols-2 grid-rows-2 gap-4">
-                {currentSlide.map((card, idx) => {
-                    if (!card) return <div key={idx} className="rounded-xl border-2 border-dashed border-slate-800 bg-slate-900/20" />
+                {timerLabel && (
+                    <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl border-2 backdrop-blur-xl shadow-2xl shrink-0 transition-colors duration-500 ${remainingTimerSeconds === 0
+                            ? 'bg-rose-950/90 border-rose-500 shadow-[0_0_25px_rgba(244,63,94,0.4)]'
+                            : timerMode === 'BREAK'
+                                ? 'bg-amber-950/90 border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+                                : 'bg-slate-900/90 border-[#ccff00]/60 shadow-[0_0_25px_rgba(204,255,0,0.2)]'
+                        }`}>
+                        <div className="flex flex-col text-right">
+                            <span className="text-[9px] font-black tracking-widest uppercase not-italic text-slate-400">
+                                {timerMode === 'BREAK' ? 'Temps de pause' : 'Session en cours'}
+                            </span>
+                            <span className={`text-xs font-black tracking-wider ${remainingTimerSeconds === 0 ? 'text-rose-400 animate-pulse' : timerMode === 'BREAK' ? 'text-amber-400' : 'text-[#ccff00]'
+                                }`}>
+                                {remainingTimerSeconds === 0 ? 'TERMINÉ' : timerMode === 'BREAK' ? 'PAUSE' : 'MATCH'}
+                            </span>
+                        </div>
 
-                    return (
-                        <article key={card.key} className="flex flex-col overflow-hidden rounded-xl border-2 border-slate-700 bg-slate-900/85 backdrop-blur-md shadow-2xl">
-                            <div className="bg-slate-800/90 px-3.5 py-2 flex justify-between items-center border-b-2 border-slate-700">
-                                <h3 className="text-sm font-black text-[#ccff00] tracking-tight">POULE {card.groupIndex}</h3>
-                                <span className="text-[9px] text-slate-300 not-italic font-extrabold tracking-widest">{card.phaseName}</span>
-                            </div>
+                        <div className="h-8 w-px bg-slate-700/80" />
 
-                            <div className="grid flex-1 grid-cols-[1.6fr_0.9fr] gap-3 p-2.5 overflow-hidden">
-
-                                {/* LEFT: STANDINGS TABLE */}
-                                <div className="overflow-hidden">
-                                    <table className="w-full text-[12px] border-separate border-spacing-y-1">
-                                        <thead>
-                                            <tr className="text-slate-300 not-italic font-extrabold">
-                                                <th className="px-1.5 py-1 text-left">Rang</th>
-                                                <th className="px-1.5 py-1 text-left">ÉQUIPE</th>
-                                                <th className="px-1.5 py-1 text-center">PTS</th>
-                                                <th className="px-1.5 py-1 text-center">J</th>
-                                                <th className="px-1.5 py-1 text-center">GD</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {card.standings.slice(0, 6).map((row, i) => {
-                                                const rule = getQualificationRuleForRank(card, i + 1)
-                                                const tone = rule ? getQualificationRuleTone(rule.type) : null
-                                                const gdColor = row.goalDiff > 0 ? 'text-emerald-400 font-extrabold' : row.goalDiff < 0 ? 'text-rose-400 font-extrabold' : 'text-slate-300 font-bold'
-
-                                                return (
-                                                    <tr key={row.teamId} className={`${tone ? tone.row : 'bg-slate-800/70'} transition-all`}>
-                                                        <td className={`px-2 py-1 font-black ${tone ? tone.text : 'text-slate-200'}`}>{i + 1}</td>
-                                                        <td className="px-1.5 py-1">
-                                                            {row.teamLogoUrl ? (
-                                                                <img src={row.teamLogoUrl} alt={row.teamName} className="h-13 w-13 object-contain block shrink-0 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
-                                                            ) : (
-                                                                <div className="flex h-13 w-13 items-center justify-center rounded-md border border-slate-600 bg-slate-800 text-[8px] font-black text-white shadow-md">
-                                                                    {initialsFromTeamName(row.teamName)}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                        <td className={`px-1.5 py-1 text-center font-black ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
-                                                        <td className="px-1.5 py-1 text-center font-extrabold text-slate-300">{row.played}</td>
-                                                        <td className={`px-1.5 py-1 text-center tabular-nums ${gdColor}`}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* RIGHT: MATCHES LIST */}
-                                <div className="flex flex-col gap-1 border-l-2 border-slate-700/80 pl-2.5 overflow-hidden">
-                                    <p className="text-[8px] font-extrabold text-slate-300 tracking-widest not-italic uppercase mb-1">Matchs à suivre</p>
-                                    <div className="grid gap-1.5">
-                                        {card.featuredMatches.slice(0, 6).map((match) => {
-                                            const tone = getMatchStatusTone(match.status)
-                                            const isLive = match.status === 'LIVE'
-                                            const isActiveSlotLive = Boolean(match.isActiveSlotLive)
-
-                                            return (
-                                                <div key={match.id} className={`rounded-lg border-2 px-2.5 py-1.5 transition-all ${isLive ? 'bg-emerald-950/40 border-emerald-500/80 shadow-md' : 'bg-slate-950/60 border-slate-700/80'} ${isActiveSlotLive ? 'ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.4)] animate-pulse' : ''}`}>
-                                                    <div className="flex items-center justify-between gap-1">
-                                                        <p className="truncate text-[10px] font-black leading-none flex-1 tracking-tighter text-white">
-                                                            {initialsFromTeamName(match.homeTeamName)} <span className="text-slate-400 font-bold mx-0.5">VS</span> {initialsFromTeamName(match.awayTeamName)}
-                                                        </p>
-                                                        <span className={`text-[11px] font-black shrink-0 tabular-nums ${tone.score}`}>
-                                                            {match.homeScore !== null ? `${match.homeScore}-${match.awayScore}` : match.timeLabel}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between mt-1.5">
-                                                        <span className="text-[8px] font-extrabold text-slate-300 not-italic truncate w-24 uppercase tracking-tighter">{match.pitchName}</span>
-                                                        <span className={`text-[8px] font-black uppercase ${isLive ? 'text-emerald-400 font-extrabold' : 'text-slate-400'}`}>
-                                                            {isLive ? '● DIRECT' : match.label}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </article>
-                    )
-                })}
-            </main>
-
-            {/* PROGRESS BAR FOOTER */}
-            <div className="absolute bottom-0 left-0 h-1.5 w-full bg-slate-800">
-                <div
-                    key={`${activeSlide}-${refreshCycle}`}
-                    className="h-full bg-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.9)]"
-                    style={{ animation: `progress ${rotationMs}ms linear forwards` }}
-                />
+                        <div className="flex items-center gap-2">
+                            <span className={`h-3 w-3 rounded-full ${remainingTimerSeconds === 0
+                                    ? 'bg-rose-500 animate-ping'
+                                    : timerMode === 'BREAK'
+                                        ? 'bg-amber-400 animate-pulse'
+                                        : 'bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]'
+                                }`} />
+                            <h1 className={`text-3xl font-black font-mono tracking-tighter tabular-nums not-italic leading-none ${remainingTimerSeconds === 0 ? 'text-rose-500 animate-pulse' : 'text-white'
+                                }`}>
+                                {timerLabel}
+                            </h1>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            <style jsx>{` @keyframes progress { from { width: 0%; } to { width: 100%; } } `}</style>
+            {/* GRID DES POULES */}
+            <main className="grid flex-1 grid-cols-2 grid-rows-2 gap-3 h-full min-h-0">
+                <AnimatePresence mode="wait">
+                    {currentSlide.map((card, idx) => {
+                        if (!card) return <div key={`empty-${idx}`} className="rounded-2xl border border-dashed border-slate-800/40 bg-slate-900/10" />
+
+                        return (
+                            <motion.article
+                                key={card.key}
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.35, delay: idx * 0.05 }}
+                                className="flex flex-col h-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/80 backdrop-blur-xl shadow-2xl"
+                            >
+                                <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 px-3 py-2 flex justify-between items-center border-b border-slate-800 shrink-0">
+                                    <h3 className="text-xs font-black text-[#ccff00] tracking-wider flex items-center gap-2">
+                                        <span className="inline-block h-2 w-2 bg-[#ccff00] rounded-full shadow-[0_0_8px_#ccff00]" />
+                                        POULE {card.groupIndex}
+                                    </h3>
+
+                                    <span className="text-[9px] text-slate-300 not-italic font-extrabold tracking-widest bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/80">
+                                        {card.phaseName}
+                                    </span>
+                                </div>
+
+                                <div className="grid flex-1 grid-cols-[1.4fr_1fr] gap-2 p-2.5 overflow-hidden items-stretch min-h-0">
+                                    {/* CLASSEMENT */}
+                                    <div className="flex flex-col h-full overflow-hidden">
+                                        <table className="w-full h-full text-[11px] border-separate border-spacing-y-1">
+                                            <thead>
+                                                <tr className="text-slate-400 not-italic font-extrabold text-[9px] uppercase tracking-wider">
+                                                    <th className="px-1.5 py-0.5 text-left w-5">#</th>
+                                                    <th className="px-1.5 py-0.5 text-left">ÉQUIPE</th>
+                                                    <th className="px-1.5 py-0.5 text-center w-8">PTS</th>
+                                                    <th className="px-1.5 py-0.5 text-center w-6">J</th>
+                                                    <th className="px-1.5 py-0.5 text-center w-8">GD</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {card.standings.slice(0, 5).map((row, i) => {
+                                                    const rule = getQualificationRuleForRank(card, i + 1)
+                                                    const tone = rule ? getQualificationRuleTone(rule.type) : null
+                                                    const gdColor = row.goalDiff > 0 ? 'text-emerald-400 font-extrabold' : row.goalDiff < 0 ? 'text-rose-400 font-extrabold' : 'text-slate-400 font-bold'
+
+                                                    return (
+                                                        <tr key={row.teamId} className={`${tone ? tone.row : 'bg-slate-900/60'} rounded border border-slate-800/40`}>
+                                                            <td className={`px-1.5 py-0.5 font-black text-[11px] ${tone ? tone.text : 'text-slate-400'}`}>{i + 1}</td>
+                                                            <td className="px-1.5 py-0.5 flex items-center gap-2 overflow-hidden">
+                                                                {row.teamLogoUrl ? (
+                                                                    <div className="h-20 w-20 rounded bg-white/10 p-0.5 flex items-center justify-center shrink-0 border border-slate-700/60 shadow">
+                                                                        <img src={row.teamLogoUrl} alt={row.teamName} className="h-full w-full object-contain filter drop-shadow" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex h-20 w-20 items-center justify-center rounded bg-slate-800 border border-slate-700 text-[14px] font-black text-white shrink-0 shadow">
+                                                                        {initialsFromTeamName(row.teamName)}
+                                                                    </div>
+                                                                )}
+                                                                <span className="font-black text-slate-100 text-[14px] tracking-tight truncate">{row.teamName}</span>
+                                                            </td>
+                                                            <td className={`px-1.5 py-0.5 text-center font-black text-[14px] ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
+                                                            <td className="px-1.5 py-0.5 text-center font-bold text-slate-400 text-[14px]">{row.played}</td>
+                                                            <td className={`px-1.5 py-0.5 text-center tabular-nums text-[14px] ${gdColor}`}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* MATCHS */}
+                                    <div className="flex flex-col gap-1 border-l border-slate-800/80 pl-2.5 h-full justify-between overflow-hidden">
+                                        <p className="text-[8px] font-extrabold text-slate-400 tracking-widest not-italic uppercase shrink-0">MATCHS ({card.featuredMatches.length})</p>
+                                        <div className="grid grid-cols-1 gap-1 flex-1 min-h-0 overflow-hidden justify-between">
+                                            {card.featuredMatches.slice(0, 6).map((match) => {
+                                                const isLive = match.status === 'LIVE'
+                                                const isFinished = match.status === 'FINISHED'
+                                                const isNextMatch = Boolean(match.isActiveSlotLive)
+
+                                                return (
+                                                    <div
+                                                        key={match.id}
+                                                        className={`
+                                                            relative flex flex-col justify-center bg-slate-900/80 border-l-2 rounded-r-md px-2 py-1 shadow-sm backdrop-blur-md transition-all
+                                                            ${isLive ? 'border-l-emerald-400 bg-emerald-950/20 shadow-[0_0_10px_rgba(52,211,153,0.2)]' : ''}
+                                                            ${isFinished ? 'border-l-sky-400' : ''}
+                                                            ${isNextMatch ? 'border-l-amber-400 bg-amber-950/20' : ''}
+                                                            ${!isLive && !isFinished && !isNextMatch ? 'border-slate-800' : ''}
+                                                        `}
+                                                    >
+                                                        <div className="flex items-center justify-between text-[7.5px] font-bold border-b border-white/5 pb-0.5 mb-0.5">
+                                                            <span className="text-slate-400 font-extrabold max-w-[60%] ">
+                                                                {match.pitchName || match.phaseName}
+                                                            </span>
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                <span className={`font-black uppercase tracking-tighter ${isLive ? 'text-emerald-400' : isFinished ? 'text-sky-300' : isNextMatch ? 'text-amber-300' : 'text-slate-400'}`}>
+                                                                    {isLive ? 'DIRECT' : isFinished ? 'TERMINE' : isNextMatch ? 'PROCHAIN' : match.timeLabel}
+                                                                </span>
+                                                                <div className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-400 animate-ping' : isFinished ? 'bg-sky-400' : isNextMatch ? 'bg-amber-400 animate-pulse' : 'bg-[#ccff00]'}`} />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex flex-col gap-0.5 text-[9px] font-black">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-slate-200  pr-1">{match.homeTeamName}</span>
+                                                                <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
+                                                                    {match.homeScore ?? '-'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-slate-200  pr-1">{match.awayTeamName}</span>
+                                                                <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
+                                                                    {match.awayScore ?? '-'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.article>
+                        )
+                    })}
+                </AnimatePresence>
+            </main>
+
+            {/* PROGRESS BAR */}
+            <div className="h-1.5 w-full rounded-full bg-slate-900/80 overflow-hidden shrink-0 border border-slate-800">
+                <motion.div
+                    key={`${activeSlide}-${refreshCycle}`}
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: rotationMs / 1000, ease: 'linear' }}
+                    className="h-full bg-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.8)]"
+                />
+            </div>
         </div>
     )
 }

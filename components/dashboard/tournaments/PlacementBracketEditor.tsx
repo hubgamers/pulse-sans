@@ -1,7 +1,8 @@
 'use client';
 
-import React, { startTransition, useEffect, useMemo, useState } from 'react';
+import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Types ---
 type MatchStatus = 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'CANCELLED';
@@ -42,6 +43,10 @@ type DisplayMatch = {
   isFinished?: boolean;
   scheduledAt: string | null;
   pitchName: string | null;
+  homeTeamName: string;
+  awayTeamName: string;
+  homeScore: number | null;
+  awayScore: number | null;
 };
 
 type BracketRoundData = {
@@ -61,6 +66,12 @@ type PlacementTreeWithSize = PlacementTree & {
   totalMatches: number;
   isCompact: boolean;
 };
+
+type FullscreenEvent =
+  | { type: 'TIMER_START'; mode: 'MATCH' | 'BREAK' }
+  | { type: 'TIMER_END'; mode: 'MATCH' | 'BREAK' }
+  | { type: 'SCORE_UPDATE'; matches: DisplayMatch[] }
+  | null;
 
 type AppProps = {
   orgSlug?: string;
@@ -85,6 +96,16 @@ function formatRemainingTime(totalSeconds: number): string {
   return `${minutes}:${seconds}`;
 }
 
+function initialsFromTeamName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length <= 10) return trimmed.toUpperCase();
+  const words = trimmed.split(/[\s-]+/).filter(Boolean);
+  if (words.length > 1) {
+    return words.map(word => word[0]).join('').slice(0, 5).toUpperCase();
+  }
+  return trimmed.slice(0, 4).toUpperCase();
+}
+
 // --- Logic Helpers ---
 
 function parseWinnerMatch(match: PlacementMatch): { round: number; matchNo: number } | null {
@@ -104,6 +125,10 @@ function toDisplayMatch(match: PlacementMatch): DisplayMatch {
     id: match.id,
     scheduledAt: match.scheduledAt ?? null,
     pitchName: match.pitchName ?? null,
+    homeTeamName: match.homeTeamName || 'À DÉFINIR',
+    awayTeamName: match.awayTeamName || 'À DÉFINIR',
+    homeScore: match.homeScore,
+    awayScore: match.awayScore,
     players: [
       { name: match.homeTeamName || 'À DÉFINIR', score: match.homeScore },
       { name: match.awayTeamName || 'À DÉFINIR', score: match.awayScore },
@@ -180,14 +205,18 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
   const highImg = Math.max(...scores);
 
   return (
-    <div className={`
-      relative flex flex-col bg-slate-900/95 border-l-2 rounded-sm overflow-hidden ${width} z-10 backdrop-blur-md transition-all ml-4 shadow-lg
-      ${isFinal ? 'border-[#ccff00] shadow-[0_0_15px_rgba(204,255,0,0.2)]' : 'border-slate-700'}
-      ${isLive ? 'border-l-emerald-400 bg-slate-900/95 shadow-[0_0_12px_rgba(52,211,153,0.4)] animate-pulse' : ''}
-      ${isFinished ? 'border-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.3)]' : ''}
-      ${isNextMatch ? 'border-l-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]' : ''}
-    `}>
-
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.25 }}
+      className={`
+        relative flex flex-col bg-slate-900/95 border-l-2 rounded-sm overflow-hidden ${width} z-10 backdrop-blur-md transition-all ml-4 shadow-lg
+        ${isFinal ? 'border-[#ccff00] shadow-[0_0_15px_rgba(204,255,0,0.2)]' : 'border-slate-700'}
+        ${isLive ? 'border-l-emerald-400 bg-slate-900/95 shadow-[0_0_12px_rgba(52,211,153,0.4)]' : ''}
+        ${isFinished ? 'border-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.3)]' : ''}
+        ${isNextMatch ? 'border-l-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]' : ''}
+      `}
+    >
       {/* Header : Piste à gauche, Heure/Statut à droite */}
       {(scheduledAt || pitchName) && (
         <div className={`
@@ -198,14 +227,12 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
               ? 'bg-amber-500/20'
               : 'bg-slate-800/80'}
         `}>
-          {/* Nom du terrain / Piste */}
           {pitchName ? (
             <span className="text-[10px] font-black text-white uppercase tracking-wider bg-black/60 px-1.5 py-0.5 rounded mb-0.5 shadow-sm">
               {pitchName}
             </span>
           ) : <span />}
 
-          {/* Heure et Statut */}
           <div className="flex items-center gap-1.5">
             <span className={`
               text-[10px] font-black tracking-tighter uppercase
@@ -228,10 +255,10 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
               }
             </span>
 
-            <div className={`
+            <span className={`
               w-1.5 h-1.5 rounded-full shadow-sm
               ${isLive
-                ? 'bg-emerald-400 animate-bounce'
+                ? 'bg-emerald-400 animate-ping'
                 : isNextMatch
                   ? 'bg-amber-400 animate-pulse'
                   : 'bg-[#ccff00]'}
@@ -250,21 +277,37 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
               key={i}
               className={`flex justify-between items-center px-2 py-1.5 h-6 transition-colors ${i === 0 ? 'border-b border-white/10' : ''} ${isWinner ? 'bg-[#ccff00]/15' : 'bg-slate-900/60'}`}
             >
-              <span className={`text-[9px] font-black uppercase italic truncate tracking-tight ${isWinner ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)] font-extrabold' : p.name != 'TBD' ? 'text-slate-200' : 'text-slate-500'}`}>
+              <span className={`text-[9px] font-black uppercase italic truncate tracking-tight ${isWinner ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)] font-extrabold' : p.name !== 'TBD' ? 'text-slate-200' : 'text-slate-500'}`}>
                 {p.name}
               </span>
 
               <div className="flex items-center gap-1">
-                {isWinner && <div className="w-1 h-3 bg-[#ccff00] shadow-[0_0_5px_rgba(204,255,0,0.8)]" />}
-                <span className={`text-[11px] font-black tabular-nums px-1 rounded ${isWinner ? 'text-[#ccff00] bg-black/40' : isLive ? 'text-emerald-300' : 'text-white'}`}>
-                  {p.score ?? '-'}
-                </span>
+                {isWinner && (
+                  <motion.div 
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    className="w-1 h-3 bg-[#ccff00] shadow-[0_0_5px_rgba(204,255,0,0.8)]" 
+                  />
+                )}
+
+                <AnimatePresence mode="popLayout">
+                  <motion.span 
+                    key={p.score ?? 'none'}
+                    initial={{ scale: 1.4, color: '#ccff00' }}
+                    animate={{ scale: 1, color: isWinner ? '#ccff00' : isLive ? '#6ee7b7' : '#ffffff' }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                    className={`text-[11px] font-black tabular-nums px-1 rounded ${isWinner ? 'bg-black/40' : ''}`}
+                  >
+                    {p.score ?? '-'}
+                  </motion.span>
+                </AnimatePresence>
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -323,7 +366,13 @@ const BracketRound = ({ round, roundIdx, isLast, matchWidth, upcomingMatchIds }:
 };
 
 const BracketCard = ({ title, rounds, className = '', matchWidth = 'w-[80px]', upcomingMatchIds }: { title?: string; rounds: BracketRoundData[]; className?: string; matchWidth?: string; upcomingMatchIds: Set<string>; }) => (
-  <div className={`flex flex-col bg-white/[0.02] border border-white/5 rounded p-2 overflow-hidden ${className}`}>
+  <motion.div 
+    layout
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+    className={`flex flex-col bg-white/[0.02] border border-white/5 rounded p-2 overflow-hidden ${className}`}
+  >
     {title && (
       <div className="flex items-center gap-2 mb-2">
         <div className="h-2.5 w-0.5 bg-[#ccff00] shadow-[0_0_5px_rgba(204,255,0,0.5)]"></div>
@@ -346,16 +395,22 @@ const BracketCard = ({ title, rounds, className = '', matchWidth = 'w-[80px]', u
         <div className="flex-1 flex items-center justify-center opacity-10 text-[8px] italic uppercase">Non généré</div>
       )}
     </div>
-  </div>
+  </motion.div>
 );
 
 // --- Main App ---
 
 export default function App({ initialPhaseId = null, phases = [], matches = [], timerSeconds = 0, timerStartMs = null, timerMode = 'MATCH', backgroundImageUrl = null, backgroundDim = 0.55 }: AppProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [fullscreenEvent, setFullscreenEvent] = useState<FullscreenEvent>(null);
+
   const router = useRouter();
+  const prevScoresRef = useRef<Map<string, string>>(new Map());
+  const timerEndedRef = useRef(false);
+  const timerStartedRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!timerStartMs) return;
     const timerId = window.setInterval(() => {
       setNowMs(Date.now());
     }, 1000);
@@ -363,7 +418,7 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
     return () => {
       window.clearInterval(timerId);
     };
-  }, []);
+  }, [timerStartMs]);
 
   useEffect(() => {
     const refreshId = window.setInterval(() => {
@@ -384,6 +439,56 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
     const diff = Math.ceil((endMs - nowMs) / 1000);
     return diff <= 0 ? 0 : diff;
   }, [nowMs, timerStartMs, timerSeconds]);
+
+  // Détection Début & Fin du Timer
+  useEffect(() => {
+    if (timerStartMs && timerSeconds > 0) {
+      if (timerStartedRef.current !== timerStartMs) {
+        timerStartedRef.current = timerStartMs;
+        timerEndedRef.current = false;
+        setFullscreenEvent({ type: 'TIMER_START', mode: timerMode });
+      }
+    }
+
+    if (remainingTimerSeconds === 0 && !timerEndedRef.current) {
+      timerEndedRef.current = true;
+      setFullscreenEvent({ type: 'TIMER_END', mode: timerMode });
+    }
+  }, [remainingTimerSeconds, timerStartMs, timerSeconds, timerMode]);
+
+  // Détection des Scores mis à jour
+  useEffect(() => {
+    const currentScores = new Map<string, string>();
+    const updatedMatches: DisplayMatch[] = [];
+
+    matches.forEach((m) => {
+      const key = m.id;
+      const scoreValue = `${m.homeScore ?? '-'}-${m.awayScore ?? '-'}`;
+      currentScores.set(key, scoreValue);
+
+      if (prevScoresRef.current.has(key)) {
+        const prevValue = prevScoresRef.current.get(key);
+        if (prevValue !== scoreValue && (m.homeScore !== null || m.awayScore !== null)) {
+          updatedMatches.push(toDisplayMatch(m));
+        }
+      }
+    });
+
+    if (prevScoresRef.current.size > 0 && updatedMatches.length > 0) {
+      setFullscreenEvent({ type: 'SCORE_UPDATE', matches: updatedMatches });
+    }
+
+    prevScoresRef.current = currentScores;
+  }, [matches]);
+
+  // Auto-close overlay (6s)
+  useEffect(() => {
+    if (!fullscreenEvent) return;
+    const timeout = setTimeout(() => {
+      setFullscreenEvent(null);
+    }, 6000);
+    return () => window.clearTimeout(timeout);
+  }, [fullscreenEvent]);
 
   const timerLabel = useMemo(() => {
     if (remainingTimerSeconds === null) return null;
@@ -464,9 +569,7 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
   const compactPlacementTrees = sizedPlacementTrees.filter((tree) => tree.isCompact);
   const mainPlacementTrees = sizedPlacementTrees.filter((tree) => !tree.isCompact);
 
-  // Calcul dynamique du nombre de colonnes de la grille pour insérer le bloc info fluidement en fin de ligne
   const compactCount = compactPlacementTrees.length;
-  // On prend 6 colonnes max par ligne pour les grids, ou on ajuste selon le nombre d'éléments compacts
   const gridColsClass = compactCount <= 5 ? `grid-cols-${compactCount + 1}` : 'grid-cols-6';
 
   const rootStyle: React.CSSProperties | undefined = backgroundImageUrl
@@ -479,7 +582,125 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
     : undefined;
 
   return (
-    <div className="h-screen w-screen bg-[#030712] text-slate-200 font-sans p-4 flex flex-col overflow-hidden relative" style={rootStyle}>
+    <div className="h-screen w-screen bg-[#030712] text-slate-200 font-sans p-4 flex flex-col overflow-hidden relative uppercase italic select-none" style={rootStyle}>
+      
+      {/* OVERLAY PLEIN ÉCRAN ANIMÉ SANS SCROLLBAR */}
+      <AnimatePresence>
+        {fullscreenEvent && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            onClick={() => setFullscreenEvent(null)}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-3xl cursor-pointer overflow-hidden p-6"
+          >
+            {/* OVERLAY DE DÉBUT DE TIMER */}
+            {fullscreenEvent.type === 'TIMER_START' && (
+              <motion.div
+                initial={{ y: 20 }}
+                animate={{ y: 0 }}
+                className="flex flex-col items-center gap-6 text-center z-10"
+              >
+                <span className="px-6 py-2 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/40 text-[#ccff00] text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(204,255,0,0.3)]">
+                  NOTIFICATION
+                </span>
+
+                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-emerald-400 to-[#ccff00] tracking-tighter drop-shadow-[0_10px_35px_rgba(204,255,0,0.5)]">
+                  {fullscreenEvent.mode === 'MATCH' ? 'DÉBUT DES MATCHS !' : 'DÉBUT DE LA PAUSE !'}
+                </h1>
+
+                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                  {fullscreenEvent.mode === 'MATCH'
+                    ? 'Les équipes sont priées de se rendre sur leurs terrains respectifs'
+                    : 'Profitez de la pause avant la prochaine session'}
+                </p>
+              </motion.div>
+            )}
+
+            {/* OVERLAY DE FIN DE TIMER */}
+            {fullscreenEvent.type === 'TIMER_END' && (
+              <motion.div
+                initial={{ y: 20 }}
+                animate={{ y: 0 }}
+                className="flex flex-col items-center gap-6 text-center z-10"
+              >
+                <span className="px-6 py-2 rounded-full bg-rose-500/10 border border-rose-500/40 text-rose-400 text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                  NOTIFICATION
+                </span>
+
+                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500 tracking-tighter drop-shadow-[0_10px_35px_rgba(244,63,94,0.5)]">
+                  {fullscreenEvent.mode === 'MATCH' ? 'FIN DU TEMPS !' : 'PAUSE TERMINÉE !'}
+                </h1>
+
+                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                  Veuillez valider vos feuilles de matchs auprès de la table de marque
+                </p>
+              </motion.div>
+            )}
+
+            {/* OVERLAY DE SCORE UPDATE */}
+            {fullscreenEvent.type === 'SCORE_UPDATE' && (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="flex flex-col items-center gap-3 text-center w-full max-w-6xl z-10 h-full justify-center overflow-hidden"
+              >
+                <div className="flex items-center gap-3 px-5 py-1.5 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/50 shadow-[0_0_25px_rgba(204,255,0,0.25)] shrink-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ccff00] animate-ping" />
+                  <span className="text-[#ccff00] text-xs font-black tracking-widest not-italic">
+                    ÉVOLUTION DES SCORES ({fullscreenEvent.matches.length})
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-2 w-full flex-1 justify-center min-h-0 overflow-hidden">
+                  {fullscreenEvent.matches.map((match) => (
+                    <div
+                      key={match.id}
+                      className="flex flex-1 max-h-[120px] min-h-[50px] items-center justify-between gap-3 w-full bg-slate-900/90 px-4 py-2 rounded-xl border-2 border-slate-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
+                    >
+                      <div className="flex items-center justify-end gap-3 flex-1 min-w-0">
+                        <span className="text-lg md:text-2xl font-black text-white text-right truncate tracking-tight">
+                          {match.homeTeamName}
+                        </span>
+                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                          {initialsFromTeamName(match.homeTeamName)}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-center gap-0.5 shrink-0 px-2">
+                        <span className="text-[9px] text-slate-400 font-extrabold not-italic tracking-wider uppercase">
+                          {match.pitchName || 'TERRAIN'}
+                        </span>
+                        <motion.div
+                          initial={{ scale: 0.95 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                          className="flex items-center gap-3 bg-slate-950 px-4 py-1.5 rounded-lg border border-[#ccff00]/40 shadow-[0_0_20px_rgba(204,255,0,0.2)]"
+                        >
+                          <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.homeScore ?? 0}</span>
+                          <span className="text-lg text-slate-600 font-bold leading-none">-</span>
+                          <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.awayScore ?? 0}</span>
+                        </motion.div>
+                      </div>
+
+                      <div className="flex items-center justify-start gap-3 flex-1 min-w-0">
+                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                          {initialsFromTeamName(match.awayTeamName)}
+                        </div>
+                        <span className="text-lg md:text-2xl font-black text-white text-left truncate tracking-tight">
+                          {match.awayTeamName}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_-20%,_#1e293b_0%,_transparent_70%)] pointer-events-none opacity-50" />
 
       <main className="flex-1 flex gap-4 min-h-0 relative z-10 px-2 overflow-hidden">
@@ -496,7 +717,7 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
           </div>
         </div>
 
-        {/* COLONNE DE DROITE : Brackets de placement & Timer intégré sur la ligne */}
+        {/* COLONNE DE DROITE : Brackets de placement & Timer intégré */}
         {isPlacementBracketPhase && (
           <div className="flex-1 min-h-0 overflow-hidden">
             {sizedPlacementTrees.length > 0 ? (
@@ -515,9 +736,13 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
                         />
                       ))}
                       
-                      {/* ENCADRE INFOS : Aligné dynamiquement sur la même ligne pour occuper le reste de l'espace */}
-                      <div className="flex flex-col items-center justify-center bg-white/[0.02] border border-white/5 rounded px-4 h-[115px] shrink-0">
-                        <div className="flex flex-col items-start">
+                      {/* ENCADRE INFOS & TIMER ANIMÉ */}
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="h-[160px] flex flex-col items-center justify-center bg-white/[0.02] border border-white/5 rounded px-4 h-[115px] shrink-0"
+                      >
+                        <div className="flex flex-col items-start mb-1">
                           <h2 className="text-xl font-black italic text-white leading-none uppercase tracking-tighter">
                             {currentPhase?.name || 'Phase de Classement'}
                           </h2>
@@ -528,10 +753,10 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
                             <span className="text-[8px] opacity-60 tracking-widest uppercase not-italic">
                               {timerMode === 'BREAK' ? 'Temps de battement' : 'Session'}
                             </span>
-                            <h1 className="text-2xl font-black tracking-tighter leading-none">{timerLabel}</h1>
+                              <span className='text-[50px]'>{timerLabel}</span>
                           </div>
                         )}
-                      </div>
+                      </motion.div>
                     </div>
                   </div>
                 )}

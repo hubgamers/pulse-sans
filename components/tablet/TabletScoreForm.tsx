@@ -99,8 +99,8 @@ export default function TabletScoreForm({
 }) {
   const router = useRouter()
   const [selectedMatch, setSelectedMatch] = useState<TabletMatch | null>(null)
-  const [homeScore, setHomeScore] = useState<number>(0)
-  const [awayScore, setAwayScore] = useState<number>(0)
+  const [homeScore, setHomeScore] = useState<number | ''>('')
+  const [awayScore, setAwayScore] = useState<number | ''>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const [query, setQuery] = useState('')
@@ -153,8 +153,8 @@ export default function TabletScoreForm({
 
   const handleSelectMatch = (match: TabletMatch) => {
     setSelectedMatch(match)
-    setHomeScore(match.result?.homeScore ?? 0)
-    setAwayScore(match.result?.awayScore ?? 0)
+    setHomeScore('')
+    setAwayScore('')
     setMessage('')
   }
 
@@ -165,7 +165,7 @@ export default function TabletScoreForm({
     setMessage('')
 
     try {
-      const res = (await submitScoreFromTablet(selectedMatch.id, homeScore, awayScore)) as SubmitResponse
+      const res = (await submitScoreFromTablet(selectedMatch.id, Number(homeScore), Number(awayScore))) as SubmitResponse
 
       if (res.success) {
         setMessage(res.message || 'Score mis a jour')
@@ -206,7 +206,7 @@ export default function TabletScoreForm({
               inputMode="numeric"
               pattern="[0-9]*"
               value={homeScore}
-              onChange={(event) => setHomeScore(Math.max(0, parseInt(event.target.value) || 0))}
+              onChange={(event) => setHomeScore(event.target.value === '' ? '' : Math.max(0, parseInt(event.target.value, 10) || 0))}
               style={{ fontSize: '5rem' }}
               className="!w-32 !h-32 md:!w-40 md:!h-40 !bg-gray-800 !border-4 !border-blue-600 !rounded-3xl !text-white text-6xl font-mono text-center focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all"
             />
@@ -226,7 +226,7 @@ export default function TabletScoreForm({
               inputMode="numeric"
               pattern="[0-9]*"
               value={awayScore}
-              onChange={(event) => setAwayScore(Math.max(0, parseInt(event.target.value) || 0))}
+              onChange={(event) => setAwayScore(event.target.value === '' ? '' : Math.max(0, parseInt(event.target.value, 10) || 0))}
               style={{ fontSize: '5rem' }}
               className="!w-32 !h-32 md:!w-40 md:!h-40 !bg-gray-800 !border-4 !border-red-600 !rounded-3xl !text-white text-6xl font-mono text-center focus:outline-none focus:ring-4 focus:ring-red-500/50 transition-all"
             />

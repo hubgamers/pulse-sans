@@ -1536,11 +1536,11 @@ function buildRoundRobinPairings(teamIds: string[]) {
     const [a, b, c, d] = teamIds
     return [
       { round: 1, homeTeamId: a, awayTeamId: b },
-      { round: 1, homeTeamId: c, awayTeamId: d },
+      { round: 1, homeTeamId: d, awayTeamId: c },
       { round: 2, homeTeamId: a, awayTeamId: c },
       { round: 2, homeTeamId: b, awayTeamId: d },
       { round: 3, homeTeamId: a, awayTeamId: d },
-      { round: 3, homeTeamId: b, awayTeamId: c },
+      { round: 3, homeTeamId: c, awayTeamId: b },
     ]
   }
 

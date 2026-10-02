@@ -354,7 +354,7 @@ export default function PoolsOverlayCarousel({
                                                 className="flex flex-1 max-h-[clamp(3.125rem,12vh,7.5rem)] min-h-[clamp(2.5rem,7vh,3.125rem)] items-center justify-between gap-[clamp(0.375rem,1vw,0.75rem)] w-full bg-slate-900/90 px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,0.8vh,0.5rem)] rounded-xl border-2 border-slate-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
                                             >
                                                 <div className="flex items-center justify-end gap-3 flex-1 min-w-0">
-                                                    <span className="min-w-0 text-[clamp(0.75rem,2vw,1.5rem)] font-black text-white text-right truncate tracking-tight">
+                                                    <span className="min-w-0 whitespace-normal break-words text-[clamp(0.75rem,2vw,1.5rem)] font-black text-white text-right tracking-tight">
                                                         {match.homeTeamName}
                                                     </span>
                                                     {homeLogo ? (
@@ -394,7 +394,7 @@ export default function PoolsOverlayCarousel({
                                                             {initialsFromTeamName(match.awayTeamName)}
                                                         </div>
                                                     )}
-                                                    <span className="min-w-0 text-[clamp(0.75rem,2vw,1.5rem)] font-black text-white text-left truncate tracking-tight">
+                                                    <span className="min-w-0 whitespace-normal break-words text-[clamp(0.75rem,2vw,1.5rem)] font-black text-white text-left tracking-tight">
                                                         {match.awayTeamName}
                                                     </span>
                                                 </div>
@@ -501,7 +501,7 @@ export default function PoolsOverlayCarousel({
                                                     return (
                                                         <tr key={row.teamId} className={`${tone ? tone.row : 'bg-slate-900/60'} rounded border border-slate-800/40`}>
                                                             <td className={`px-1.5 py-0.5 font-black text-[clamp(0.55rem,0.7vw,0.6875rem)] ${tone ? tone.text : 'text-slate-400'}`}>{i + 1}</td>
-                                                            <td className="px-1.5 py-0.5 align-middle overflow-hidden">
+                                                            <td className="px-1.5 py-0.5 align-middle">
                                                                     <div className="flex h-full min-w-0 items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
                                                                 {row.teamLogoUrl ? (
                                                                     <div className="h-[clamp(1.25rem,4vh,3rem)] w-[clamp(1.25rem,4vh,3rem)] rounded bg-white/10 p-0.5 flex items-center justify-center shrink-0 border border-slate-700/60 shadow">
@@ -512,7 +512,7 @@ export default function PoolsOverlayCarousel({
                                                                         {initialsFromTeamName(row.teamName)}
                                                                     </div>
                                                                 )}
-                                                                <span className="min-w-0 font-black text-slate-100 text-[clamp(0.55rem,0.75vw,0.875rem)] leading-tight tracking-tight truncate">{row.teamName}</span>
+                                                                <span className="min-w-0 whitespace-normal break-words font-black text-slate-100 text-[clamp(0.55rem,0.75vw,0.875rem)] leading-tight tracking-tight">{row.teamName}</span>
                                                                 </div>
                                                             </td>
                                                             <td className={`px-1.5 py-0.5 text-center font-black text-[clamp(0.6rem,0.8vw,0.875rem)] ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
@@ -565,13 +565,13 @@ export default function PoolsOverlayCarousel({
 
                                                         <div className="flex flex-col gap-0.5 text-[clamp(0.5rem,0.65vw,0.5625rem)] font-black">
                                                             <div className="flex justify-between items-center">
-                                                                <span className="min-w-0 truncate text-slate-200 pr-1">{match.homeTeamName}</span>
+                                                                <span className="min-w-0 whitespace-normal break-words text-slate-200 pr-1">{match.homeTeamName}</span>
                                                                 <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
                                                                     {match.homeScore ?? '-'}
                                                                 </span>
                                                             </div>
                                                             <div className="flex justify-between items-center">
-                                                                <span className="min-w-0 truncate text-slate-200 pr-1">{match.awayTeamName}</span>
+                                                                <span className="min-w-0 whitespace-normal break-words text-slate-200 pr-1">{match.awayTeamName}</span>
                                                                 <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
                                                                     {match.awayScore ?? '-'}
                                                                 </span>

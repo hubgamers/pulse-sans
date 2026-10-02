@@ -43,7 +43,7 @@ export default async function DashboardOrgTeams({
                   alt={`${team.name} logo`}
                   width={48}
                   height={48}
-                  className="h-12 w-12 flex-shrink-0 rounded-lg border border-slate-100 object-contain"
+                  className="h-12 w-12 flex-shrink-0 rounded-lg border border-slate-100 object-contain bg-gray-400"
                   unoptimized
                 />
               ) : (

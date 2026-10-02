@@ -134,6 +134,7 @@ export default function PoolsOverlayCarousel({
 
     const router = useRouter()
     const prevScoresRef = useRef<Map<string, string>>(new Map())
+    const matchListRefs = useRef<Map<string, HTMLDivElement>>(new Map())
     const timerEndedRef = useRef(false)
     const timerStartedRef = useRef<number | null>(null)
 
@@ -199,7 +200,7 @@ export default function PoolsOverlayCarousel({
         if (!fullscreenEvent) return
         const timeout = setTimeout(() => {
             setFullscreenEvent(null)
-        }, 6000)
+        }, 4000)
         return () => window.clearInterval(timeout)
     }, [fullscreenEvent])
 
@@ -236,6 +237,23 @@ export default function PoolsOverlayCarousel({
         return () => window.clearInterval(interval)
     }, [refreshMs, router])
 
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            matchListRefs.current.forEach((element) => {
+                const maxScrollTop = element.scrollHeight - element.clientHeight
+                if (maxScrollTop <= 0) return
+
+                const isAtEnd = element.scrollTop >= maxScrollTop - 1
+                element.scrollTo({
+                    top: isAtEnd ? 0 : Math.min(element.scrollTop + element.clientHeight, maxScrollTop),
+                    behavior: 'smooth'
+                })
+            })
+        }, 4000)
+
+        return () => window.clearInterval(interval)
+    }, [])
+
     const currentSlide = slides[activeSlide] || slides[0]
 
     const rootStyle = useMemo(() => {
@@ -249,7 +267,7 @@ export default function PoolsOverlayCarousel({
     }, [backgroundDim, backgroundImageUrl])
 
     return (
-        <div className="relative h-screen w-screen overflow-hidden bg-[#070a12] p-4 font-sans text-white uppercase italic select-none flex flex-col gap-3" style={rootStyle}>
+        <div className="relative h-screen w-screen overflow-hidden bg-[#070a12] p-[clamp(0.375rem,1.2vw,1rem)] font-sans text-white uppercase italic select-none flex flex-col gap-[clamp(0.375rem,1vh,0.75rem)]" style={rootStyle}>
 
             {/* OVERLAY PLEIN ÉCRAN ANIMÉ SANS SCROLLBAR */}
             <AnimatePresence>
@@ -260,7 +278,7 @@ export default function PoolsOverlayCarousel({
                         exit={{ opacity: 0, scale: 1.05 }}
                         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                         onClick={() => setFullscreenEvent(null)}
-                        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-3xl cursor-pointer overflow-hidden p-6"
+                        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-3xl cursor-pointer overflow-hidden p-[clamp(0.75rem,3vw,1.5rem)]"
                     >
                         {/* Animation Lottie de fond */}
                         <div className="absolute inset-0 pointer-events-none opacity-40 flex items-center justify-center">
@@ -272,17 +290,17 @@ export default function PoolsOverlayCarousel({
                             <motion.div
                                 initial={{ y: 20 }}
                                 animate={{ y: 0 }}
-                                className="flex flex-col items-center gap-6 text-center z-10"
+                                className="flex max-w-[95vw] flex-col items-center gap-[clamp(0.75rem,3vh,1.5rem)] text-center z-10"
                             >
-                                <span className="px-6 py-2 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/40 text-[#ccff00] text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(204,255,0,0.3)]">
+                                <span className="px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.375rem,1vh,0.5rem)] rounded-full bg-[#ccff00]/10 border border-[#ccff00]/40 text-[#ccff00] text-[clamp(0.65rem,1.2vw,0.875rem)] font-black tracking-widest not-italic shadow-[0_0_20px_rgba(204,255,0,0.3)]">
                                     NOTIFICATION
                                 </span>
 
-                                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-emerald-400 to-[#ccff00] tracking-tighter drop-shadow-[0_10px_35px_rgba(204,255,0,0.5)]">
+                                <h1 className="max-w-full px-4 text-[clamp(2rem,8vw,6rem)] leading-tight wrap-break-word font-black text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-emerald-400 to-[#ccff00] tracking-tighter drop-shadow-[0_10px_35px_rgba(204,255,0,0.5)]">
                                     {fullscreenEvent.mode === 'MATCH' ? 'DÉBUT DES MATCHS !' : 'DÉBUT DE LA PAUSE !'}
                                 </h1>
 
-                                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                                <p className="max-w-[90vw] text-[clamp(0.875rem,2vw,1.25rem)] leading-snug text-slate-300 font-bold not-italic tracking-wide">
                                     {fullscreenEvent.mode === 'MATCH'
                                         ? 'Les équipes sont priées de se rendre sur leurs terrains respectifs'
                                         : 'Profitez de la pause avant la prochaine session'}
@@ -295,17 +313,17 @@ export default function PoolsOverlayCarousel({
                             <motion.div
                                 initial={{ y: 20 }}
                                 animate={{ y: 0 }}
-                                className="flex flex-col items-center gap-6 text-center z-10"
+                                className="flex max-w-[95vw] flex-col items-center gap-[clamp(0.75rem,3vh,1.5rem)] text-center z-10"
                             >
-                                <span className="px-6 py-2 rounded-full bg-rose-500/10 border border-rose-500/40 text-rose-400 text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                                <span className="px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.375rem,1vh,0.5rem)] rounded-full bg-rose-500/10 border border-rose-500/40 text-rose-400 text-[clamp(0.65rem,1.2vw,0.875rem)] font-black tracking-widest not-italic shadow-[0_0_20px_rgba(244,63,94,0.3)]">
                                     NOTIFICATION
                                 </span>
 
-                                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500 tracking-tighter drop-shadow-[0_10px_35px_rgba(244,63,94,0.5)]">
-                                    {fullscreenEvent.mode === 'MATCH' ? 'FIN DU TEMPS !' : 'PAUSE TERMINÉE !'}
+                                <h1 className="max-w-full px-4 text-center text-[clamp(2rem,8vw,6rem)] leading-tight wrap-break-word font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500 tracking-tighter drop-shadow-[0_10px_35px_rgba(244,63,94,0.5)]">
+                                    {fullscreenEvent.mode === 'MATCH' ? 'FIN DU TEMPS' : 'PAUSE TERMINÉE'}
                                 </h1>
 
-                                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                                <p className="max-w-[90vw] text-[clamp(0.875rem,2vw,1.25rem)] leading-snug text-slate-300 font-bold not-italic tracking-wide">
                                     Veuillez valider vos feuilles de matchs auprès de la table de marque
                                 </p>
                             </motion.div>
@@ -316,11 +334,11 @@ export default function PoolsOverlayCarousel({
                             <motion.div
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                className="flex flex-col items-center gap-3 text-center w-full max-w-6xl z-10 h-full justify-center overflow-hidden"
+                                className="flex flex-col items-center gap-[clamp(0.5rem,1.5vh,0.75rem)] text-center w-full max-w-6xl z-10 h-full justify-center overflow-hidden"
                             >
-                                <div className="flex items-center gap-3 px-5 py-1.5 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/50 shadow-[0_0_25px_rgba(204,255,0,0.25)] shrink-0">
+                                <div className="flex items-center gap-2 px-[clamp(0.75rem,2vw,1.25rem)] py-1.5 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/50 shadow-[0_0_25px_rgba(204,255,0,0.25)] shrink-0">
                                     <span className="w-2.5 h-2.5 rounded-full bg-[#ccff00] animate-ping" />
-                                    <span className="text-[#ccff00] text-xs font-black tracking-widest not-italic">
+                                    <span className="text-[#ccff00] text-[clamp(0.6rem,1vw,0.75rem)] font-black tracking-widest not-italic">
                                         ÉVOLUTION DES SCORES ({fullscreenEvent.matches.length})
                                     </span>
                                 </div>
@@ -333,50 +351,50 @@ export default function PoolsOverlayCarousel({
                                         return (
                                             <div
                                                 key={match.id}
-                                                className="flex flex-1 max-h-[120px] min-h-[50px] items-center justify-between gap-3 w-full bg-slate-900/90 px-4 py-2 rounded-xl border-2 border-slate-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
+                                                className="flex flex-1 max-h-[clamp(3.125rem,12vh,7.5rem)] min-h-[clamp(2.5rem,7vh,3.125rem)] items-center justify-between gap-[clamp(0.375rem,1vw,0.75rem)] w-full bg-slate-900/90 px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,0.8vh,0.5rem)] rounded-xl border-2 border-slate-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
                                             >
                                                 <div className="flex items-center justify-end gap-3 flex-1 min-w-0">
-                                                    <span className="text-lg md:text-2xl font-black text-white text-right truncate tracking-tight">
+                                                    <span className="min-w-0 text-[clamp(0.75rem,2vw,1.5rem)] font-black text-white text-right truncate tracking-tight">
                                                         {match.homeTeamName}
                                                     </span>
                                                     {homeLogo ? (
-                                                        <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-white/10 p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-md backdrop-blur-md">
+                                                        <div className="h-[clamp(1.75rem,6vh,3rem)] w-[clamp(1.75rem,6vh,3rem)] rounded-lg bg-white/10 p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-md backdrop-blur-md">
                                                             <img src={homeLogo} alt={match.homeTeamName} className="h-full w-full object-contain filter drop-shadow-md" />
                                                         </div>
                                                     ) : (
-                                                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                                                        <div className="flex h-[clamp(1.75rem,6vh,3rem)] w-[clamp(1.75rem,6vh,3rem)] items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-[clamp(0.7rem,1vw,1rem)] font-black text-white shrink-0 shadow-md">
                                                             {initialsFromTeamName(match.homeTeamName)}
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 <div className="flex flex-col items-center gap-0.5 shrink-0 px-2">
-                                                    <span className="text-[9px] text-slate-400 font-extrabold not-italic tracking-wider uppercase">
+                                                    <span className="text-[clamp(0.5rem,0.65vw,0.5625rem)] text-slate-400 font-extrabold not-italic tracking-wider uppercase">
                                                         {match.pitchName || 'TERRAIN'}
                                                     </span>
                                                     <motion.div
                                                         initial={{ scale: 0.95 }}
                                                         animate={{ scale: 1 }}
                                                         transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                                                        className="flex items-center gap-3 bg-slate-950 px-4 py-1.5 rounded-lg border border-[#ccff00]/40 shadow-[0_0_20px_rgba(204,255,0,0.2)]"
+                                                        className="flex items-center gap-[clamp(0.375rem,1vw,0.75rem)] bg-slate-950 px-[clamp(0.5rem,1vw,1rem)] py-1.5 rounded-lg border border-[#ccff00]/40 shadow-[0_0_20px_rgba(204,255,0,0.2)]"
                                                     >
-                                                        <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.homeScore ?? 0}</span>
-                                                        <span className="text-lg text-slate-600 font-bold leading-none">-</span>
-                                                        <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.awayScore ?? 0}</span>
+                                                        <span className="text-[clamp(1.25rem,4vw,2.25rem)] font-black text-[#ccff00] font-mono leading-none">{match.homeScore ?? 0}</span>
+                                                        <span className="text-[clamp(0.75rem,1.5vw,1.125rem)] text-slate-600 font-bold leading-none">-</span>
+                                                        <span className="text-[clamp(1.25rem,4vw,2.25rem)] font-black text-[#ccff00] font-mono leading-none">{match.awayScore ?? 0}</span>
                                                     </motion.div>
                                                 </div>
 
                                                 <div className="flex items-center justify-start gap-3 flex-1 min-w-0">
                                                     {awayLogo ? (
-                                                        <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-white/10 p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-md backdrop-blur-md">
+                                                        <div className="h-[clamp(1.75rem,6vh,3rem)] w-[clamp(1.75rem,6vh,3rem)] rounded-lg bg-white/10 p-1 flex items-center justify-center shrink-0 border border-slate-700 shadow-md backdrop-blur-md">
                                                             <img src={awayLogo} alt={match.awayTeamName} className="h-full w-full object-contain filter drop-shadow-md" />
                                                         </div>
                                                     ) : (
-                                                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                                                        <div className="flex h-[clamp(1.75rem,6vh,3rem)] w-[clamp(1.75rem,6vh,3rem)] items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-[clamp(0.7rem,1vw,1rem)] font-black text-white shrink-0 shadow-md">
                                                             {initialsFromTeamName(match.awayTeamName)}
                                                         </div>
                                                     )}
-                                                    <span className="text-lg md:text-2xl font-black text-white text-left truncate tracking-tight">
+                                                    <span className="min-w-0 text-[clamp(0.75rem,2vw,1.5rem)] font-black text-white text-left truncate tracking-tight">
                                                         {match.awayTeamName}
                                                     </span>
                                                 </div>
@@ -391,17 +409,17 @@ export default function PoolsOverlayCarousel({
             </AnimatePresence>
 
             {/* TOP BAR */}
-            <div className="flex h-14 w-full items-center justify-between gap-4 shrink-0 px-2">
+            <div className="flex h-[clamp(2.5rem,7vh,3.5rem)] w-full items-center justify-between gap-4 shrink-0 px-2">
                 <div className="flex h-full items-center gap-2 overflow-hidden flex-1">
                     {sponsors.slice(0, 6).map((sponsor) => (
-                        <div key={sponsor.id} className="flex h-full w-28 items-center justify-center rounded-xl bg-slate-900/80 px-2 border border-slate-800 backdrop-blur-md shadow-lg">
-                            <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-7 max-w-full object-contain filter drop-shadow" />
+                        <div key={sponsor.id} className="flex h-full w-[clamp(3rem,7vw,7rem)] items-center justify-center rounded-xl bg-slate-900/80 px-2 border border-slate-800 backdrop-blur-md shadow-lg">
+                            <img src={sponsor.logoUrl} alt={sponsor.name} className="max-h-[clamp(1.25rem,4vh,1.75rem)] max-w-full object-contain filter drop-shadow" />
                         </div>
                     ))}
                 </div>
 
                 {timerLabel && (
-                    <div className={`flex items-center gap-3 px-5 py-2 rounded-2xl border-2 backdrop-blur-xl shadow-2xl shrink-0 transition-colors duration-500 ${remainingTimerSeconds === 0
+                    <div className={`flex items-center gap-[clamp(0.5rem,1vw,0.75rem)] px-[clamp(0.5rem,1.5vw,1.25rem)] py-[clamp(0.375rem,0.8vh,0.5rem)] rounded-2xl border-2 backdrop-blur-xl shadow-2xl shrink-0 transition-colors duration-500 ${remainingTimerSeconds === 0
                             ? 'bg-rose-950/90 border-rose-500 shadow-[0_0_25px_rgba(244,63,94,0.4)]'
                             : timerMode === 'BREAK'
                                 ? 'bg-amber-950/90 border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.25)]'
@@ -417,7 +435,7 @@ export default function PoolsOverlayCarousel({
                             </span>
                         </div>
 
-                        <div className="h-8 w-px bg-slate-700/80" />
+                        <div className="h-[clamp(1.25rem,4vh,2rem)] w-px bg-slate-700/80" />
 
                         <div className="flex items-center gap-2">
                             <span className={`h-3 w-3 rounded-full ${remainingTimerSeconds === 0
@@ -426,7 +444,7 @@ export default function PoolsOverlayCarousel({
                                         ? 'bg-amber-400 animate-pulse'
                                         : 'bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]'
                                 }`} />
-                            <h1 className={`text-3xl font-black font-mono tracking-tighter tabular-nums not-italic leading-none ${remainingTimerSeconds === 0 ? 'text-rose-500 animate-pulse' : 'text-white'
+                            <h1 className={`text-[clamp(1.25rem,3vw,1.875rem)] font-black font-mono tracking-tighter tabular-nums not-italic leading-none ${remainingTimerSeconds === 0 ? 'text-rose-500 animate-pulse' : 'text-white'
                                 }`}>
                                 {timerLabel}
                             </h1>
@@ -436,7 +454,7 @@ export default function PoolsOverlayCarousel({
             </div>
 
             {/* GRID DES POULES */}
-            <main className="grid flex-1 grid-cols-2 grid-rows-2 gap-3 h-full min-h-0">
+            <main className="grid flex-1 grid-cols-2 grid-rows-2 gap-[clamp(0.375rem,1vh,0.75rem)] h-full min-h-0">
                 <AnimatePresence mode="wait">
                     {currentSlide.map((card, idx) => {
                         if (!card) return <div key={`empty-${idx}`} className="rounded-2xl border border-dashed border-slate-800/40 bg-slate-900/10" />
@@ -450,23 +468,23 @@ export default function PoolsOverlayCarousel({
                                 transition={{ duration: 0.35, delay: idx * 0.05 }}
                                 className="flex flex-col h-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/80 backdrop-blur-xl shadow-2xl"
                             >
-                                <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 px-3 py-2 flex justify-between items-center border-b border-slate-800 shrink-0">
-                                    <h3 className="text-xs font-black text-[#ccff00] tracking-wider flex items-center gap-2">
+                                <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 px-[clamp(0.5rem,1vw,0.75rem)] py-[clamp(0.25rem,0.6vh,0.5rem)] flex justify-between items-center border-b border-slate-800 shrink-0">
+                                    <h3 className="text-[clamp(0.6rem,0.8vw,0.75rem)] font-black text-[#ccff00] tracking-wider flex items-center gap-2">
                                         <span className="inline-block h-2 w-2 bg-[#ccff00] rounded-full shadow-[0_0_8px_#ccff00]" />
                                         POULE {card.groupIndex}
                                     </h3>
 
-                                    <span className="text-[9px] text-slate-300 not-italic font-extrabold tracking-widest bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/80">
+                                    <span className="max-w-[50%] truncate text-[clamp(0.5rem,0.65vw,0.5625rem)] text-slate-300 not-italic font-extrabold tracking-widest bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/80">
                                         {card.phaseName}
                                     </span>
                                 </div>
 
-                                <div className="grid flex-1 grid-cols-[1.4fr_1fr] gap-2 p-2.5 overflow-hidden items-stretch min-h-0">
+                                <div className="grid flex-1 grid-cols-[1.4fr_1fr] gap-[clamp(0.25rem,0.6vw,0.5rem)] p-[clamp(0.375rem,0.8vw,0.625rem)] overflow-hidden items-stretch min-h-0">
                                     {/* CLASSEMENT */}
                                     <div className="flex flex-col h-full overflow-hidden">
-                                        <table className="w-full h-full text-[11px] border-separate border-spacing-y-1">
+                                        <table className="w-full h-full text-[clamp(0.55rem,0.75vw,0.6875rem)] border-separate border-spacing-y-[clamp(0.125rem,0.35vh,0.25rem)]">
                                             <thead>
-                                                <tr className="text-slate-400 not-italic font-extrabold text-[9px] uppercase tracking-wider">
+                                                <tr className="text-slate-400 not-italic font-extrabold text-[clamp(0.45rem,0.6vw,0.5625rem)] uppercase tracking-wider">
                                                     <th className="px-1.5 py-0.5 text-left w-5">#</th>
                                                     <th className="px-1.5 py-0.5 text-left">ÉQUIPE</th>
                                                     <th className="px-1.5 py-0.5 text-center w-8">PTS</th>
@@ -482,22 +500,24 @@ export default function PoolsOverlayCarousel({
 
                                                     return (
                                                         <tr key={row.teamId} className={`${tone ? tone.row : 'bg-slate-900/60'} rounded border border-slate-800/40`}>
-                                                            <td className={`px-1.5 py-0.5 font-black text-[11px] ${tone ? tone.text : 'text-slate-400'}`}>{i + 1}</td>
-                                                            <td className="px-1.5 py-0.5 flex items-center gap-2 overflow-hidden">
+                                                            <td className={`px-1.5 py-0.5 font-black text-[clamp(0.55rem,0.7vw,0.6875rem)] ${tone ? tone.text : 'text-slate-400'}`}>{i + 1}</td>
+                                                            <td className="px-1.5 py-0.5 align-middle overflow-hidden">
+                                                                    <div className="flex h-full min-w-0 items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
                                                                 {row.teamLogoUrl ? (
-                                                                    <div className="h-20 w-20 rounded bg-white/10 p-0.5 flex items-center justify-center shrink-0 border border-slate-700/60 shadow">
+                                                                    <div className="h-[clamp(1.25rem,4vh,3rem)] w-[clamp(1.25rem,4vh,3rem)] rounded bg-white/10 p-0.5 flex items-center justify-center shrink-0 border border-slate-700/60 shadow">
                                                                         <img src={row.teamLogoUrl} alt={row.teamName} className="h-full w-full object-contain filter drop-shadow" />
                                                                     </div>
                                                                 ) : (
-                                                                    <div className="flex h-20 w-20 items-center justify-center rounded bg-slate-800 border border-slate-700 text-[14px] font-black text-white shrink-0 shadow">
+                                                                    <div className="flex h-[clamp(1.25rem,4vh,3rem)] w-[clamp(1.25rem,4vh,3rem)] items-center justify-center rounded bg-slate-800 border border-slate-700 text-[clamp(0.5rem,0.8vw,0.875rem)] font-black text-white shrink-0 shadow">
                                                                         {initialsFromTeamName(row.teamName)}
                                                                     </div>
                                                                 )}
-                                                                <span className="font-black text-slate-100 text-[14px] tracking-tight truncate">{row.teamName}</span>
+                                                                <span className="min-w-0 font-black text-slate-100 text-[clamp(0.55rem,0.75vw,0.875rem)] leading-tight tracking-tight truncate">{row.teamName}</span>
+                                                                </div>
                                                             </td>
-                                                            <td className={`px-1.5 py-0.5 text-center font-black text-[14px] ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
-                                                            <td className="px-1.5 py-0.5 text-center font-bold text-slate-400 text-[14px]">{row.played}</td>
-                                                            <td className={`px-1.5 py-0.5 text-center tabular-nums text-[14px] ${gdColor}`}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
+                                                            <td className={`px-1.5 py-0.5 text-center font-black text-[clamp(0.6rem,0.8vw,0.875rem)] ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
+                                                            <td className="px-1.5 py-0.5 text-center font-bold text-slate-400 text-[clamp(0.6rem,0.8vw,0.875rem)]">{row.played}</td>
+                                                            <td className={`px-1.5 py-0.5 text-center tabular-nums text-[clamp(0.6rem,0.8vw,0.875rem)] ${gdColor}`}>{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</td>
                                                         </tr>
                                                     )
                                                 })}
@@ -507,8 +527,14 @@ export default function PoolsOverlayCarousel({
 
                                     {/* MATCHS */}
                                     <div className="flex flex-col gap-1 border-l border-slate-800/80 pl-2.5 h-full justify-between overflow-hidden">
-                                        <p className="text-[8px] font-extrabold text-slate-400 tracking-widest not-italic uppercase shrink-0">MATCHS ({card.featuredMatches.length})</p>
-                                        <div className="grid grid-cols-1 gap-1 flex-1 min-h-0 overflow-hidden justify-between">
+                                        <p className="text-[clamp(0.5rem,0.6vw,0.625rem)] font-extrabold text-slate-400 tracking-widest not-italic uppercase shrink-0">MATCHS ({card.featuredMatches.length})</p>
+                                        <div
+                                            ref={(element) => {
+                                                if (element) matchListRefs.current.set(card.key, element)
+                                                else matchListRefs.current.delete(card.key)
+                                            }}
+                                            className="flex flex-1 flex-col gap-1 min-h-0 overflow-y-auto overscroll-contain"
+                                        >
                                             {card.featuredMatches.slice(0, 6).map((match) => {
                                                 const isLive = match.status === 'LIVE'
                                                 const isFinished = match.status === 'FINISHED'
@@ -518,14 +544,14 @@ export default function PoolsOverlayCarousel({
                                                     <div
                                                         key={match.id}
                                                         className={`
-                                                            relative flex flex-col justify-center bg-slate-900/80 border-l-2 rounded-r-md px-2 py-1 shadow-sm backdrop-blur-md transition-all
+                                                            relative flex shrink-0 flex-col justify-center bg-slate-900/80 border-l-2 rounded-r-md px-[clamp(0.375rem,0.6vw,0.5rem)] py-[clamp(0.2rem,0.4vh,0.25rem)] shadow-sm backdrop-blur-md transition-all
                                                             ${isLive ? 'border-l-emerald-400 bg-emerald-950/20 shadow-[0_0_10px_rgba(52,211,153,0.2)]' : ''}
                                                             ${isFinished ? 'border-l-sky-400' : ''}
                                                             ${isNextMatch ? 'border-l-amber-400 bg-amber-950/20' : ''}
                                                             ${!isLive && !isFinished && !isNextMatch ? 'border-slate-800' : ''}
                                                         `}
                                                     >
-                                                        <div className="flex items-center justify-between text-[7.5px] font-bold border-b border-white/5 pb-0.5 mb-0.5">
+                                                        <div className="flex items-center justify-between text-[clamp(0.45rem,0.55vw,0.5rem)] font-bold border-b border-white/5 pb-0.5 mb-0.5">
                                                             <span className="text-slate-400 font-extrabold max-w-[60%] ">
                                                                 {match.pitchName || match.phaseName}
                                                             </span>
@@ -537,15 +563,15 @@ export default function PoolsOverlayCarousel({
                                                             </div>
                                                         </div>
 
-                                                        <div className="flex flex-col gap-0.5 text-[9px] font-black">
+                                                        <div className="flex flex-col gap-0.5 text-[clamp(0.5rem,0.65vw,0.5625rem)] font-black">
                                                             <div className="flex justify-between items-center">
-                                                                <span className="text-slate-200  pr-1">{match.homeTeamName}</span>
+                                                                <span className="min-w-0 truncate text-slate-200 pr-1">{match.homeTeamName}</span>
                                                                 <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
                                                                     {match.homeScore ?? '-'}
                                                                 </span>
                                                             </div>
                                                             <div className="flex justify-between items-center">
-                                                                <span className="text-slate-200  pr-1">{match.awayTeamName}</span>
+                                                                <span className="min-w-0 truncate text-slate-200 pr-1">{match.awayTeamName}</span>
                                                                 <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
                                                                     {match.awayScore ?? '-'}
                                                                 </span>

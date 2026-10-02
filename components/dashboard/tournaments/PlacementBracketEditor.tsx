@@ -275,9 +275,9 @@ const MatchBox = ({ players, isFinal, width, scheduledAt, pitchName, isLive, isF
           return (
             <div
               key={i}
-              className={`flex justify-between items-center px-2 py-1.5 h-6 transition-colors ${i === 0 ? 'border-b border-white/10' : ''} ${isWinner ? 'bg-[#ccff00]/15' : 'bg-slate-900/60'}`}
+              className={`flex min-h-6 justify-between items-center gap-1 px-2 py-1.5 transition-colors ${i === 0 ? 'border-b border-white/10' : ''} ${isWinner ? 'bg-[#ccff00]/15' : 'bg-slate-900/60'}`}
             >
-              <span className={`text-[9px] font-black uppercase italic truncate tracking-tight ${isWinner ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)] font-extrabold' : p.name !== 'TBD' ? 'text-slate-200' : 'text-slate-500'}`}>
+              <span className={`min-w-0 flex-1 text-[clamp(0.45rem,0.65vw,0.5625rem)] leading-tight font-black uppercase italic wrap-break-word tracking-tight ${isWinner ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)] font-extrabold' : p.name !== 'TBD' ? 'text-slate-200' : 'text-slate-500'}`}>
                 {p.name}
               </span>
 
@@ -486,7 +486,7 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
     if (!fullscreenEvent) return;
     const timeout = setTimeout(() => {
       setFullscreenEvent(null);
-    }, 6000);
+    }, 4000);
     return () => window.clearTimeout(timeout);
   }, [fullscreenEvent]);
 
@@ -593,24 +593,24 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => setFullscreenEvent(null)}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-3xl cursor-pointer overflow-hidden p-6"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-3xl cursor-pointer overflow-hidden p-[clamp(0.75rem,3vw,1.5rem)]"
           >
             {/* OVERLAY DE DÉBUT DE TIMER */}
             {fullscreenEvent.type === 'TIMER_START' && (
               <motion.div
                 initial={{ y: 20 }}
                 animate={{ y: 0 }}
-                className="flex flex-col items-center gap-6 text-center z-10"
+                className="flex max-w-[95vw] flex-col items-center gap-[clamp(0.75rem,3vh,1.5rem)] text-center z-10"
               >
-                <span className="px-6 py-2 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/40 text-[#ccff00] text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(204,255,0,0.3)]">
+                <span className="px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.375rem,1vh,0.5rem)] rounded-full bg-[#ccff00]/10 border border-[#ccff00]/40 text-[#ccff00] text-[clamp(0.65rem,1.2vw,0.875rem)] font-black tracking-widest not-italic shadow-[0_0_20px_rgba(204,255,0,0.3)]">
                   NOTIFICATION
                 </span>
 
-                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-emerald-400 to-[#ccff00] tracking-tighter drop-shadow-[0_10px_35px_rgba(204,255,0,0.5)]">
+                <h1 className="max-w-full px-4 text-[clamp(2rem,8vw,6rem)] leading-tight wrap-break-word font-black text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-emerald-400 to-[#ccff00] tracking-tighter drop-shadow-[0_10px_35px_rgba(204,255,0,0.5)]">
                   {fullscreenEvent.mode === 'MATCH' ? 'DÉBUT DES MATCHS !' : 'DÉBUT DE LA PAUSE !'}
                 </h1>
 
-                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                <p className="max-w-[90vw] text-[clamp(0.875rem,2vw,1.25rem)] leading-snug text-slate-300 font-bold not-italic tracking-wide">
                   {fullscreenEvent.mode === 'MATCH'
                     ? 'Les équipes sont priées de se rendre sur leurs terrains respectifs'
                     : 'Profitez de la pause avant la prochaine session'}
@@ -623,17 +623,17 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
               <motion.div
                 initial={{ y: 20 }}
                 animate={{ y: 0 }}
-                className="flex flex-col items-center gap-6 text-center z-10"
+                className="flex max-w-[95vw] flex-col items-center gap-[clamp(0.75rem,3vh,1.5rem)] text-center z-10"
               >
-                <span className="px-6 py-2 rounded-full bg-rose-500/10 border border-rose-500/40 text-rose-400 text-sm font-black tracking-widest not-italic shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                <span className="px-[clamp(0.75rem,2vw,1.5rem)] py-[clamp(0.375rem,1vh,0.5rem)] rounded-full bg-rose-500/10 border border-rose-500/40 text-rose-400 text-[clamp(0.65rem,1.2vw,0.875rem)] font-black tracking-widest not-italic shadow-[0_0_20px_rgba(244,63,94,0.3)]">
                   NOTIFICATION
                 </span>
 
-                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500 tracking-tighter drop-shadow-[0_10px_35px_rgba(244,63,94,0.5)]">
-                  {fullscreenEvent.mode === 'MATCH' ? 'FIN DU TEMPS !' : 'PAUSE TERMINÉE !'}
+                <h1 className="max-w-full px-4 text-[clamp(2rem,8vw,6rem)] leading-tight wrap-break-word font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500 tracking-tighter drop-shadow-[0_10px_35px_rgba(244,63,94,0.5)]">
+                  {fullscreenEvent.mode === 'MATCH' ? 'FIN DU TEMPS' : 'PAUSE TERMINÉE'}
                 </h1>
 
-                <p className="text-slate-300 font-bold text-xl not-italic tracking-wide">
+                <p className="max-w-[90vw] text-[clamp(0.875rem,2vw,1.25rem)] leading-snug text-slate-300 font-bold not-italic tracking-wide">
                   Veuillez valider vos feuilles de matchs auprès de la table de marque
                 </p>
               </motion.div>
@@ -644,11 +644,11 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="flex flex-col items-center gap-3 text-center w-full max-w-6xl z-10 h-full justify-center overflow-hidden"
+                className="flex flex-col items-center gap-[clamp(0.5rem,1.5vh,0.75rem)] text-center w-full max-w-6xl z-10 h-full justify-center overflow-hidden"
               >
-                <div className="flex items-center gap-3 px-5 py-1.5 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/50 shadow-[0_0_25px_rgba(204,255,0,0.25)] shrink-0">
+                <div className="flex items-center gap-2 px-[clamp(0.75rem,2vw,1.25rem)] py-1.5 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/50 shadow-[0_0_25px_rgba(204,255,0,0.25)] shrink-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#ccff00] animate-ping" />
-                  <span className="text-[#ccff00] text-xs font-black tracking-widest not-italic">
+                  <span className="text-[#ccff00] text-[clamp(0.6rem,1vw,0.75rem)] font-black tracking-widest not-italic">
                     ÉVOLUTION DES SCORES ({fullscreenEvent.matches.length})
                   </span>
                 </div>
@@ -657,38 +657,38 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
                   {fullscreenEvent.matches.map((match) => (
                     <div
                       key={match.id}
-                      className="flex flex-1 max-h-[120px] min-h-[50px] items-center justify-between gap-3 w-full bg-slate-900/90 px-4 py-2 rounded-xl border-2 border-slate-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
+                      className="flex flex-1 max-h-[clamp(3.125rem,12vh,7.5rem)] min-h-[clamp(2.5rem,7vh,3.125rem)] items-center justify-between gap-[clamp(0.375rem,1vw,0.75rem)] w-full bg-slate-900/90 px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,0.8vh,0.5rem)] rounded-xl border-2 border-slate-700/80 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
                     >
-                      <div className="flex items-center justify-end gap-3 flex-1 min-w-0">
-                        <span className="text-lg md:text-2xl font-black text-white text-right truncate tracking-tight">
+                      <div className="flex items-center justify-end gap-[clamp(0.375rem,1vw,0.75rem)] flex-1 min-w-0">
+                        <span className="min-w-0 text-[clamp(0.75rem,2vw,1.5rem)] leading-tight wrap-break-word font-black text-white text-right tracking-tight">
                           {match.homeTeamName}
                         </span>
-                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                        <div className="flex h-[clamp(1.75rem,6vh,3rem)] w-[clamp(1.75rem,6vh,3rem)] items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-[clamp(0.7rem,1vw,1rem)] font-black text-white shrink-0 shadow-md">
                           {initialsFromTeamName(match.homeTeamName)}
                         </div>
                       </div>
 
                       <div className="flex flex-col items-center gap-0.5 shrink-0 px-2">
-                        <span className="text-[9px] text-slate-400 font-extrabold not-italic tracking-wider uppercase">
+                        <span className="text-[clamp(0.5rem,0.65vw,0.5625rem)] text-slate-400 font-extrabold not-italic tracking-wider uppercase">
                           {match.pitchName || 'TERRAIN'}
                         </span>
                         <motion.div
                           initial={{ scale: 0.95 }}
                           animate={{ scale: 1 }}
                           transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                          className="flex items-center gap-3 bg-slate-950 px-4 py-1.5 rounded-lg border border-[#ccff00]/40 shadow-[0_0_20px_rgba(204,255,0,0.2)]"
+                          className="flex items-center gap-[clamp(0.375rem,1vw,0.75rem)] bg-slate-950 px-[clamp(0.5rem,1vw,1rem)] py-1.5 rounded-lg border border-[#ccff00]/40 shadow-[0_0_20px_rgba(204,255,0,0.2)]"
                         >
-                          <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.homeScore ?? 0}</span>
-                          <span className="text-lg text-slate-600 font-bold leading-none">-</span>
-                          <span className="text-3xl md:text-4xl font-black text-[#ccff00] font-mono leading-none">{match.awayScore ?? 0}</span>
+                          <span className="text-[clamp(1.25rem,4vw,2.25rem)] font-black text-[#ccff00] font-mono leading-none">{match.homeScore ?? 0}</span>
+                          <span className="text-[clamp(0.75rem,1.5vw,1.125rem)] text-slate-600 font-bold leading-none">-</span>
+                          <span className="text-[clamp(1.25rem,4vw,2.25rem)] font-black text-[#ccff00] font-mono leading-none">{match.awayScore ?? 0}</span>
                         </motion.div>
                       </div>
 
-                      <div className="flex items-center justify-start gap-3 flex-1 min-w-0">
-                        <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-sm md:text-base font-black text-white shrink-0 shadow-md">
+                      <div className="flex items-center justify-start gap-[clamp(0.375rem,1vw,0.75rem)] flex-1 min-w-0">
+                        <div className="flex h-[clamp(1.75rem,6vh,3rem)] w-[clamp(1.75rem,6vh,3rem)] items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-[clamp(0.7rem,1vw,1rem)] font-black text-white shrink-0 shadow-md">
                           {initialsFromTeamName(match.awayTeamName)}
                         </div>
-                        <span className="text-lg md:text-2xl font-black text-white text-left truncate tracking-tight">
+                        <span className="min-w-0 text-[clamp(0.75rem,2vw,1.5rem)] leading-tight wrap-break-word font-black text-white text-left tracking-tight">
                           {match.awayTeamName}
                         </span>
                       </div>

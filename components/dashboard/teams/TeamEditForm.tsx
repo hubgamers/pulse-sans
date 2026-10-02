@@ -70,7 +70,7 @@ export default function TeamEditForm({
         <p className="mt-2 text-sm text-slate-500">Mets a jour les informations de ton equipe.</p>
       </div>
 
-      <Card className="p-5 md:p-7">
+      <Card className="p-5 md:p-7 ">
         <form action={formAction} className="space-y-5">
           <input type="hidden" name="teamId" value={teamId} />
           <input type="hidden" name="organizationId" value={organizationId} />

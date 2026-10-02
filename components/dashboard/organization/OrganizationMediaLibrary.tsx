@@ -158,7 +158,7 @@ export default function OrganizationMediaLibrary({ organizationId, organizationN
           {filteredAssets.map((asset) => (
             <Card key={asset.name} className="overflow-hidden p-0">
               <div className="relative flex h-44 items-center justify-center bg-slate-50 p-4">
-                <Image src={asset.url} alt={asset.name} width={320} height={240} className="h-full w-full object-contain" unoptimized />
+                <Image src={asset.url} alt={asset.name} width={320} height={240} className="h-full w-full object-contain bg-gray-400" unoptimized />
               </div>
               <div className="space-y-3 border-t border-slate-200 p-3">
                 <div>

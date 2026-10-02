@@ -107,7 +107,7 @@ export default function TeamLogoPicker({ organizationId, value, onChange, disabl
 
   return (
     <Field>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-400">
         <div>
           <Label>Logo (optionnel)</Label>
           <p className="mt-1 text-xs text-slate-500">Choisissez un logo de l&apos;organisation ou ajoutez une image.</p>
@@ -163,7 +163,7 @@ export default function TeamLogoPicker({ organizationId, value, onChange, disabl
                   value === asset.url ? "border-teal-600 ring-2 ring-teal-600/20" : "border-slate-200"
                 }`}
               >
-                <Image src={asset.url} alt={asset.name} width={64} height={64} className="h-full w-full object-contain" unoptimized />
+                <Image src={asset.url} alt={asset.name} width={64} height={64} className="h-full w-full object-contain bg-gray-300" unoptimized />
               </button>
             ))}
           </div>

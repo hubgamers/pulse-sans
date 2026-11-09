@@ -50,7 +50,7 @@ type DisplayMatch = {
 };
 
 type BracketRoundData = {
-  title: string;
+  title?: string;
   matches: DisplayMatch[];
   color?: string;
 };
@@ -591,7 +591,7 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
       ...tree,
       rounds: tree.rounds.map((round) => ({
         ...round,
-        title: null, // On met le title du round à null ici
+        title: undefined, // On met le title du round à null ici
       })),
     }));
   const mainPlacementTrees = sizedPlacementTrees.filter((tree) => !tree.isCompact);

@@ -99,13 +99,32 @@ function getQualificationRuleForRank(card: GroupCard, rank: number) {
 }
 
 function initialsFromTeamName(name: string): string {
-    const trimmed = name.trim()
-    if (trimmed.length <= 10) return trimmed.toUpperCase()
-    const words = trimmed.split(/[\s-]+/).filter(Boolean)
+    const trimmed = name.trim();
+    if (!trimmed) return '';
+
+    // Si le nom fait 10 caractères ou moins, on le renvoie tel quel en majuscules
+    if (trimmed.length <= 10) return trimmed.toUpperCase();
+
+    // Découpage par espaces ou tirets
+    const words = trimmed.split(/[\s-]+/).filter(Boolean);
+
     if (words.length > 1) {
-        return words.map(word => word[0]).join('').slice(0, 5).toUpperCase()
+        // S'il y a plusieurs mots, on prend l'initiale de chaque mot (max 5)
+        return words.map(word => word[0]).join('').slice(0, 5).toUpperCase();
     }
-    return trimmed.slice(0, 4).toUpperCase()
+
+    // S'il s'agit d'un seul mot long sans espace ni tiret :
+    // Option A : Garder les 4 premiers caractères (ton choix initial)
+    // return trimmed.slice(0, 4).toUpperCase();
+
+    // Option B (plus malin pour un acronyme) : Extraire les consonnes ou les majuscules s'il y en a (ex: "CyberSecurity" -> "CYBS")
+    const upperChars = trimmed.match(/[A-Z]/g);
+    if (upperChars && upperChars.length >= 2) {
+        return upperChars.join('').slice(0, 5).toUpperCase();
+    }
+
+    // Fallback : On prend les 4 premières lettres
+    return trimmed.slice(0, 4).toUpperCase();
 }
 
 function getTeamLogo(cards: GroupCard[], teamName: string): string | null {
@@ -420,10 +439,10 @@ export default function PoolsOverlayCarousel({
 
                 {timerLabel && (
                     <div className={`flex items-center gap-[clamp(0.5rem,1vw,0.75rem)] px-[clamp(0.5rem,1.5vw,1.25rem)] py-[clamp(0.375rem,0.8vh,0.5rem)] rounded-2xl border-2 backdrop-blur-xl shadow-2xl shrink-0 transition-colors duration-500 ${remainingTimerSeconds === 0
-                            ? 'bg-rose-950/90 border-rose-500 shadow-[0_0_25px_rgba(244,63,94,0.4)]'
-                            : timerMode === 'BREAK'
-                                ? 'bg-amber-950/90 border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.25)]'
-                                : 'bg-slate-900/90 border-[#ccff00]/60 shadow-[0_0_25px_rgba(204,255,0,0.2)]'
+                        ? 'bg-rose-950/90 border-rose-500 shadow-[0_0_25px_rgba(244,63,94,0.4)]'
+                        : timerMode === 'BREAK'
+                            ? 'bg-amber-950/90 border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+                            : 'bg-slate-900/90 border-[#ccff00]/60 shadow-[0_0_25px_rgba(204,255,0,0.2)]'
                         }`}>
                         <div className="flex flex-col text-right">
                             <span className="text-[9px] font-black tracking-widest uppercase not-italic text-slate-400">
@@ -439,10 +458,10 @@ export default function PoolsOverlayCarousel({
 
                         <div className="flex items-center gap-2">
                             <span className={`h-3 w-3 rounded-full ${remainingTimerSeconds === 0
-                                    ? 'bg-rose-500 animate-ping'
-                                    : timerMode === 'BREAK'
-                                        ? 'bg-amber-400 animate-pulse'
-                                        : 'bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]'
+                                ? 'bg-rose-500 animate-ping'
+                                : timerMode === 'BREAK'
+                                    ? 'bg-amber-400 animate-pulse'
+                                    : 'bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]'
                                 }`} />
                             <h1 className={`text-[clamp(1.25rem,3vw,1.875rem)] font-black font-mono tracking-tighter tabular-nums not-italic leading-none ${remainingTimerSeconds === 0 ? 'text-rose-500 animate-pulse' : 'text-white'
                                 }`}>
@@ -479,7 +498,7 @@ export default function PoolsOverlayCarousel({
                                     </span>
                                 </div>
 
-                                <div className="grid flex-1 grid-cols-[1.4fr_1fr] gap-[clamp(0.25rem,0.6vw,0.5rem)] p-[clamp(0.375rem,0.8vw,0.625rem)] overflow-hidden items-stretch min-h-0">
+                                <div className="grid flex-1 grid-cols-[1fr_1.4fr] gap-[clamp(0.25rem,0.6vw,0.5rem)] p-[clamp(0.375rem,0.8vw,0.625rem)] overflow-hidden items-stretch min-h-0">
                                     {/* CLASSEMENT */}
                                     <div className="flex flex-col h-full overflow-hidden">
                                         <table className="w-full h-full text-[clamp(0.55rem,0.75vw,0.6875rem)] border-separate border-spacing-y-[clamp(0.125rem,0.35vh,0.25rem)]">
@@ -502,17 +521,17 @@ export default function PoolsOverlayCarousel({
                                                         <tr key={row.teamId} className={`${tone ? tone.row : 'bg-slate-900/60'} rounded border border-slate-800/40`}>
                                                             <td className={`px-1.5 py-0.5 font-black text-[clamp(0.55rem,0.7vw,0.6875rem)] ${tone ? tone.text : 'text-slate-400'}`}>{i + 1}</td>
                                                             <td className="px-1.5 py-0.5 align-middle">
-                                                                    <div className="flex h-full min-w-0 items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-                                                                {row.teamLogoUrl ? (
-                                                                    <div className="h-[clamp(1.25rem,4vh,3rem)] w-[clamp(1.25rem,4vh,3rem)] rounded bg-white/10 p-0.5 flex items-center justify-center shrink-0 border border-slate-700/60 shadow">
-                                                                        <img src={row.teamLogoUrl} alt={row.teamName} className="h-full w-full object-contain filter drop-shadow" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex h-[clamp(1.25rem,4vh,3rem)] w-[clamp(1.25rem,4vh,3rem)] items-center justify-center rounded bg-slate-800 border border-slate-700 text-[clamp(0.5rem,0.8vw,0.875rem)] font-black text-white shrink-0 shadow">
-                                                                        {initialsFromTeamName(row.teamName)}
-                                                                    </div>
-                                                                )}
-                                                                <span className="min-w-0 whitespace-normal break-words font-black text-slate-100 text-[clamp(0.55rem,0.75vw,0.875rem)] leading-tight tracking-tight">{row.teamName}</span>
+                                                                <div className="flex h-full min-w-0 items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+                                                                    {row.teamLogoUrl ? (
+                                                                        <div className="h-[clamp(1.25rem,4vh,3rem)] w-[clamp(1.25rem,4vh,3rem)] rounded bg-white/10 p-0.5 flex items-center justify-center shrink-0 border border-slate-700/60 shadow">
+                                                                            <img src={row.teamLogoUrl} alt={row.teamName} className="h-full w-full object-contain filter drop-shadow" />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex h-[clamp(1.25rem,4vh,3rem)] w-[clamp(1.25rem,4vh,3rem)] items-center justify-center rounded bg-slate-800 border border-slate-700 text-[clamp(0.5rem,0.8vw,0.875rem)] font-black text-white shrink-0 shadow">
+                                                                            {initialsFromTeamName(row.teamName)}
+                                                                        </div>
+                                                                    )}
+                                                                    <span className="min-w-0 whitespace-normal break-words font-black text-slate-100 text-[clamp(0.55rem,0.75vw,0.875rem)] leading-tight tracking-tight">{row.teamName}</span>
                                                                 </div>
                                                             </td>
                                                             <td className={`px-1.5 py-0.5 text-center font-black text-[clamp(0.6rem,0.8vw,0.875rem)] ${tone ? tone.text : 'text-white'}`}>{row.points}</td>
@@ -526,60 +545,95 @@ export default function PoolsOverlayCarousel({
                                     </div>
 
                                     {/* MATCHS */}
-                                    <div className="flex flex-col gap-1 border-l border-slate-800/80 pl-2.5 h-full justify-between overflow-hidden">
-                                        <p className="text-[clamp(0.5rem,0.6vw,0.625rem)] font-extrabold text-slate-400 tracking-widest not-italic uppercase shrink-0">MATCHS ({card.featuredMatches.length})</p>
+                                    <div className="flex flex-col border-l border-slate-800/80 pl-2.5 h-full justify-between overflow-hidden">
+                                        <div className="flex items-center justify-between shrink-0 pb-1">
+                                            <p className="text-[9px] font-extrabold text-slate-400 tracking-widest uppercase">MATCHS ({card.featuredMatches.length})</p>
+                                        </div>
+
                                         <div
                                             ref={(element) => {
                                                 if (element) matchListRefs.current.set(card.key, element)
                                                 else matchListRefs.current.delete(card.key)
                                             }}
-                                            className="flex flex-1 flex-col gap-1 min-h-0 overflow-y-auto overscroll-contain"
+                                            className="flex flex-1 flex-col gap-1 min-h-0 overflow-y-auto overscroll-contain pr-1"
                                         >
-                                            {card.featuredMatches.slice(0, 6).map((match) => {
-                                                const isLive = match.status === 'LIVE'
-                                                const isFinished = match.status === 'FINISHED'
-                                                const isNextMatch = Boolean(match.isActiveSlotLive)
+                                            {(() => {
+                                                // Trouve l'index du tout premier match à venir (ni LIVE, ni FINISHED) indépendamment des autres
+                                                const nextMatchIndex = card.featuredMatches.findIndex(m => m.status !== 'FINISHED' && m.status !== 'LIVE');
 
-                                                return (
-                                                    <div
-                                                        key={match.id}
-                                                        className={`
-                                                            relative flex shrink-0 flex-col justify-center bg-slate-900/80 border-l-2 rounded-r-md px-[clamp(0.375rem,0.6vw,0.5rem)] py-[clamp(0.2rem,0.4vh,0.25rem)] shadow-sm backdrop-blur-md transition-all
-                                                            ${isLive ? 'border-l-emerald-400 bg-emerald-950/20 shadow-[0_0_10px_rgba(52,211,153,0.2)]' : ''}
-                                                            ${isFinished ? 'border-l-sky-400' : ''}
-                                                            ${isNextMatch ? 'border-l-amber-400 bg-amber-950/20' : ''}
-                                                            ${!isLive && !isFinished && !isNextMatch ? 'border-slate-800' : ''}
-                                                        `}
-                                                    >
-                                                        <div className="flex items-center justify-between text-[clamp(0.45rem,0.55vw,0.5rem)] font-bold border-b border-white/5 pb-0.5 mb-0.5">
-                                                            <span className="text-slate-400 font-extrabold max-w-[60%] ">
-                                                                {match.pitchName || match.phaseName}
-                                                            </span>
-                                                            <div className="flex items-center gap-1 shrink-0">
-                                                                <span className={`font-black uppercase tracking-tighter ${isLive ? 'text-emerald-400' : isFinished ? 'text-sky-300' : isNextMatch ? 'text-amber-300' : 'text-slate-400'}`}>
-                                                                    {isLive ? 'DIRECT' : isFinished ? 'TERMINE' : isNextMatch ? 'PROCHAIN' : match.timeLabel}
+                                                return card.featuredMatches.slice(0, 6).map((match, idx) => {
+                                                    const isLive = match.status === 'LIVE';
+                                                    const isFinished = match.status === 'FINISHED';
+
+                                                    // Le prochain match est explicitement identifié par son index chronologique, 
+                                                    // même s'il y a un match en cours (LIVE) au-dessus.
+                                                    const isNextMatch = Boolean(match.isActiveSlotLive) || (!isLive && !isFinished && idx === nextMatchIndex);
+
+                                                    return (
+                                                        <div
+                                                            key={match.id}
+                                                            className={`
+                            relative flex shrink-0 items-center justify-between rounded px-2 py-1 transition-all backdrop-blur-md
+                            ${isLive ? 'bg-emerald-950/30 border border-emerald-500/50 shadow-[0_0_8px_rgba(52,211,153,0.2)]' : ''}
+                            ${isFinished ? 'bg-slate-900/40 border border-slate-800/50 opacity-70' : ''}
+                            ${isNextMatch ? 'bg-amber-950/40 border border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.25)] ring-1 ring-amber-400/30' : ''}
+                            ${!isLive && !isFinished && !isNextMatch ? 'bg-slate-900/50 border border-slate-800/60' : ''}
+                        `}
+                                                        >
+                                                            {/* GAUCHE : PISTE / TERRAIN + STATUT RAPIDE */}
+                                                            <div className="flex items-center gap-1.5 shrink-0 max-w-[32%]">
+                                                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tight truncate ${isNextMatch
+                                                                        ? 'bg-amber-400 text-amber-950 animate-pulse'
+                                                                        : isLive
+                                                                            ? 'bg-emerald-500 text-emerald-950'
+                                                                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                                                    }`}>
+                                                                    {match.pitchName || 'Terrain'}
                                                                 </span>
-                                                                <div className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-400 animate-ping' : isFinished ? 'bg-sky-400' : isNextMatch ? 'bg-amber-400 animate-pulse' : 'bg-[#ccff00]'}`} />
+                                                            </div>
+
+                                                            {/* CENTRE : ÉQUIPES & SCORES EN LIGNE COMPACTE */}
+                                                            <div className="flex flex-col flex-1 min-w-0 mx-2 gap-0.5">
+                                                                <div className="flex justify-between items-center text-[10px]">
+                                                                    <span className={`truncate pr-1 ${isNextMatch ? 'text-white font-black' : 'text-slate-200 font-semibold'}`}>
+                                                                        {match.homeTeamName}
+                                                                    </span>
+                                                                    <span className={`tabular-nums px-1 rounded font-mono font-bold text-[9px] shrink-0 ${isLive ? 'text-emerald-300 bg-emerald-950' :
+                                                                            isFinished ? 'text-slate-400 bg-slate-800' :
+                                                                                isNextMatch ? 'text-amber-300 bg-amber-950 font-black' :
+                                                                                    'text-white bg-black/40'
+                                                                        }`}>
+                                                                        {match.homeScore ?? '-'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center text-[10px]">
+                                                                    <span className={`truncate pr-1 ${isNextMatch ? 'text-white font-black' : 'text-slate-200 font-semibold'}`}>
+                                                                        {match.awayTeamName}
+                                                                    </span>
+                                                                    <span className={`tabular-nums px-1 rounded font-mono font-bold text-[9px] shrink-0 ${isLive ? 'text-emerald-300 bg-emerald-950' :
+                                                                            isFinished ? 'text-slate-400 bg-slate-800' :
+                                                                                isNextMatch ? 'text-amber-300 bg-amber-950 font-black' :
+                                                                                    'text-white bg-black/40'
+                                                                        }`}>
+                                                                        {match.awayScore ?? '-'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* DROITE : BADGE STATUT / HEURE */}
+                                                            <div className="shrink-0 text-right">
+                                                                <span className={`text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded ${isLive ? 'text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 animate-pulse' :
+                                                                        isFinished ? 'text-slate-400 bg-slate-800/80' :
+                                                                            isNextMatch ? 'text-amber-300 bg-amber-950 border border-amber-500/50' :
+                                                                                'text-slate-400 bg-slate-900'
+                                                                    }`}>
+                                                                    {isLive ? 'LIVE' : isFinished ? 'FIN' : isNextMatch ? 'PROCHAIN' : match.timeLabel}
+                                                                </span>
                                                             </div>
                                                         </div>
-
-                                                        <div className="flex flex-col gap-0.5 text-[clamp(0.5rem,0.65vw,0.5625rem)] font-black">
-                                                            <div className="flex justify-between items-center">
-                                                                <span className="min-w-0 whitespace-normal break-words text-slate-200 pr-1">{match.homeTeamName}</span>
-                                                                <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
-                                                                    {match.homeScore ?? '-'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between items-center">
-                                                                <span className="min-w-0 whitespace-normal break-words text-slate-200 pr-1">{match.awayTeamName}</span>
-                                                                <span className={`tabular-nums px-1 rounded text-[8.5px] font-mono ${isLive ? 'text-emerald-300 bg-emerald-950/60' : isFinished ? 'text-sky-300 bg-sky-950/60' : 'text-white bg-black/40'}`}>
-                                                                    {match.awayScore ?? '-'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
+                                                    );
+                                                });
+                                            })()}
                                         </div>
                                     </div>
                                 </div>

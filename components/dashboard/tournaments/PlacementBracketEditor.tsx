@@ -584,6 +584,7 @@ export default function App({ initialPhaseId = null, phases = [], matches = [], 
       };
     })
     .sort((a, b) => b.totalMatches - a.totalMatches || a.start - b.start);
+    
 
   const compactPlacementTrees = sizedPlacementTrees
     .filter((tree) => tree.isCompact)
